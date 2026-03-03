@@ -1,61 +1,76 @@
-infoblend/InfoPop: A Web Augmentation Toolkit
+# InfoBlend AI – Smart Web Augmentation Extension
 
-InfoPop is a powerful Chrome extension designed to make browsing smarter and reduce repetitive clicking. It started as a simple dictionary popup and has evolved into a full web augmentation tool, allowing you to modify and interact with webpages in new ways.
+InfoBlend AI is a production-ready Chrome Extension (Manifest V3) that enhances your browsing experience with intelligent tools for information retrieval, content summarization, ad blocking, and form automation.
 
-Select any word or sentence on a page to get an instant definition, or use the control panel to block distractions, auto-fill forms, and add custom buttons to your most-visited sites.
+## 🚀 Features
 
-Core Features
+- **Text Selection Definition**: Select any word or short phrase to instantly see its definition in a floating, draggable overlay. Uses the Free Dictionary API with a Wikipedia fallback.
+- **Page Summarizer**: Generate a concise summary of the current page using an extractive summarization algorithm.
+- **Ad Blocking**: Built-in ad blocking using the `declarativeNetRequest` API to block common ad networks and tracking scripts.
+- **Form Auto-fill**: Securely store your contact information and automatically fill out web forms.
+- **Modern UI**: A clean, draggable overlay that supports both light and dark modes.
 
-1. Smart Definition Popup
+## 🛠 Installation
 
-The core of infopop is the on-select popup, which has two modes:
+1.  **Download or Clone** this repository to your local machine.
+2.  Open Google Chrome and navigate to `chrome://extensions/`.
+3.  Enable **Developer mode** by toggling the switch in the top right corner.
+4.  Click the **Load unpacked** button.
+5.  Select the `infoblend-ai` folder.
 
-Free Dictionary Mode: By default, selecting a common word will show a quick, simple definition.
+## 📂 Project Structure
 
-AI Explainer Mode: By adding your own API key (e.g., for Google's Gemini or WordsAPI), the popup becomes a powerful AI assistant. It can:
+```text
+infoblend-ai/
+├── manifest.json         # Extension configuration (MV3)
+├── background.js        # Service worker for background tasks
+├── contentScript.js     # Injected script for page interaction
+├── popup/               # Extension popup UI and logic
+│   ├── popup.html
+│   ├── popup.js
+│   └── popup.css
+├── overlay/             # Injected overlay UI and styles
+│   ├── overlay.css
+├── utils/               # Modular utility functions
+│   ├── api.js           # API communication
+│   ├── storage.js       # Chrome Storage wrapper
+│   ├── summarizer.js    # Text summarization logic
+├── rules/               # Ad-blocking rules
+│   └── adblockRules.json
+└── icons/               # Extension icons
+```
 
-Define proper nouns (like "Gayhurst" or "Digby's") that dictionaries miss.
+## 🧪 Testing Instructions
 
-Explain entire sentences in a single, simple line.
+### 1. Text Definition
+- Navigate to any website (e.g., [Wikipedia](https://en.wikipedia.org)).
+- Select a word (e.g., "Technology").
+- A floating overlay will appear with the definition.
+- Alternatively, right-click a selection and choose **"Define with InfoBlend"**.
 
-Use a "smart prompt" to automatically know whether to "define" a single word or "explain" a sentence.
+### 2. Page Summarizer
+- Open the extension popup by clicking the InfoBlend icon in the toolbar.
+- Click the **"Summarize Current Page"** button.
+- The popup will close, and a summary overlay will appear on the page.
 
-2. Web Augmentation Tools
+### 3. Ad Blocking
+- Visit a site known for ads.
+- Open Chrome DevTools (`F12`) -> **Network** tab.
+- Filter for "doubleclick" or "googlesyndication". You should see these requests blocked by the extension.
 
-infopop adds a powerful control panel to your browser, allowing you to customize any website on the fly. All settings are saved per-site.
+### 4. Form Auto-fill
+- Open the extension popup.
+- Enter your name, email, and phone number, then click **"Save Settings"**.
+- Navigate to a website with a contact form.
+- The extension will automatically attempt to fill in the fields.
 
-Distraction Hider: Click "Select Element to Hide" to enter selection mode. Any element you click (like a sidebar, ad, or "related posts" box) will be hidden. The extension generates a robust selector to ensure it only hides what you clicked.
+## 🔐 Security & Permissions
 
-Auto-fill Profiles: Save common form information (name, email, phone) into profiles. When you're on a contact or checkout page, just click "Apply" to fill the form instantly.
+- **storage**: Used to save user settings and auto-fill data locally.
+- **declarativeNetRequest**: Used for high-performance, privacy-preserving ad blocking.
+- **activeTab**: Allows the extension to interact with the current page when triggered.
+- **contextMenus**: Adds the "Define with InfoBlend" option to the right-click menu.
+- **host_permissions**: Required to fetch data from the Dictionary and Wikipedia APIs.
 
-Highlight Rules: Create rules to highlight important elements on a page. For example, add a rule for button.cta with a yellow color to make all primary "Call to Action" buttons stand out.
-
-Quick Access Buttons: Add a custom button bar to any website. You can create buttons that:
-
-Navigate to a specific URL (e.g., a "Dashboard" button on a homepage).
-
-Click a specific element (e.g., an "Open Menu" button).
-
-Configuration
-
-All features are managed from the extension's popup icon in your Chrome toolbar.
-
-Setting up the Custom API
-
-To unlock the AI features, you need to configure a custom API:
-
-Click the extension icon to open the Control Panel.
-
-Set API Provider to Custom API Template.
-
-Fill in the three fields (example for Google Gemini):
-
-API Template: https://generativela...models/gemini-pro:generateContent
-
-API Key: Your AIza... key from Google AI Studio.
-
-API Key Header: x-goog-api-key
-
-Click the "Test Endpoint" button to verify your key and URL are working.
-
-All API keys are stored securely and locally using chrome.storage.local and are never synced.
+---
+Built with ❤️ by InfoBlend AI Team.
