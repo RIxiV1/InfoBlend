@@ -1,21 +1,28 @@
-# InfoBlend AI
+# InfoBlend Extension Documentation
 
-Welcome to InfoBlend AI! This is the repository for InfoBlend AI application where you can find sources, documentation, and more about InfoBlend AI services. We strive to provide the best AI solutions for your needs.
+## Overview
+The InfoBlend extension enhances your applications by integrating powerful features that offer a seamless user experience.
 
 ## Features
-- Feature 1: Description
-- Feature 2: Description
+- **Real-time Data Sync:** Automatically sync data in real-time for the most current information.
+- **User Customization:** Let users tailor their experience to meet their preferences.
+- **Analytics Dashboard:** Gain insights through integrated analytics tools.
 
 ## Installation
-Follow the instructions to install InfoBlend AI:
-1. Step 1
-2. Step 2
+To install the InfoBlend extension, follow these steps:
+1. Download the extension from the official repository.
+2. Follow the installation instructions provided in the `INSTALL.md` file.
 
 ## Usage
-Here are some examples of using InfoBlend AI:
+Once installed, you can get started by including the extension in your project:
+```javascript
+import InfoBlend from 'infoblend';
 
-```bash
-# Example command
+InfoBlend.init();
 ```
 
-For more details, check the documentation.
+## Support
+For support, please reach out to the support team at support@infoblend.com.
+
+## License
+This extension is licensed under the MIT License.
