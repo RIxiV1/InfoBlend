@@ -11,7 +11,10 @@
   // Listen for text selection
   document.addEventListener('mouseup', async (event) => {
     const selection = window.getSelection().toString().trim();
-    if (selection && selection.length > 1 && selection.length < 50) {
+    // Only trigger automatic definition for single words (1-2 words max)
+    const wordCount = selection.split(/\s+/).filter(w => w.length > 0).length;
+    
+    if (selection && wordCount > 0 && wordCount <= 2 && selection.length < 50) {
       const settings = await getStorage(['definitionsEnabled']);
       if (settings.definitionsEnabled !== false) {
         showLoadingOverlay();
@@ -36,18 +39,28 @@
       showLoadingOverlay();
       const summary = generateIntelligentSummary();
       updateOverlay('Page Summary', summary, 'InfoBlend Intelligent Summarizer');
+    } else if (message.type === 'SUMMARIZE_SELECTION') {
+      showLoadingOverlay();
+      const summary = generateIntelligentSummary(message.text);
+      updateOverlay('Selection Summary', summary, 'InfoBlend Selection Summarizer');
     }
   });
 
   // Intelligent Summarization Logic (TF-IDF inspired extractive algorithm)
-  function generateIntelligentSummary() {
-    const pageText = document.body.innerText;
-    // Target main content areas for better quality
-    const contentSources = Array.from(document.querySelectorAll('p, article, section, h1, h2, h3'))
-      .map(el => el.innerText.trim())
-      .filter(text => text.length > 40);
+  function generateIntelligentSummary(manualText = null) {
+    const pageText = manualText || document.body.innerText;
     
-    const content = contentSources.join(' ') || pageText;
+    let content;
+    if (manualText) {
+      content = manualText;
+    } else {
+      // Target main content areas for better quality
+      const contentSources = Array.from(document.querySelectorAll('p, article, section, h1, h2, h3'))
+        .map(el => el.innerText.trim())
+        .filter(text => text.length > 40);
+      content = contentSources.join(' ') || pageText;
+    }
+    
     const sentences = content.match(/[^.!?]+[.!?]+/g) || [content];
     
     if (sentences.length <= 4) return sentences.join(' ');

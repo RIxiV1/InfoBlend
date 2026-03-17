@@ -4,11 +4,16 @@
 
 import { fetchDefinition } from './utils/api.js';
 
-// Create context menu item
+// Create context menu items
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'define-with-infoblend',
     title: 'Define with InfoBlend',
+    contexts: ['selection']
+  });
+  chrome.contextMenus.create({
+    id: 'summarize-with-infoblend',
+    title: 'Summarize with InfoBlend',
     contexts: ['selection']
   });
 });
@@ -28,6 +33,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         message: 'Could not find definition.'
       });
     }
+  } else if (info.menuItemId === 'summarize-with-infoblend' && info.selectionText) {
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'SUMMARIZE_SELECTION',
+      text: info.selectionText
+    });
   }
 });
 
