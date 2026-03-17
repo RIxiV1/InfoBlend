@@ -35,6 +35,8 @@
       updateOverlay(message.data.title, message.data.content, message.data.source);
     } else if (message.type === 'SHOW_ERROR') {
       updateOverlay('Error', message.message, 'InfoBlend');
+    } else if (message.type === 'SHOW_LOADING') {
+      showLoadingOverlay();
     } else if (message.type === 'SUMMARIZE_PAGE') {
       showLoadingOverlay();
       const summary = generateIntelligentSummary();

@@ -1,8 +1,5 @@
-/**
- * Background service worker for InfoBlend AI.
- */
-
-import { fetchDefinition } from './utils/api.js';
+import { fetchDefinition, fetchAIResponse } from './utils/api.js';
+import { getStorageData } from './utils/storage.js';
 
 // Create context menu items
 chrome.runtime.onInstalled.addListener(() => {
@@ -34,10 +31,34 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       });
     }
   } else if (info.menuItemId === 'summarize-with-infoblend' && info.selectionText) {
-    chrome.tabs.sendMessage(tab.id, {
-      type: 'SUMMARIZE_SELECTION',
-      text: info.selectionText
-    });
+    const settings = await getStorageData(['aiEndpoint', 'aiKey']);
+    
+    if (settings.aiEndpoint && settings.aiKey) {
+      try {
+        chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
+        const aiSummary = await fetchAIResponse(info.selectionText, settings.aiEndpoint, settings.aiKey);
+        chrome.tabs.sendMessage(tab.id, {
+          type: 'SHOW_DEFINITION',
+          data: {
+            title: 'AI Summary',
+            content: aiSummary,
+            source: 'InfoBlend AI'
+          }
+        });
+      } catch (error) {
+        // Fallback to local summarizer
+        chrome.tabs.sendMessage(tab.id, {
+          type: 'SUMMARIZE_SELECTION',
+          text: info.selectionText
+        });
+      }
+    } else {
+      // Use local summarizer
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'SUMMARIZE_SELECTION',
+        text: info.selectionText
+      });
+    }
   }
 });
 

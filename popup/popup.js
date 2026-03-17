@@ -10,11 +10,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const userName = document.getElementById('userName');
   const userEmail = document.getElementById('userEmail');
   const userPhone = document.getElementById('userPhone');
+  const aiEndpoint = document.getElementById('aiEndpoint');
+  const aiKey = document.getElementById('aiKey');
   const saveBtn = document.getElementById('saveBtn');
   const summarizeBtn = document.getElementById('summarizeBtn');
 
   // Load existing settings
-  const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData']);
+  const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData', 'aiEndpoint', 'aiKey']);
   
   if (settings.definitionsEnabled !== undefined) {
     definitionsEnabled.checked = settings.definitionsEnabled;
@@ -27,6 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     userEmail.value = settings.userData.email || '';
     userPhone.value = settings.userData.phone || '';
   }
+  if (settings.aiEndpoint) aiEndpoint.value = settings.aiEndpoint;
+  if (settings.aiKey) aiKey.value = settings.aiKey;
 
   // Save settings
   saveBtn.addEventListener('click', async () => {
@@ -39,7 +43,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await setStorageData({
       definitionsEnabled: definitionsEnabled.checked,
       autofillEnabled: autofillEnabled.checked,
-      userData: userData
+      userData: userData,
+      aiEndpoint: aiEndpoint.value,
+      aiKey: aiKey.value
     });
 
     saveBtn.textContent = 'Saved!';
