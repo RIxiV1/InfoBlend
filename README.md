@@ -1,76 +1,61 @@
-# InfoBlend AI – Smart Web Augmentation Extension
+# InfoBlend AI
 
-InfoBlend AI is a production-ready Chrome Extension (Manifest V3) that enhances your browsing experience with intelligent tools for information retrieval, content summarization, ad blocking, and form automation.
+InfoBlend AI is a sophisticated Chrome Extension designed for intelligent web augmentation. Built on Manifest V3, it provides a suite of tools for information retrieval, content summarization, and task automation, all delivered through a premium, isolated user interface.
 
-## 🚀 Features
+## Core Intelligence
 
-- **Text Selection Definition**: Select any word or short phrase to instantly see its definition in a floating, draggable overlay. Uses the Free Dictionary API with a Wikipedia fallback.
-- **Page Summarizer**: Generate a concise summary of the current page using an extractive summarization algorithm.
-- **Ad Blocking**: Built-in ad blocking using the `declarativeNetRequest` API to block common ad networks and tracking scripts.
-- **Form Auto-fill**: Securely store your contact information and automatically fill out web forms.
-- **Modern UI**: A clean, draggable overlay that supports both light and dark modes.
+### Intelligent Summarization
+InfoBlend AI features a frequency-based extractive summarization algorithm that analyzes document density to surface the most relevant context clusters.
+- **Page Summarization**: Extract key insights from an entire document with a single click.
+- **Selection Summarization**: Target specific text blocks for instant summarization via the context menu.
+- **AI Intelligence (Alpha)**: Supports integration with large language models (Gemini/Vertex) for human-like explanations and deep insights when an API key is provided.
 
-## 🛠 Installation
+### Smart Semantic Highlights
+The extension automatically identifies and highlights key technical terms, proper nouns, and entities within summaries and definitions. This system uses a tag-safe parser to ensure seamless integration without interfering with host page styles.
 
-1.  **Download or Clone** this repository to your local machine.
-2.  Open Google Chrome and navigate to `chrome://extensions/`.
-3.  Enable **Developer mode** by toggling the switch in the top right corner.
-4.  Click the **Load unpacked** button.
-5.  Select the `infoblend-ai` folder.
+### Instant Definitions
+Select any single word to trigger an automatic information overlay. The system prioritizes high-quality dictionary entries with a Wikipedia fallback to ensure comprehensive coverage.
 
-## 📂 Project Structure
+## Platform Features
 
-```text
-infoblend-ai/
-├── manifest.json         # Extension configuration (MV3)
-├── background.js        # Service worker for background tasks
-├── contentScript.js     # Injected script for page interaction
-├── popup/               # Extension popup UI and logic
-│   ├── popup.html
-│   ├── popup.js
-│   └── popup.css
-├── overlay/             # Injected overlay UI and styles
-│   ├── overlay.css
-├── utils/               # Modular utility functions
-│   ├── api.js           # API communication
-│   ├── storage.js       # Chrome Storage wrapper
-│   ├── summarizer.js    # Text summarization logic
-├── rules/               # Ad-blocking rules
-│   └── adblockRules.json
-└── icons/               # Extension icons
-```
+### Privacy-First Ad Blocking
+Leveraging the `declarativeNetRequest` API, InfoBlend AI blocks common ad networks and tracking scripts at the browser level, ensuring a faster and cleaner browsing experience without compromising privacy.
 
-## 🧪 Testing Instructions
+### Smart Form Automation
+Securely manage contact profiles to automate repetitive form entries. The system intelligently maps field attributes to your encrypted local data for seamless auto-completion.
 
-### 1. Text Definition
-- Navigate to any website (e.g., [Wikipedia](https://en.wikipedia.org)).
-- Select a word (e.g., "Technology").
-- A floating overlay will appear with the definition.
-- Alternatively, right-click a selection and choose **"Define with InfoBlend"**.
+### Ultra-Glass Interface
+The user interface utilizes a high-performance Shadow DOM architecture, ensuring total isolation from host page styles. The design features a premium "Ultra-Glass" aesthetic with 40px backdrop blurs, luminous borders, and smooth slide-up animations.
 
-### 2. Page Summarizer
-- Open the extension popup by clicking the InfoBlend icon in the toolbar.
-- Click the **"Summarize Current Page"** button.
-- The popup will close, and a summary overlay will appear on the page.
+## Technical Foundation
 
-### 3. Ad Blocking
-- Visit a site known for ads.
-- Open Chrome DevTools (`F12`) -> **Network** tab.
-- Filter for "doubleclick" or "googlesyndication". You should see these requests blocked by the extension.
+- **Manifest V3**: Compliant with the latest Chrome extension standards for security and performance.
+- **Shadow DOM Isolation**: Prevents style leakage between the extension UI and the host website.
+- **Service Worker Architecture**: High-efficiency background processing for API communication and state management.
 
-### 4. Form Auto-fill
-- Open the extension popup.
-- Enter your name, email, and phone number, then click **"Save Settings"**.
-- Navigate to a website with a contact form.
-- The extension will automatically attempt to fill in the fields.
+## Installation
 
-## 🔐 Security & Permissions
+1. Download or clone this repository to your local directory.
+2. Navigate to `chrome://extensions/` in Google Chrome.
+3. Enable Developer Mode in the top right corner.
+4. Click "Load unpacked" and select the `infoblend-ai` directory.
 
-- **storage**: Used to save user settings and auto-fill data locally.
-- **declarativeNetRequest**: Used for high-performance, privacy-preserving ad blocking.
-- **activeTab**: Allows the extension to interact with the current page when triggered.
-- **contextMenus**: Adds the "Define with InfoBlend" option to the right-click menu.
-- **host_permissions**: Required to fetch data from the Dictionary and Wikipedia APIs.
+## Project Structure
+
+- `background.js`: Service worker for background logic and context menu management.
+- `contentScript.js`: Core logic for page interaction, selection triggers, and UI injection.
+- `popup/`: Extension configuration interface and settings management.
+- `overlay/`: Style definitions for the isolated Shadow DOM overlay.
+- `utils/`: Modular utilities for API communication, storage, and summarization.
+- `rules/`: Static rulesets for the ad-blocking engine.
+
+## Permissions
+
+- **storage**: Local persistence of user configurations and profiles.
+- **declarativeNetRequest**: High-performance ad blocking.
+- **activeTab**: Permission to interact with the current document upon user trigger.
+- **contextMenus**: Integration of deep-dive tools into the browser's right-click interface.
+- **host_permissions**: Facilitates communication with Dictionary and Wikipedia APIs.
 
 ---
-Built with ❤️ by InfoBlend AI Team.
+Developed by the InfoBlend AI Team.
