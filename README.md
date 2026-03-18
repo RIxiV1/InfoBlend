@@ -2,6 +2,9 @@
 
 InfoBlend AI is a sophisticated Chrome Extension designed for intelligent web augmentation. Built on Manifest V3, it provides a suite of tools for information retrieval, content summarization, and task automation, all delivered through a premium, isolated user interface.
 
+> [!NOTE]
+> **What's New in V3**: Enhanced "Ultra-Glass" UI, improved extractive summarization, and privacy-focused ad blocking.
+
 ## Core Intelligence
 
 ### Intelligent Summarization
