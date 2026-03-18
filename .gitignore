@@ -1,0 +1,15 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Chrome extension local data
+*.pem
+*.crx
+
+# Node/Environment
+node_modules/
+.env
+
+# Temp files
+/tmp/
+*.log
