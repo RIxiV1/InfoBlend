@@ -99,15 +99,52 @@
         </div>
         <div class="input-field">
           <div class="input-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 3 9 21"></polyline></svg>
+          </div>
+          <select id="aiProvider" style="width: 100%; height: 36px; background: transparent; border: none; color: white; padding: 0 10px; cursor: pointer; font-family: inherit; font-size: 13px; -webkit-appearance: none; appearance: none;">
+            <option value="gemini" style="background: #1a1b26;">Google Gemini</option>
+            <option value="openai" style="background: #1a1b26;">OpenAI (GPT-3.5/4)</option>
+            <option value="generic" style="background: #1a1b26;">Generic Proxy</option>
+          </select>
+        </div>
+        <div class="input-field">
+          <div class="input-icon">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3-3.5 3.5z"></path></svg>
           </div>
           <input type="password" id="aiKey" placeholder="API Key" spellcheck="false">
         </div>
       </section>
 
+      <div class="divider"><span>Preferences</span></div>
+      
+      <section class="preferences card">
+        <div class="input-field">
+          <div class="input-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          </div>
+          <select id="theme" style="width: 100%; height: 36px; background: transparent; border: none; color: white; padding: 0 10px; cursor: pointer; font-family: inherit; font-size: 13px; appearance: none;">
+            <option value="system" style="background: #1a1b26;">System Theme</option>
+            <option value="dark" style="background: #1a1b26;">Dark Glass</option>
+            <option value="light" style="background: #1a1b26;">Light Glass</option>
+          </select>
+        </div>
+      </section>
+
       <button id="saveBtn" class="secondary-btn">Save Changes</button>
-    </section>
-    </main>
+      
+      <!-- Onboarding Modal -->
+      <div id="onboardingModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(10px);">
+        <div class="modal-content" style="background: #1a1b26; padding: 30px; border-radius: 20px; text-align: center; max-width: 80%; border: 1px solid rgba(255,255,255,0.1);">
+          <h2 style="margin-bottom: 10px;">Welcome to InfoBlend AI</h2>
+          <p style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">Ready to augment your browsing?</p>
+          <ul style="text-align: left; font-size: 13px; margin-bottom: 20px; list-style: none; padding: 0;">
+            <li style="margin-bottom: 10px;">✨ <b>Select 1-2 words</b> for instant definitions.</li>
+            <li style="margin-bottom: 10px;">📄 <b>Summarize whole pages</b> with one click.</li>
+            <li style="margin-bottom: 15px;">📌 <b>Pin the overlay</b> if you need more time to read.</li>
+          </ul>
+          <button id="closeOnboarding" class="primary-btn" style="width: 100%;">Got it!</button>
+        </div>
+      </div>
 
     <footer>
       <p>System v2.0.1 <span>|</span> InfoBlend AI</p>

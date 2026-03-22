@@ -5,11 +5,19 @@
 :root {
   --ib-glass-bg: rgba(10, 15, 30, 0.7);
   --ib-accent: #6366f1;
-  --ib-accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --ib-accent-gradient: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
   --ib-border: rgba(255, 255, 255, 0.12);
   --ib-text: #ffffff;
   --ib-text-dim: rgba(255, 255, 255, 0.6);
   --ib-blur: 32px;
+}
+
+.ib-light-theme {
+  --ib-glass-bg: rgba(255, 255, 255, 0.8);
+  --ib-border: rgba(0, 0, 0, 0.1);
+  --ib-text: #1a1b26;
+  --ib-text-dim: rgba(26, 27, 38, 0.6);
+  --ib-blur: 24px;
 }
 
 .infoblend-overlay {
@@ -70,21 +78,35 @@
   -webkit-text-fill-color: transparent;
 }
 
-.infoblend-close {
+.infoblend-pin, .infoblend-close {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--ib-border);
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--ib-text-dim);
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   font-size: 14px;
   position: relative;
   z-index: 10;
+  margin-left: 8px;
+}
+
+.infoblend-pin:hover {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--ib-accent);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.infoblend-pin.active {
+  background: var(--ib-accent-gradient);
+  color: white;
+  border: none;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
 }
 
 .infoblend-close:hover {

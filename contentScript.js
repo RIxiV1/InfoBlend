@@ -39,55 +39,29 @@
       showLoadingOverlay();
     } else if (message.type === 'SUMMARIZE_PAGE') {
       showLoadingOverlay();
-      const summary = generateIntelligentSummary();
-      updateOverlay('Page Summary', summary, 'InfoBlend Intelligent Summarizer');
-    } else if (message.type === 'SUMMARIZE_SELECTION') {
-      showLoadingOverlay();
-      const summary = generateIntelligentSummary(message.text);
-      updateOverlay('Selection Summary', summary, 'InfoBlend Selection Summarizer');
-    }
-  });
-
-  // Intelligent Summarization Logic (TF-IDF inspired extractive algorithm)
-  function generateIntelligentSummary(manualText = null) {
-    const pageText = manualText || document.body.innerText;
-    
-    let content;
-    if (manualText) {
-      content = manualText;
-    } else {
-      // Target main content areas for better quality
       const contentSources = Array.from(document.querySelectorAll('p, article, section, h1, h2, h3'))
         .map(el => el.innerText.trim())
         .filter(text => text.length > 40);
-      content = contentSources.join(' ') || pageText;
+      const content = contentSources.join(' ') || document.body.innerText;
+      
+      const worker = new Worker(chrome.runtime.getURL('utils/summarizer.worker.js'));
+      worker.postMessage({ text: content });
+      worker.onmessage = (e) => {
+        updateOverlay('Page Summary', e.data, 'InfoBlend Intelligent Summarizer');
+        worker.terminate();
+      };
+    } else if (message.type === 'SUMMARIZE_SELECTION') {
+      showLoadingOverlay();
+      const worker = new Worker(chrome.runtime.getURL('utils/summarizer.worker.js'));
+      worker.postMessage({ text: message.text, manualText: message.text });
+      worker.onmessage = (e) => {
+        updateOverlay('Selection Summary', e.data, 'InfoBlend Selection Summarizer');
+        worker.terminate();
+      };
     }
-    
-    const sentences = content.match(/[^.!?]+[.!?]+/g) || [content];
-    
-    if (sentences.length <= 4) return sentences.join(' ');
+  });
 
-    // Score sentences based on word frequency
-    const words = content.toLowerCase().match(/\b\w{4,}\b/g) || [];
-    const freq = {};
-    words.forEach(w => freq[w] = (freq[w] || 0) + 1);
-
-    const scores = sentences.map(s => {
-      const sWords = s.toLowerCase().match(/\b\w{4,}\b/g) || [];
-      const wordScore = sWords.reduce((acc, w) => acc + (freq[w] || 0), 0);
-      return wordScore / (Math.sqrt(sWords.length) || 1); // Normalize by length
-    });
-
-    // Pick top 4 sentences and sort by appearance order
-    const topIndices = scores
-      .map((score, index) => ({ score, index }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4)
-      .map(item => item.index)
-      .sort((a, b) => a - b);
-
-    return topIndices.map(i => sentences[i].trim()).join(' ');
-  }
+  // Summary logic removed from main thread (now in Worker)
 
   // Form Auto-fill Logic
   const autofillForms = async () => {
@@ -122,7 +96,7 @@
   let remainingTime = 10000;
   const AUTO_CLOSE_DELAY = 10000;
 
-  function showLoadingOverlay() {
+  async function showLoadingOverlay() {
     if (overlay) overlay.remove();
     clearTimeout(autoCloseTimer);
     
@@ -144,18 +118,51 @@
 
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
-    container.innerHTML = `
-      <div class="infoblend-header">
-        <span class="infoblend-title">InfoBlend AI</span>
-        <button class="infoblend-close">&times;</button>
-      </div>
-      <div class="infoblend-loading">
-        <div class="infoblend-spinner"></div>
-      </div>
-      <div class="infoblend-progress-container">
-        <div class="infoblend-progress-bar"></div>
-      </div>
-    `;
+
+    // Apply Theme
+    const settings = await getStorage(['theme']);
+    if (settings.theme === 'light' || 
+       (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+      container.classList.add('ib-light-theme');
+    }
+
+    const header = document.createElement('div');
+    header.className = 'infoblend-header';
+    
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'infoblend-title';
+    titleSpan.textContent = 'InfoBlend AI';
+    
+    const pinBtn = document.createElement('button');
+    pinBtn.className = 'infoblend-pin';
+    pinBtn.innerHTML = '📌'; // Using emoji for simplicity, or SVG
+    pinBtn.title = 'Pin Overlay';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'infoblend-close';
+    closeBtn.textContent = '×';
+    closeBtn.setAttribute('aria-label', 'Close Overlay');
+
+    header.appendChild(titleSpan);
+    header.appendChild(pinBtn);
+    header.appendChild(closeBtn);
+
+    const loading = document.createElement('div');
+    loading.className = 'infoblend-loading';
+    const spinner = document.createElement('div');
+    spinner.className = 'infoblend-spinner';
+    loading.appendChild(spinner);
+
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'infoblend-progress-container';
+    const progressBar = document.createElement('div');
+    progressBar.className = 'infoblend-progress-bar';
+    progressContainer.appendChild(progressBar);
+
+    container.appendChild(header);
+    container.appendChild(loading);
+    container.appendChild(progressContainer);
+    
     shadow.appendChild(container);
     
     setupOverlayEvents(overlay, container);
@@ -163,7 +170,7 @@
   }
 
   function smartHighlight(text) {
-    if (!text) return text;
+    if (!text) return document.createTextNode('');
     
     const patterns = [
       /\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\b/g, // Proper nouns
@@ -171,24 +178,37 @@
       /\b(?:algorithm|neural network|machine learning|automation|intelligence|optimization|minimalist|glassmorphism|gerund)\b/gi // Keywords
     ];
 
-    // Split by tags to only process text nodes (prevents highlighting HTML attributes/tags)
-    const segments = text.split(/(<[^>]*>)/);
+    const fragment = document.createDocumentFragment();
     const seen = new Set();
 
-    return segments.map(segment => {
-      if (segment.startsWith('<')) return segment; // Return tags as-is
-
-      let highlighted = segment;
-      patterns.forEach(pattern => {
-        highlighted = highlighted.replace(pattern, (match) => {
-          const cleanMatch = match.toLowerCase();
-          if (cleanMatch.length < 3 || seen.has(cleanMatch)) return match;
-          seen.add(cleanMatch);
-          return `<span class="ib-highlight">${match}</span>`;
-        });
-      });
-      return highlighted;
-    }).join('');
+    // Simple replacement logic that preserves nodes
+    let lastIndex = 0;
+    const combinedPattern = new RegExp(patterns.map(p => p.source).join('|'), 'gi');
+    
+    let match;
+    while ((match = combinedPattern.exec(text)) !== null) {
+      // Add text before match
+      fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+      
+      const term = match[0];
+      const cleanTerm = term.toLowerCase();
+      
+      if (cleanTerm.length >= 3 && !seen.has(cleanTerm)) {
+        seen.add(cleanTerm);
+        const span = document.createElement('span');
+        span.className = 'ib-highlight';
+        span.textContent = term;
+        fragment.appendChild(span);
+      } else {
+        fragment.appendChild(document.createTextNode(term));
+      }
+      
+      lastIndex = combinedPattern.lastIndex;
+    }
+    
+    // Add remaining text
+    fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+    return fragment;
   }
 
   function updateOverlay(title, content, source) {
@@ -196,40 +216,66 @@
       showLoadingOverlay();
     }
     
-    const highlightedContent = smartHighlight(content);
     const container = overlay.shadowRoot.querySelector('.infoblend-overlay');
-    container.innerHTML = `
-      <div class="infoblend-header">
-        <span class="infoblend-title">${title}</span>
-        <button class="infoblend-close">&times;</button>
-      </div>
-      <div class="infoblend-content">
-        ${highlightedContent}
-        <div class="infoblend-source">Source: ${source}</div>
-      </div>
-      <div class="infoblend-progress-container">
-        <div class="infoblend-progress-bar"></div>
-      </div>
-    `;
+    const header = container.querySelector('.infoblend-header');
+    header.querySelector('.infoblend-title').textContent = title;
+    
+    // Remove old content/loading
+    const oldContent = container.querySelector('.infoblend-content');
+    if (oldContent) oldContent.remove();
+    const loading = container.querySelector('.infoblend-loading');
+    if (loading) loading.remove();
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'infoblend-content';
+    
+    const textBody = document.createElement('div');
+    textBody.className = 'infoblend-text-body';
+    textBody.appendChild(smartHighlight(content));
+    
+    const sourceDiv = document.createElement('div');
+    sourceDiv.className = 'infoblend-source';
+    sourceDiv.textContent = `Source: ${source}`;
+    
+    contentDiv.appendChild(textBody);
+    contentDiv.appendChild(sourceDiv);
+    
+    // Insert before progress bar
+    const progressContainer = container.querySelector('.infoblend-progress-container');
+    container.insertBefore(contentDiv, progressContainer);
+
     setupOverlayEvents(overlay, container);
-    startAutoCloseTimer(overlay, container);
+    
+    // Summary logic: give more time based on word count
+    const wordCount = content.split(/\s+/).length;
+    const baseDelay = 10000;
+    const wordDelay = (wordCount / 200) * 60 * 1000; // 200 wpm
+    const delay = Math.max(baseDelay, wordDelay + 5000); 
+    
+    startAutoCloseTimer(overlay, container, delay);
+    
+    // Accessibility: Move focus
+    container.setAttribute('tabindex', '-1');
+    container.focus();
   }
 
-  function startAutoCloseTimer(host, container) {
+  function startAutoCloseTimer(host, container, delay = 10000) {
+    if (host._stopTimer) host._stopTimer();
+    
     let startTime = Date.now();
     let isPaused = false;
     let animationFrameId = null;
     const progressBar = container.querySelector('.infoblend-progress-bar');
     
     const update = () => {
-      if (isPaused || !host.parentNode || !progressBar) {
-        if (!isPaused) cancelAnimationFrame(animationFrameId);
+      if (isPaused || host._isPinned || !host.parentNode || !progressBar) {
+        if (!isPaused && !host._isPinned) cancelAnimationFrame(animationFrameId);
         return;
       }
       
       const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, AUTO_CLOSE_DELAY - elapsed);
-      const percentage = (remaining / AUTO_CLOSE_DELAY) * 100;
+      const remaining = Math.max(0, delay - elapsed);
+      const percentage = (remaining / delay) * 100;
       
       progressBar.style.width = `${percentage}%`;
       
@@ -243,13 +289,14 @@
     container.onmouseenter = () => { isPaused = true; };
     container.onmouseleave = () => { 
       isPaused = false; 
-      startTime = Date.now() - (AUTO_CLOSE_DELAY - (parseFloat(progressBar.style.width) / 100 * AUTO_CLOSE_DELAY));
-      animationFrameId = requestAnimationFrame(update);
+      if (!host._isPinned) {
+        startTime = Date.now() - (delay - (parseFloat(progressBar.style.width) / 100 * delay));
+        animationFrameId = requestAnimationFrame(update);
+      }
     };
 
     animationFrameId = requestAnimationFrame(update);
     
-    // Cleanup timer on removal
     host._stopTimer = () => {
       isPaused = true;
       cancelAnimationFrame(animationFrameId);
@@ -269,10 +316,25 @@
     // Re-bind close button
     const closeBtn = container.querySelector('.infoblend-close');
     if (closeBtn) {
-      closeBtn.replaceWith(closeBtn.cloneNode(true)); // Clean old listeners
-      container.querySelector('.infoblend-close').onclick = (e) => {
+      closeBtn.onclick = (e) => {
         e.stopPropagation();
         closeOverlay(host, container);
+      };
+    }
+
+    // Bind pin button
+    const pinBtn = container.querySelector('.infoblend-pin');
+    if (pinBtn) {
+      pinBtn.onclick = (e) => {
+        e.stopPropagation();
+        host._isPinned = !host._isPinned;
+        pinBtn.classList.toggle('active', host._isPinned);
+        const progressBar = container.querySelector('.infoblend-progress-bar');
+        if (host._isPinned) {
+          if (progressBar) progressBar.style.width = '100%';
+        } else {
+          startAutoCloseTimer(host, container);
+        }
       };
     }
 

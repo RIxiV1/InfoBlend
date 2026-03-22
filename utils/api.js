@@ -42,9 +42,9 @@ export const fetchWikipediaSummary = async (term) => {
 };
 
 /**
- * Custom AI Fetcher (Placeholder for future LLM integration)
+ * Custom AI Fetcher with Adapter Support
  */
-export const fetchAIResponse = async (text, template, key, keyHeader) => {
+export const fetchAIResponse = async (text, template, key, keyHeader, provider = 'gemini') => {
   if (!template) throw new Error('No template URL configured');
   
   const headers = { 'Content-Type': 'application/json' };
@@ -57,14 +57,37 @@ export const fetchAIResponse = async (text, template, key, keyHeader) => {
     ? `Explain this in one short, simple line: '${text}'`
     : `What is "${text}"? Give a very short, simple definition.`;
 
-  const body = { contents: [{ parts: [{ text: promptText }] }] };
+  let body;
+  if (provider === 'gemini') {
+    body = { contents: [{ parts: [{ text: promptText }] }] };
+  } else if (provider === 'openai') {
+    body = {
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: promptText }],
+      max_tokens: 100
+    };
+  } else {
+    // Generic simple format
+    body = { prompt: promptText };
+  }
 
   const resp = await fetch(template, { method: 'POST', headers, body: JSON.stringify(body) });
   const json = await resp.json();
   
-  // Basic extraction for Gemini-like response
-  if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
-    return json.candidates[0].content.parts[0].text.trim();
+  // Adapter Logic for Response Parsing
+  if (provider === 'gemini') {
+    if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
+      return json.candidates[0].content.parts[0].text.trim();
+    }
+  } else if (provider === 'openai') {
+    if (json.choices?.[0]?.message?.content) {
+      return json.choices[0].message.content.trim();
+    }
+  } else if (json.text) {
+    return json.text.trim();
+  } else if (json.response) {
+    return json.response.trim();
   }
-  return 'No AI response received.';
+  
+  return 'No AI response received or format mismatch.';
 };

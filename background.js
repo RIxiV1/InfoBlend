@@ -31,12 +31,18 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       });
     }
   } else if (info.menuItemId === 'summarize-with-infoblend' && info.selectionText) {
-    const settings = await getStorageData(['aiEndpoint', 'aiKey']);
+    const settings = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
     
     if (settings.aiEndpoint && settings.aiKey) {
       try {
         chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
-        const aiSummary = await fetchAIResponse(info.selectionText, settings.aiEndpoint, settings.aiKey);
+        const aiSummary = await fetchAIResponse(
+          info.selectionText, 
+          settings.aiEndpoint, 
+          settings.aiKey,
+          null,
+          settings.aiProvider || 'gemini'
+        );
         chrome.tabs.sendMessage(tab.id, {
           type: 'SHOW_DEFINITION',
           data: {
