@@ -3,12 +3,12 @@
  */
 
 :root {
-  --ib-glass-bg: rgba(10, 15, 30, 0.7);
-  --ib-accent: #6366f1;
-  --ib-accent-gradient: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
-  --ib-border: rgba(255, 255, 255, 0.12);
-  --ib-text: #ffffff;
-  --ib-text-dim: rgba(255, 255, 255, 0.6);
+  --ib-glass-bg: rgba(6, 14, 32, 0.7);
+  --ib-accent: #a3a6ff;
+  --ib-accent-gradient: linear-gradient(135deg, #a3a6ff 0%, #ff67ad 100%);
+  --ib-border: rgba(163, 166, 255, 0.1);
+  --ib-text: #dee5ff;
+  --ib-text-dim: #6d758c;
   --ib-blur: 32px;
 }
 
@@ -29,10 +29,11 @@
   background: var(--ib-glass-bg);
   backdrop-filter: blur(var(--ib-blur)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--ib-blur)) saturate(180%);
-  border-radius: 24px;
+  border-radius: 28px;
   box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    inset 0 0 0 1px var(--ib-border);
+    0 40px 80px -12px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 1px var(--ib-border),
+    inset 0 0 20px rgba(163, 166, 255, 0.03);
   z-index: 2147483647;
   font-family: 'Inter', -apple-system, system-ui, sans-serif;
   color: var(--ib-text);
@@ -40,26 +41,25 @@
   display: flex;
   flex-direction: column;
   border: none;
-  animation: ibSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: ibSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: text;
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
 @keyframes ibSlideUp {
-  from { transform: translateY(40px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from { transform: translateY(60px) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
 .infoblend-overlay.ib-fade-out {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(20px) scale(0.98);
   pointer-events: none;
 }
 
 .infoblend-header {
-  padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid var(--ib-border);
+  padding: 18px 24px;
+  background: rgba(255, 255, 255, 0.025);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -68,64 +68,73 @@
 }
 
 .infoblend-title {
-  font-weight: 700;
-  font-size: 13px;
+  font-weight: 800;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.15em;
   background: var(--ib-accent-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-.infoblend-pin, .infoblend-close {
-  background: rgba(255, 255, 255, 0.05);
+.infoblend-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.infoblend-btn {
+  background: rgba(163, 166, 255, 0.05);
   border: 1px solid var(--ib-border);
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--ib-text-dim);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   font-size: 14px;
-  position: relative;
-  z-index: 10;
-  margin-left: 8px;
+  padding: 0;
 }
 
-.infoblend-pin:hover {
-  background: rgba(99, 102, 241, 0.2);
+.infoblend-btn:hover {
+  background: rgba(163, 166, 255, 0.1);
   color: var(--ib-accent);
-  border-color: rgba(99, 102, 241, 0.3);
+  border-color: rgba(163, 166, 255, 0.3);
+  transform: translateY(-1px);
 }
 
 .infoblend-pin.active {
   background: var(--ib-accent-gradient);
-  color: white;
+  color: #000;
   border: none;
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 15px rgba(163, 166, 255, 0.3);
 }
 
 .infoblend-close:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(255, 103, 173, 0.1);
+  color: #ff67ad;
+  border-color: rgba(255, 103, 173, 0.3);
 }
 
 .infoblend-content {
-  padding: 20px;
-  padding-bottom: 24px; /* Space for progress bar */
+  padding: 24px;
+  padding-bottom: 32px;
   overflow-y: auto;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 
-.infoblend-content b {
-  color: var(--ib-accent);
+.infoblend-text-body {
+  animation: ibContentFade 0.6s ease forwards;
+}
+
+@keyframes ibContentFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .ib-highlight {
@@ -133,11 +142,9 @@
   font-weight: 700;
   color: #fff;
   padding: 0 4px;
-  margin: 0 -2px;
-  background: linear-gradient(120deg, rgba(99, 102, 241, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+  background: rgba(163, 166, 255, 0.15);
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(163, 166, 255, 0.1);
 }
 
 .infoblend-progress-container {
@@ -145,7 +152,7 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 3px;
+  height: 4px;
   background: rgba(255, 255, 255, 0.05);
 }
 
@@ -153,33 +160,59 @@
   height: 100%;
   width: 100%;
   background: var(--ib-accent-gradient);
+  background-size: 200% 100%;
+  animation: ibShimmer 2s linear infinite;
   transition: width 0.1s linear;
-  box-shadow: 0 0 8px var(--ib-accent);
+  box-shadow: 0 0 12px rgba(163, 166, 255, 0.4);
+}
+
+@keyframes ibShimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 .infoblend-source {
   font-size: 11px;
   color: var(--ib-text-dim);
-  margin-top: 16px;
+  margin-top: 20px;
   text-align: right;
-  font-style: italic;
-  opacity: 0.7;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .infoblend-loading {
   display: flex;
+  flex-direction: column;
+  gap: 16px;
   justify-content: center;
   align-items: center;
-  padding: 40px;
+  padding: 60px 40px;
 }
 
 .infoblend-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 3px solid rgba(163, 166, 255, 0.1);
   border-top: 3px solid var(--ib-accent);
   border-radius: 50%;
-  animation: ibSpin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  animation: ibSpin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  box-shadow: 0 0 20px rgba(163, 166, 255, 0.1);
+}
+
+.loading-text {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ib-text-dim);
+  animation: ibPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ibPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 
 @keyframes ibSpin {
@@ -195,6 +228,6 @@
   background: transparent;
 }
 .infoblend-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(163, 166, 255, 0.1);
   border-radius: 10px;
 }

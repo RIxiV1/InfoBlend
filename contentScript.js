@@ -133,25 +133,34 @@
     titleSpan.className = 'infoblend-title';
     titleSpan.textContent = 'InfoBlend AI';
     
+    const controls = document.createElement('div');
+    controls.className = 'infoblend-controls';
+
     const pinBtn = document.createElement('button');
-    pinBtn.className = 'infoblend-pin';
-    pinBtn.innerHTML = '📌'; // Using emoji for simplicity, or SVG
+    pinBtn.className = 'infoblend-btn infoblend-pin';
+    pinBtn.innerHTML = '📌'; 
     pinBtn.title = 'Pin Overlay';
 
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'infoblend-close';
+    closeBtn.className = 'infoblend-btn infoblend-close';
     closeBtn.textContent = '×';
     closeBtn.setAttribute('aria-label', 'Close Overlay');
 
+    controls.appendChild(pinBtn);
+    controls.appendChild(closeBtn);
     header.appendChild(titleSpan);
-    header.appendChild(pinBtn);
-    header.appendChild(closeBtn);
+    header.appendChild(controls);
 
     const loading = document.createElement('div');
     loading.className = 'infoblend-loading';
     const spinner = document.createElement('div');
     spinner.className = 'infoblend-spinner';
+    const loadingText = document.createElement('div');
+    loadingText.className = 'loading-text';
+    loadingText.textContent = 'Analyzing Page...';
+    
     loading.appendChild(spinner);
+    loading.appendChild(loadingText);
 
     const progressContainer = document.createElement('div');
     progressContainer.className = 'infoblend-progress-container';
@@ -243,6 +252,27 @@
     // Insert before progress bar
     const progressContainer = container.querySelector('.infoblend-progress-container');
     container.insertBefore(contentDiv, progressContainer);
+
+    // Add Copy Button to controls
+    const controls = container.querySelector('.infoblend-controls');
+    if (!controls.querySelector('.infoblend-copy')) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'infoblend-btn infoblend-copy';
+      copyBtn.innerHTML = '📋';
+      copyBtn.title = 'Copy to Clipboard';
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(content);
+        copyBtn.innerHTML = '✅';
+        setTimeout(() => copyBtn.innerHTML = '📋', 2000);
+      };
+      // Insert before close button
+      controls.insertBefore(copyBtn, controls.lastChild);
+    }
+
+    // Save to history if it's a summary
+    if (title.toLowerCase().includes('summary')) {
+      saveToHistory(title, content);
+    }
 
     setupOverlayEvents(overlay, container);
     
@@ -391,5 +421,18 @@
       });
     });
     observer.observe(document.body, { childList: true });
+  }
+
+  async function saveToHistory(title, content) {
+    const data = await getStorage(['summaryHistory']);
+    const history = data.summaryHistory || [];
+    history.push({ 
+      title: document.title, 
+      content: content.substring(0, 100) + '...',
+      timestamp: Date.now() 
+    });
+    // Keep last 10
+    if (history.length > 10) history.shift();
+    chrome.storage.local.set({ summaryHistory: history });
   }
 })();

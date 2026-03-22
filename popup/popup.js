@@ -22,8 +22,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   const closeOnboarding = document.getElementById('closeOnboarding');
 
   // Load existing settings
-  const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'onboardingDone']);
+  const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'onboardingDone', 'summaryHistory']);
   
+  // Update Recent Activity
+  const activityList = document.getElementById('recentActivity');
+  if (settings.summaryHistory && settings.summaryHistory.length > 0) {
+    activityList.innerHTML = '';
+    settings.summaryHistory.slice(-3).reverse().forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'activity-item';
+      el.textContent = item.title;
+      el.title = item.title;
+      activityList.appendChild(el);
+    });
+  } else {
+    activityList.innerHTML = '<div class="activity-item loading">No recent activity</div>';
+  }
+
   if (!settings.onboardingDone) {
     onboardingModal.style.display = 'flex';
   }
