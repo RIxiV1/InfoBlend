@@ -3,7 +3,7 @@
  */
 
 (async () => {
-  // Helper to get storage data (since we can't easily import in content scripts without web_accessible_resources)
+  // Helper to get storage data
   const getStorage = (keys) => new Promise(res => chrome.storage.local.get(keys, res));
 
   let overlay = null;
@@ -11,7 +11,6 @@
   // Listen for text selection
   document.addEventListener('mouseup', async (event) => {
     const selection = window.getSelection().toString().trim();
-    // Only trigger automatic definition for single words (1-2 words max)
     const wordCount = selection.split(/\s+/).filter(w => w.length > 0).length;
     
     if (selection && wordCount > 0 && wordCount <= 2 && selection.length < 50) {
@@ -22,7 +21,7 @@
           if (response && response.success) {
             updateOverlay(response.data.title, response.data.content, response.data.source);
           } else {
-            updateOverlay('Error', 'Could not find definition.', 'InfoBlend');
+            updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
           }
         });
       }
@@ -30,7 +29,7 @@
   });
 
   // Listen for messages from background script or popup
-  chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'SHOW_DEFINITION') {
       updateOverlay(message.data.title, message.data.content, message.data.source);
     } else if (message.type === 'SHOW_ERROR') {
@@ -38,30 +37,61 @@
     } else if (message.type === 'SHOW_LOADING') {
       showLoadingOverlay();
     } else if (message.type === 'SUMMARIZE_PAGE') {
-      showLoadingOverlay();
-      const contentSources = Array.from(document.querySelectorAll('p, article, section, h1, h2, h3'))
-        .map(el => el.innerText.trim())
-        .filter(text => text.length > 40);
-      const content = contentSources.join(' ') || document.body.innerText;
-      
-      const worker = new Worker(chrome.runtime.getURL('utils/summarizer.worker.js'));
-      worker.postMessage({ text: content });
-      worker.onmessage = (e) => {
-        updateOverlay('Page Summary', e.data, 'InfoBlend Intelligent Summarizer');
-        worker.terminate();
-      };
+      handlePageSummarization();
     } else if (message.type === 'SUMMARIZE_SELECTION') {
       showLoadingOverlay();
-      const worker = new Worker(chrome.runtime.getURL('utils/summarizer.worker.js'));
-      worker.postMessage({ text: message.text, manualText: message.text });
-      worker.onmessage = (e) => {
-        updateOverlay('Selection Summary', e.data, 'InfoBlend Selection Summarizer');
-        worker.terminate();
-      };
+      runLocalSummarizer(message.text);
     }
   });
 
-  // Summary logic removed from main thread (now in Worker)
+  async function handlePageSummarization() {
+    showLoadingOverlay();
+    const contentSources = Array.from(document.querySelectorAll('p, article, section, h1, h2, h3'))
+      .map(el => el.innerText.trim())
+      .filter(text => text.length > 40);
+    const content = contentSources.join(' ') || document.body.innerText;
+    
+    try {
+      const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);
+      if (settings.aiKey && settings.aiEndpoint) {
+        chrome.runtime.sendMessage({ 
+          type: 'SUMMARIZE_VIA_AI', 
+          text: content.substring(0, 10000) 
+        }, (response) => {
+          if (response && response.success) {
+            updateOverlay('Page Summary', response.summary, `AI (${settings.aiProvider})`);
+          } else {
+            console.warn('AI Summarization failed:', response?.error);
+            runLocalSummarizer(content);
+          }
+        });
+      } else {
+        runLocalSummarizer(content);
+      }
+    } catch (error) {
+      runLocalSummarizer(content);
+    }
+  }
+
+  function runLocalSummarizer(text) {
+    const workerMock = {
+      terminate: () => {}
+    };
+    try {
+      const worker = new Worker(chrome.runtime.getURL('utils/summarizer.worker.js'));
+      worker.postMessage({ text: text });
+      worker.onmessage = (e) => {
+        updateOverlay('Summary', e.data, 'InfoBlend Local Summarizer');
+        worker.terminate();
+      };
+      worker.onerror = (err) => {
+        updateOverlay('Notice', 'Summarization failed.', 'InfoBlend');
+        worker.terminate();
+      };
+    } catch (e) {
+      updateOverlay('Notice', 'Worker error.', 'InfoBlend');
+    }
+  }
 
   // Form Auto-fill Logic
   const autofillForms = async () => {
@@ -69,47 +99,57 @@
     if (settings.autofillEnabled && settings.userData) {
       const { name, email, phone } = settings.userData;
       const inputs = document.querySelectorAll('input');
+      let filledCount = 0;
       
       inputs.forEach(input => {
         const nameAttr = (input.name || '').toLowerCase();
         const idAttr = (input.id || '').toLowerCase();
+        const labelAttr = (input.getAttribute('aria-label') || '').toLowerCase();
         const typeAttr = (input.type || '').toLowerCase();
+        const placeholder = (input.placeholder || '').toLowerCase();
 
-        if (name && (nameAttr.includes('name') || idAttr.includes('name'))) {
-          if (!input.value) input.value = name;
-        }
-        if (email && (typeAttr === 'email' || nameAttr.includes('email') || idAttr.includes('email'))) {
-          if (!input.value) input.value = email;
-        }
-        if (phone && (typeAttr === 'tel' || nameAttr.includes('phone') || idAttr.includes('phone'))) {
-          if (!input.value) input.value = phone;
+        // Refined matching logic to reduce false positives
+        const isName = /full.name|first.name|display.name|^name$|^fname$/i.test(nameAttr + idAttr + labelAttr + placeholder);
+        const isEmail = typeAttr === 'email' || /email|e-mail|mail.address/i.test(nameAttr + idAttr + labelAttr + placeholder);
+        const isPhone = typeAttr === 'tel' || /phone|tel|mobile|cell/i.test(nameAttr + idAttr + labelAttr + placeholder);
+
+        if (name && isName && !input.value) {
+          input.value = name;
+          filledCount++;
+        } else if (email && isEmail && !input.value) {
+          input.value = email;
+          filledCount++;
+        } else if (phone && isPhone && !input.value) {
+          input.value = phone;
+          filledCount++;
         }
       });
+      if (filledCount > 0) {
+        console.log(`[InfoBlend AI] Autofilled ${filledCount} fields.`);
+      }
     }
   };
 
-  // Run autofill on page load
   autofillForms();
 
   // Overlay Management
   let autoCloseTimer = null;
-  let remainingTime = 10000;
-  const AUTO_CLOSE_DELAY = 10000;
+  let overlayHost = null;
 
   async function showLoadingOverlay() {
-    if (overlay) overlay.remove();
+    if (overlayHost) overlayHost.remove();
     clearTimeout(autoCloseTimer);
     
-    overlay = document.createElement('div');
-    overlay.id = 'infoblend-shadow-host';
-    overlay.style.all = 'initial';
-    overlay.style.position = 'fixed';
-    overlay.style.bottom = '24px';
-    overlay.style.right = '24px';
-    overlay.style.zIndex = '2147483647';
-    document.body.appendChild(overlay);
+    overlayHost = document.createElement('div');
+    overlayHost.id = 'infoblend-shadow-host';
+    overlayHost.style.all = 'initial';
+    overlayHost.style.position = 'fixed';
+    overlayHost.style.bottom = '24px';
+    overlayHost.style.right = '24px';
+    overlayHost.style.zIndex = '2147483647';
+    document.body.appendChild(overlayHost);
 
-    const shadow = overlay.attachShadow({ mode: 'open' });
+    const shadow = overlayHost.attachShadow({ mode: 'open' });
 
     const link = document.createElement('link');
     link.rel = 'stylesheet';
@@ -119,7 +159,6 @@
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
 
-    // Apply Theme
     const settings = await getStorage(['theme']);
     if (settings.theme === 'light' || 
        (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches)) {
@@ -157,7 +196,7 @@
     spinner.className = 'infoblend-spinner';
     const loadingText = document.createElement('div');
     loadingText.className = 'loading-text';
-    loadingText.textContent = 'Analyzing Page...';
+    loadingText.textContent = 'Analyzing...';
     
     loading.appendChild(spinner);
     loading.appendChild(loadingText);
@@ -174,34 +213,26 @@
     
     shadow.appendChild(container);
     
-    setupOverlayEvents(overlay, container);
-    startAutoCloseTimer(overlay, container);
+    setupOverlayEvents(overlayHost, container);
+    startAutoCloseTimer(overlayHost, container);
   }
 
   function smartHighlight(text) {
     if (!text) return document.createTextNode('');
-    
     const patterns = [
-      /\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\b/g, // Proper nouns
-      /\b(?:AI|LLM|API|HTML|CSS|JS|URL|HTTP|JSON)\b/g, // Acronyms
-      /\b(?:algorithm|neural network|machine learning|automation|intelligence|optimization|minimalist|glassmorphism|gerund)\b/gi // Keywords
+      /\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\b/g,
+      /\b(?:AI|LLM|API|HTML|CSS|JS|URL|HTTP|JSON)\b/g,
+      /\b(?:algorithm|neural network|machine learning|automation|intelligence|optimization|minimalist|glassmorphism|gerund)\b/gi
     ];
-
     const fragment = document.createDocumentFragment();
     const seen = new Set();
-
-    // Simple replacement logic that preserves nodes
     let lastIndex = 0;
     const combinedPattern = new RegExp(patterns.map(p => p.source).join('|'), 'gi');
-    
     let match;
     while ((match = combinedPattern.exec(text)) !== null) {
-      // Add text before match
       fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
-      
       const term = match[0];
       const cleanTerm = term.toLowerCase();
-      
       if (cleanTerm.length >= 3 && !seen.has(cleanTerm)) {
         seen.add(cleanTerm);
         const span = document.createElement('span');
@@ -211,25 +242,19 @@
       } else {
         fragment.appendChild(document.createTextNode(term));
       }
-      
       lastIndex = combinedPattern.lastIndex;
     }
-    
-    // Add remaining text
     fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
     return fragment;
   }
 
   function updateOverlay(title, content, source) {
-    if (!overlay) {
-      showLoadingOverlay();
-    }
+    if (!overlayHost) showLoadingOverlay();
     
-    const container = overlay.shadowRoot.querySelector('.infoblend-overlay');
+    const container = overlayHost.shadowRoot.querySelector('.infoblend-overlay');
     const header = container.querySelector('.infoblend-header');
     header.querySelector('.infoblend-title').textContent = title;
     
-    // Remove old content/loading
     const oldContent = container.querySelector('.infoblend-content');
     if (oldContent) oldContent.remove();
     const loading = container.querySelector('.infoblend-loading');
@@ -249,49 +274,38 @@
     contentDiv.appendChild(textBody);
     contentDiv.appendChild(sourceDiv);
     
-    // Insert before progress bar
     const progressContainer = container.querySelector('.infoblend-progress-container');
     container.insertBefore(contentDiv, progressContainer);
 
-    // Add Copy Button to controls
     const controls = container.querySelector('.infoblend-controls');
     if (!controls.querySelector('.infoblend-copy')) {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'infoblend-btn infoblend-copy';
       copyBtn.innerHTML = '📋';
-      copyBtn.title = 'Copy to Clipboard';
+      copyBtn.title = 'Copy';
       copyBtn.onclick = () => {
         navigator.clipboard.writeText(content);
         copyBtn.innerHTML = '✅';
         setTimeout(() => copyBtn.innerHTML = '📋', 2000);
       };
-      // Insert before close button
       controls.insertBefore(copyBtn, controls.lastChild);
     }
 
-    // Save to history if it's a summary
     if (title.toLowerCase().includes('summary')) {
       saveToHistory(title, content);
     }
 
-    setupOverlayEvents(overlay, container);
+    setupOverlayEvents(overlayHost, container);
     
-    // Summary logic: give more time based on word count
     const wordCount = content.split(/\s+/).length;
-    const baseDelay = 10000;
-    const wordDelay = (wordCount / 200) * 60 * 1000; // 200 wpm
-    const delay = Math.max(baseDelay, wordDelay + 5000); 
-    
-    startAutoCloseTimer(overlay, container, delay);
-    
-    // Accessibility: Move focus
+    const delay = Math.max(10000, (wordCount / 200) * 60 * 1000 + 5000); 
+    startAutoCloseTimer(overlayHost, container, delay);
     container.setAttribute('tabindex', '-1');
     container.focus();
   }
 
   function startAutoCloseTimer(host, container, delay = 10000) {
     if (host._stopTimer) host._stopTimer();
-    
     let startTime = Date.now();
     let isPaused = false;
     let animationFrameId = null;
@@ -302,18 +316,12 @@
         if (!isPaused && !host._isPinned) cancelAnimationFrame(animationFrameId);
         return;
       }
-      
       const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, delay - elapsed);
       const percentage = (remaining / delay) * 100;
-      
       progressBar.style.width = `${percentage}%`;
-      
-      if (remaining <= 0) {
-        closeOverlay(host, container);
-      } else {
-        animationFrameId = requestAnimationFrame(update);
-      }
+      if (remaining <= 0) closeOverlay(host, container);
+      else animationFrameId = requestAnimationFrame(update);
     };
 
     container.onmouseenter = () => { isPaused = true; };
@@ -324,13 +332,8 @@
         animationFrameId = requestAnimationFrame(update);
       }
     };
-
     animationFrameId = requestAnimationFrame(update);
-    
-    host._stopTimer = () => {
-      isPaused = true;
-      cancelAnimationFrame(animationFrameId);
-    };
+    host._stopTimer = () => { isPaused = true; cancelAnimationFrame(animationFrameId); };
   }
 
   function closeOverlay(host, container) {
@@ -338,21 +341,15 @@
     container.classList.add('ib-fade-out');
     setTimeout(() => {
       if (host.parentNode) host.remove();
-      if (overlay === host) overlay = null;
+      if (overlayHost === host) overlayHost = null;
     }, 400);
   }
 
   function setupOverlayEvents(host, container) {
-    // Re-bind close button
     const closeBtn = container.querySelector('.infoblend-close');
     if (closeBtn) {
-      closeBtn.onclick = (e) => {
-        e.stopPropagation();
-        closeOverlay(host, container);
-      };
+      closeBtn.onclick = (e) => { e.stopPropagation(); closeOverlay(host, container); };
     }
-
-    // Bind pin button
     const pinBtn = container.querySelector('.infoblend-pin');
     if (pinBtn) {
       pinBtn.onclick = (e) => {
@@ -360,67 +357,36 @@
         host._isPinned = !host._isPinned;
         pinBtn.classList.toggle('active', host._isPinned);
         const progressBar = container.querySelector('.infoblend-progress-bar');
-        if (host._isPinned) {
-          if (progressBar) progressBar.style.width = '100%';
-        } else {
-          startAutoCloseTimer(host, container);
-        }
+        if (host._isPinned) { if (progressBar) progressBar.style.width = '100%'; }
+        else startAutoCloseTimer(host, container);
       };
     }
 
-    // Drag logic initialization (only if not already set)
     if (host._dragInitialized) return;
     host._dragInitialized = true;
-
     let isDragging = false;
     let startX, startY, initialX, initialY;
-
     const header = container.querySelector('.infoblend-header');
     header.onmousedown = (e) => {
-      if (e.target.closest('.infoblend-close')) return;
+      if (e.target.closest('.infoblend-btn')) return;
       isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
+      startX = e.clientX; startY = e.clientY;
       const rect = container.getBoundingClientRect();
-      initialX = rect.left;
-      initialY = rect.top;
+      initialX = rect.left; initialY = rect.top;
       header.style.cursor = 'grabbing';
       e.preventDefault();
     };
-
     const handleMouseMove = (e) => {
       if (!isDragging) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      
       host.style.left = `${initialX + dx}px`;
       host.style.top = `${initialY + dy}px`;
-      host.style.right = 'auto';
-      host.style.bottom = 'auto';
+      host.style.right = 'auto'; host.style.bottom = 'auto';
     };
-
-    const handleMouseUp = () => {
-      if (!isDragging) return;
-      isDragging = false;
-      header.style.cursor = 'move';
-    };
-
+    const handleMouseUp = () => { if (!isDragging) return; isDragging = false; header.style.cursor = 'move'; };
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.removedNodes.forEach((node) => {
-          if (node === host) {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-            if (host._stopTimer) host._stopTimer();
-            observer.disconnect();
-          }
-        });
-      });
-    });
-    observer.observe(document.body, { childList: true });
   }
 
   async function saveToHistory(title, content) {
@@ -431,7 +397,6 @@
       content: content.substring(0, 100) + '...',
       timestamp: Date.now() 
     });
-    // Keep last 10
     if (history.length > 10) history.shift();
     chrome.storage.local.set({ summaryHistory: history });
   }

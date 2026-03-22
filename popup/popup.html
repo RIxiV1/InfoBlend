@@ -3,160 +3,556 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>InfoBlend AI Settings</title>
-  <!-- Google Inter Font -->
+  <title>InfoBlend AI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #141210;
+      --bg-raise: #1c1916;
+      --bg-high:  #242018;
+      --line:     rgba(255,255,255,0.07);
+      --line-dim: rgba(255,255,255,0.04);
+
+      --amber:    #f5a623;
+      --amber-lo: rgba(245,166,35,0.1);
+      --amber-xs: rgba(245,166,35,0.05);
+
+      --ink:      #f0ece6;
+      --ink-2:    rgba(240,236,230,0.5);
+      --ink-3:    rgba(240,236,230,0.25);
+      --ink-4:    rgba(240,236,230,0.1);
+
+      --green:    #6fcf97;
+
+      --serif: 'Instrument Serif', Georgia, serif;
+      --mono:  'Geist Mono', ui-monospace, monospace;
+      --ease:  cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 400;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    }
+
+    /* HEADER */
+    header {
+      padding: 18px 20px 14px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line-dim);
+    }
+
+    .wordmark-top {
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1;
+      letter-spacing: -0.01em;
+    }
+
+    .wordmark-top em { font-style: italic; color: var(--amber); }
+
+    .wordmark-sub {
+      font-size: 9px;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      margin-top: 3px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--bg-raise);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 4px 9px 4px 7px;
+      margin-bottom: 2px;
+    }
+
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 5px var(--green);
+      animation: breathe 2.5s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .status-label {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--ink-3);
+      text-transform: uppercase;
+    }
+
+    /* MAIN */
+    main { padding: 0 20px 20px; }
+
+    .block {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--line-dim);
+    }
+
+    .block:last-of-type { border-bottom: none; }
+
+    .block-label {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      margin-bottom: 12px;
+    }
+
+    /* TOGGLES */
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      cursor: pointer;
+    }
+
+    .toggle-item + .toggle-item { border-top: 1px solid var(--line-dim); }
+
+    .toggle-name {
+      flex: 1;
+      font-size: 12px;
+      color: var(--ink-2);
+      transition: color 0.15s;
+    }
+
+    .toggle-item:has(input:checked) .toggle-name { color: var(--ink); }
+
+    .toggle-hint { font-size: 10px; color: var(--ink-4); font-weight: 300; }
+
+    .pill {
+      position: relative;
+      width: 32px;
+      height: 17px;
+      flex-shrink: 0;
+    }
+    .pill input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .pill-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 17px;
+      background: var(--ink-4);
+      border: 1px solid var(--line);
+      cursor: pointer;
+      transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+    }
+    .pill-track::after {
+      content: '';
+      position: absolute;
+      width: 11px; height: 11px;
+      top: 2px; left: 2px;
+      background: var(--ink-3);
+      border-radius: 50%;
+      transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+    }
+    .pill input:checked ~ .pill-track {
+      background: var(--amber-lo);
+      border-color: rgba(245,166,35,0.3);
+    }
+    .pill input:checked ~ .pill-track::after {
+      transform: translateX(15px);
+      background: var(--amber);
+    }
+
+    /* SUMMARIZE */
+    .summarize {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: var(--bg-raise);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+      margin-top: 10px;
+    }
+
+    .summarize:hover {
+      background: var(--bg-high);
+      border-color: rgba(245,166,35,0.25);
+      transform: translateY(-1px);
+    }
+
+    .summarize:active { transform: translateY(0); }
+
+    .sum-left { display: flex; align-items: center; gap: 10px; }
+
+    .sum-icon {
+      width: 26px; height: 26px;
+      border-radius: 7px;
+      background: var(--amber-lo);
+      display: grid; place-items: center;
+      color: var(--amber);
+    }
+
+    .sum-title {
+      font-family: var(--serif);
+      font-size: 14px;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .sum-desc {
+      font-size: 9px;
+      color: var(--ink-3);
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    .sum-arrow {
+      color: var(--ink-4);
+      font-size: 14px;
+      transition: color 0.2s, transform 0.2s;
+    }
+
+    .summarize:hover .sum-arrow { color: var(--amber); transform: translateX(2px); }
+
+    /* FIELDS */
+    .field {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .field + .field { border-top: 1px solid var(--line-dim); }
+
+    .field-key {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      width: 60px;
+      flex-shrink: 0;
+    }
+
+    .field input,
+    .field select {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--ink-2);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 300;
+      padding: 0;
+      transition: color 0.15s;
+    }
+
+    .field input::placeholder { color: var(--ink-4); }
+    .field input:focus, .field select:focus { color: var(--ink); }
+
+    .field select { appearance: none; -webkit-appearance: none; cursor: pointer; }
+
+    .select-wrap {
+      flex: 1; display: flex; align-items: center; position: relative;
+    }
+    .select-wrap select { flex: 1; padding-right: 14px; }
+    .select-wrap::after {
+      content: '↓';
+      position: absolute; right: 0;
+      font-size: 9px; color: var(--ink-4);
+      pointer-events: none;
+    }
+
+    .alpha {
+      font-size: 8px; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--amber);
+      border: 1px solid rgba(245,166,35,0.3);
+      border-radius: 3px; padding: 1px 4px;
+      vertical-align: middle; margin-left: 6px;
+      position: relative; top: -1px;
+    }
+
+    /* SAVE */
+    .save-btn {
+      width: 100%; padding: 11px;
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink-3);
+      font-family: var(--mono);
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+      margin-top: 16px;
+    }
+
+    .save-btn:hover {
+      border-color: rgba(245,166,35,0.4);
+      color: var(--amber);
+      background: var(--amber-xs);
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 10px 20px;
+      border-top: 1px solid var(--line-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    footer span {
+      font-size: 9px; font-weight: 300;
+      color: var(--ink-4);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* MODAL */
+    .modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(10,9,8,0.92);
+      z-index: 500;
+      align-items: center; justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(6px);
+    }
+    .modal.open { display: flex; }
+
+    .modal-box {
+      background: var(--bg-raise);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 26px 24px;
+      width: 100%;
+      animation: fadeUp 0.3s var(--ease) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-eyebrow {
+      font-size: 9px; letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--amber); margin-bottom: 8px;
+    }
+
+    .modal-heading {
+      font-family: var(--serif);
+      font-size: 24px; font-weight: 400;
+      color: var(--ink); line-height: 1.15;
+      letter-spacing: -0.01em; margin-bottom: 8px;
+    }
+
+    .modal-heading em { font-style: italic; color: var(--amber); }
+
+    .modal-body {
+      font-size: 11px; font-weight: 300;
+      color: var(--ink-2); line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .modal-tips {
+      list-style: none;
+      display: flex; flex-direction: column;
+      gap: 8px; margin-bottom: 22px;
+    }
+
+    .modal-tips li {
+      display: grid;
+      grid-template-columns: 14px 1fr;
+      gap: 8px;
+      font-size: 11px; font-weight: 300;
+      color: var(--ink-2); line-height: 1.5;
+    }
+
+    .modal-tips li::before { content: '→'; color: var(--amber); }
+
+    .modal-cta {
+      width: 100%; padding: 12px;
+      background: var(--amber);
+      border: none; border-radius: 8px;
+      font-family: var(--serif);
+      font-size: 15px; font-style: italic;
+      color: var(--bg); cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .modal-cta:hover { opacity: 0.88; }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="logo-area">
-        <div class="logo-icon">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 22V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M22 7L12 12L2 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+
+  <header>
+    <div>
+      <div class="wordmark-top">Info<em>Blend</em></div>
+      <div class="wordmark-sub">Intelligence augmented</div>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <span class="status-label">Active</span>
+    </div>
+  </header>
+
+  <main>
+
+    <div class="block">
+      <div class="block-label">Features</div>
+
+      <label class="toggle-item">
+        <span class="toggle-name">Text Insights</span>
+        <span class="toggle-hint">on select</span>
+        <div class="pill">
+          <input type="checkbox" id="definitionsEnabled" checked>
+          <div class="pill-track"></div>
         </div>
-        <div class="logo-text">
-          <h1>InfoBlend <span>AI</span> <span class="badge">v3 Pro</span></h1>
-          <p>Intelligence Augmented</p>
+      </label>
+      <label class="toggle-item">
+        <span class="toggle-name">Smart Autofill</span>
+        <span class="toggle-hint">forms</span>
+        <div class="pill">
+          <input type="checkbox" id="autofillEnabled" checked>
+          <div class="pill-track"></div>
         </div>
+      </label>
+      <label class="toggle-item">
+        <span class="toggle-name">Ad Blocker</span>
+        <span class="toggle-hint">basic filtering</span>
+        <div class="pill">
+          <input type="checkbox" id="adBlockEnabled" checked>
+          <div class="pill-track"></div>
+        </div>
+      </label>
+
+      <button id="summarizeBtn" class="summarize">
+        <div class="sum-left">
+          <div class="sum-icon">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div>
+            <div class="sum-title">Summarize page</div>
+            <div class="sum-desc">Extract key insights</div>
+          </div>
+        </div>
+        <span class="sum-arrow">→</span>
+      </button>
+    </div>
+
+    <div class="block">
+      <div class="block-label">Data Profile</div>
+      <div class="field">
+        <span class="field-key">Name</span>
+        <input type="text" id="userName" placeholder="Full name" spellcheck="false">
       </div>
-    </header>
+      <div class="field">
+        <span class="field-key">Email</span>
+        <input type="email" id="userEmail" placeholder="you@email.com" spellcheck="false">
+      </div>
+      <div class="field">
+        <span class="field-key">Phone</span>
+        <input type="tel" id="userPhone" placeholder="+1 000 000 0000" spellcheck="false">
+      </div>
+    </div>
 
-    <main>
-      <section class="activity-section">
-        <label class="section-label">Recent Intelligence</label>
-        <div id="recentActivity" class="activity-list">
-          <div class="activity-item loading">Loading history...</div>
-        </div>
-      </section>
-
-      <section class="features">
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-          </div>
-          <div class="feature-info">
-            <span class="feature-title">Text Insights</span>
-            <span class="feature-desc">Lookup definitions on selection</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="definitionsEnabled" checked>
-            <span class="slider round"></span>
-          </label>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-          </div>
-          <div class="feature-info">
-            <span class="feature-title">Smart Autofill</span>
-            <span class="feature-desc">Automate form entries</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="autofillEnabled" checked>
-            <span class="slider round"></span>
-          </label>
-        </div>
-
-        <button id="summarizeBtn" class="primary-btn">
-          <div class="btn-content">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            <span>Summarize Page</span>
-          </div>
-          <div class="btn-shimmer"></div>
-        </button>
-      </section>
-
-      <div class="divider"><span>Data Profiles</span></div>
-
-      <section class="user-data card">
-        <div class="input-field">
-          <div class="input-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          </div>
-          <input type="text" id="userName" placeholder="Full Name" spellcheck="false">
-        </div>
-        <div class="input-field">
-          <div class="input-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-          </div>
-          <input type="email" id="userEmail" placeholder="Email Address" spellcheck="false">
-        </div>
-        <div class="input-field">
-          <div class="input-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-          </div>
-          <input type="tel" id="userPhone" placeholder="Phone Number" spellcheck="false">
-        </div>
-      <div class="divider"><span>AI Intelligence (Alpha)</span></div>
-      
-      <section class="ai-config card">
-        <div class="input-field">
-          <div class="input-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-          </div>
-          <input type="text" id="aiEndpoint" placeholder="API Endpoint (Gemini/Vertex)" spellcheck="false">
-        </div>
-        <div class="input-field">
-          <div class="input-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 3 9 21"></polyline></svg>
-          </div>
-          <select id="aiProvider" style="width: 100%; height: 36px; background: transparent; border: none; color: white; padding: 0 10px; cursor: pointer; font-family: inherit; font-size: 13px; -webkit-appearance: none; appearance: none;">
-            <option value="gemini" style="background: #1a1b26;">Google Gemini</option>
-            <option value="openai" style="background: #1a1b26;">OpenAI (GPT-3.5/4)</option>
-            <option value="generic" style="background: #1a1b26;">Generic Proxy</option>
+    <div class="block">
+      <div class="block-label">AI Config <span class="alpha">alpha</span></div>
+      <div class="field">
+        <span class="field-key">Endpoint</span>
+        <input type="text" id="aiEndpoint" placeholder="api.endpoint.url" spellcheck="false">
+      </div>
+      <div class="field">
+        <span class="field-key">Provider</span>
+        <div class="select-wrap">
+          <select id="aiProvider">
+            <option value="gemini">Google Gemini</option>
+            <option value="openai">OpenAI GPT-4</option>
+            <option value="generic">Generic Proxy</option>
           </select>
         </div>
-        <div class="input-field">
-          <div class="input-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3-3.5 3.5z"></path></svg>
-          </div>
-          <input type="password" id="aiKey" placeholder="API Key" spellcheck="false">
-        </div>
-      </section>
+      </div>
+      <div class="field">
+        <span class="field-key">Key</span>
+        <input type="password" id="aiKey" placeholder="sk-••••••••••••" spellcheck="false">
+      </div>
+    </div>
 
-      <div class="divider"><span>Preferences</span></div>
-      
-      <section class="preferences card">
-        <div class="input-field">
-          <div class="input-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-          </div>
-          <select id="theme" style="width: 100%; height: 36px; background: transparent; border: none; color: white; padding: 0 10px; cursor: pointer; font-family: inherit; font-size: 13px; appearance: none;">
-            <option value="system" style="background: #1a1b26;">System Theme</option>
-            <option value="dark" style="background: #1a1b26;">Dark Glass</option>
-            <option value="light" style="background: #1a1b26;">Light Glass</option>
+    <div class="block">
+      <div class="block-label">Preferences</div>
+      <div class="field">
+        <span class="field-key">Theme</span>
+        <div class="select-wrap">
+          <select id="theme">
+            <option value="system">System</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
           </select>
         </div>
-      </section>
-
-      <button id="saveBtn" class="secondary-btn">Save Changes</button>
-      
-      <!-- Onboarding Modal -->
-      <div id="onboardingModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(10px);">
-        <div class="modal-content" style="background: #1a1b26; padding: 30px; border-radius: 20px; text-align: center; max-width: 80%; border: 1px solid rgba(255,255,255,0.1);">
-          <h2 style="margin-bottom: 10px;">Welcome to InfoBlend AI</h2>
-          <p style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">Ready to augment your browsing?</p>
-          <ul style="text-align: left; font-size: 13px; margin-bottom: 20px; list-style: none; padding: 0;">
-            <li style="margin-bottom: 10px;">✨ <b>Select 1-2 words</b> for instant definitions.</li>
-            <li style="margin-bottom: 10px;">📄 <b>Summarize whole pages</b> with one click.</li>
-            <li style="margin-bottom: 15px;">📌 <b>Pin the overlay</b> if you need more time to read.</li>
-          </ul>
-          <button id="closeOnboarding" class="primary-btn" style="width: 100%;">Got it!</button>
-        </div>
       </div>
+    </div>
 
-    <footer>
-      <p>System v2.0.1 <span>|</span> InfoBlend AI</p>
-    </footer>
+    <button id="saveBtn" class="save-btn">Save Changes</button>
+
+  </main>
+
+  <footer>
+    <span>InfoBlend AI</span>
+    <span>v2.0.1</span>
+  </footer>
+
+  <div id="onboardingModal" class="modal">
+    <div class="modal-box">
+      <div class="modal-eyebrow">Welcome</div>
+      <div class="modal-heading">Meet <em>InfoBlend</em></div>
+      <p class="modal-body">Your browsing, augmented. Here's how to get started.</p>
+      <ul class="modal-tips">
+        <li>Select 1–2 words anywhere for instant definitions.</li>
+        <li>Hit Summarize to distil any page to its essence.</li>
+        <li>Pin the overlay to keep it open while you read.</li>
+      </ul>
+      <button id="closeOnboarding" class="modal-cta">Let's go</button>
+    </div>
   </div>
+
   <script src="popup.js" type="module"></script>
 </body>
 </html>

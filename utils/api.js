@@ -43,9 +43,17 @@ export const fetchWikipediaSummary = async (term) => {
 
 /**
  * Custom AI Fetcher with Adapter Support
+ * @param {string} text - The input text (word or long passage)
+ * @param {string} template - The API URL
+ * @param {string} key - The API Key
+ * @param {string} keyHeader - Custom header for key (optional)
+ * @param {string} provider - 'gemini', 'openai', or 'generic'
+ * @param {string} promptType - 'define' (default) or 'summarize'
  */
-export const fetchAIResponse = async (text, template, key, keyHeader, provider = 'gemini') => {
-  if (!template) throw new Error('No template URL configured');
+export const fetchAIResponse = async (text, template, key, keyHeader, provider = 'gemini', promptType = 'define') => {
+  if (!template || !template.startsWith('http')) {
+    throw new Error('Invalid API Endpoint. Please check your settings.');
+  }
   
   const headers = { 'Content-Type': 'application/json' };
   if (key) {
@@ -53,9 +61,14 @@ export const fetchAIResponse = async (text, template, key, keyHeader, provider =
     else { headers['Authorization'] = 'Bearer ' + key; }
   }
 
-  const promptText = text.includes(' ') 
-    ? `Explain this in one short, simple line: '${text}'`
-    : `What is "${text}"? Give a very short, simple definition.`;
+  let promptText;
+  if (promptType === 'summarize') {
+    promptText = `Provide a concise 3-4 bullet point summary of the following text: "${text.substring(0, 10000)}"`;
+  } else {
+    promptText = text.includes(' ') 
+      ? `Explain this in one short, simple line: '${text}'`
+      : `What is "${text}"? Give a very short, simple definition.`;
+  }
 
   let body;
   if (provider === 'gemini') {
@@ -64,30 +77,36 @@ export const fetchAIResponse = async (text, template, key, keyHeader, provider =
     body = {
       model: 'gpt-3.5-turbo',
       messages: [{ role: 'user', content: promptText }],
-      max_tokens: 100
+      max_tokens: promptType === 'summarize' ? 300 : 100
     };
   } else {
-    // Generic simple format
-    body = { prompt: promptText };
+    body = { prompt: promptText, max_tokens: promptType === 'summarize' ? 300 : 100 };
   }
 
-  const resp = await fetch(template, { method: 'POST', headers, body: JSON.stringify(body) });
+  const resp = await fetch(template, { 
+    method: 'POST', 
+    headers, 
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000) // 15s timeout
+  });
+
+  if (!resp.ok) {
+    const errorData = await resp.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `API Error: ${resp.status} ${resp.statusText}`);
+  }
+
   const json = await resp.json();
   
   // Adapter Logic for Response Parsing
+  let result;
   if (provider === 'gemini') {
-    if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return json.candidates[0].content.parts[0].text.trim();
-    }
+    result = json.candidates?.[0]?.content?.parts?.[0]?.text;
   } else if (provider === 'openai') {
-    if (json.choices?.[0]?.message?.content) {
-      return json.choices[0].message.content.trim();
-    }
-  } else if (json.text) {
-    return json.text.trim();
-  } else if (json.response) {
-    return json.response.trim();
+    result = json.choices?.[0]?.message?.content;
+  } else {
+    result = json.text || json.response || json.choices?.[0]?.text;
   }
   
-  return 'No AI response received or format mismatch.';
+  if (!result) throw new Error('Could not parse AI response. Check your Provider settings.');
+  return result.trim();
 };

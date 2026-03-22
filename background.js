@@ -18,52 +18,38 @@ chrome.runtime.onInstalled.addListener(() => {
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'define-with-infoblend' && info.selectionText) {
+    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
     try {
-      const definition = await fetchDefinition(info.selectionText);
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'SHOW_DEFINITION',
-        data: definition
-      });
+      const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+      let definition;
+      if (aiKey && aiEndpoint) {
+        definition = {
+          title: info.selectionText,
+          content: await fetchAIResponse(info.selectionText, aiEndpoint, aiKey, null, aiProvider, 'define'),
+          source: `AI (${aiProvider})`
+        };
+      } else {
+        definition = await fetchDefinition(info.selectionText);
+      }
+      chrome.tabs.sendMessage(tab.id, { type: 'SHOW_DEFINITION', data: definition });
     } catch (error) {
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'SHOW_ERROR',
-        message: 'Could not find definition.'
-      });
+      chrome.tabs.sendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
     }
   } else if (info.menuItemId === 'summarize-with-infoblend' && info.selectionText) {
-    const settings = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
-    
-    if (settings.aiEndpoint && settings.aiKey) {
-      try {
-        chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
-        const aiSummary = await fetchAIResponse(
-          info.selectionText, 
-          settings.aiEndpoint, 
-          settings.aiKey,
-          null,
-          settings.aiProvider || 'gemini'
-        );
-        chrome.tabs.sendMessage(tab.id, {
-          type: 'SHOW_DEFINITION',
-          data: {
-            title: 'AI Summary',
-            content: aiSummary,
-            source: 'InfoBlend AI'
-          }
+    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
+    try {
+      const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+      if (aiKey && aiEndpoint) {
+        const summary = await fetchAIResponse(info.selectionText, aiEndpoint, aiKey, null, aiProvider, 'summarize');
+        chrome.tabs.sendMessage(tab.id, { 
+          type: 'SHOW_DEFINITION', 
+          data: { title: 'Selection Summary', content: summary, source: `AI (${aiProvider})` } 
         });
-      } catch (error) {
-        // Fallback to local summarizer
-        chrome.tabs.sendMessage(tab.id, {
-          type: 'SUMMARIZE_SELECTION',
-          text: info.selectionText
-        });
+      } else {
+        chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_SELECTION', text: info.selectionText });
       }
-    } else {
-      // Use local summarizer
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'SUMMARIZE_SELECTION',
-        text: info.selectionText
-      });
+    } catch (error) {
+      chrome.tabs.sendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
     }
   }
 });
@@ -71,9 +57,31 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // Handle messages from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FETCH_DEFINITION') {
-    fetchDefinition(message.word)
-      .then(data => sendResponse({ success: true, data }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true; // Keep message channel open for async response
+    (async () => {
+      try {
+        const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+        if (aiKey && aiEndpoint) {
+          const aiResponse = await fetchAIResponse(message.word, aiEndpoint, aiKey, null, aiProvider, 'define');
+          sendResponse({ success: true, data: { title: message.word, content: aiResponse, source: `AI (${aiProvider})` } });
+        } else {
+          const result = await fetchDefinition(message.word);
+          sendResponse({ success: true, data: result });
+        }
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; 
+  } else if (message.type === 'SUMMARIZE_VIA_AI') {
+    (async () => {
+      try {
+        const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+        const summary = await fetchAIResponse(message.text, aiEndpoint, aiKey, null, aiProvider, 'summarize');
+        sendResponse({ success: true, summary: summary });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
   }
 });

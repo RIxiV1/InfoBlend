@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const closeOnboarding = document.getElementById('closeOnboarding');
 
   // Load existing settings
-  const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'onboardingDone', 'summaryHistory']);
+  const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'onboardingDone', 'summaryHistory', 'adBlockEnabled']);
   
   // Update Recent Activity
   const activityList = document.getElementById('recentActivity');
@@ -64,6 +64,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (settings.aiKey) aiKey.value = settings.aiKey;
   if (settings.theme) theme.value = settings.theme;
 
+  const adBlockEnabled = document.getElementById('adBlockEnabled');
+  if (adBlockEnabled) { // Check if the element exists before trying to access its properties
+    if (settings.adBlockEnabled !== undefined) {
+      adBlockEnabled.checked = settings.adBlockEnabled;
+    }
+  }
+
   // Save settings
   saveBtn.addEventListener('click', async () => {
     const userData = {
@@ -79,13 +86,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       aiEndpoint: aiEndpoint.value,
       aiProvider: aiProvider.value,
       aiKey: aiKey.value,
-      theme: theme.value
+      theme: theme.value,
+      adBlockEnabled: adBlockEnabled ? adBlockEnabled.checked : false // Save adBlockEnabled state
     });
 
-    saveBtn.textContent = 'Saved!';
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Saved ✓';
+    saveBtn.classList.add('saved');
     setTimeout(() => {
-      saveBtn.textContent = 'Save Settings';
-    }, 2000);
+      saveBtn.textContent = originalText;
+      saveBtn.classList.remove('saved');
+    }, 1500);
   });
 
   // Summarize current page
