@@ -26,17 +26,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Update Recent Activity
   const activityList = document.getElementById('recentActivity');
-  if (settings.summaryHistory && settings.summaryHistory.length > 0) {
-    activityList.innerHTML = '';
-    settings.summaryHistory.slice(-3).reverse().forEach(item => {
-      const el = document.createElement('div');
-      el.className = 'activity-item';
-      el.textContent = item.title;
-      el.title = item.title;
-      activityList.appendChild(el);
-    });
-  } else {
-    activityList.innerHTML = '<div class="activity-item loading">No recent activity</div>';
+  if (activityList) {
+    if (settings.summaryHistory && settings.summaryHistory.length > 0) {
+      activityList.innerHTML = '';
+      settings.summaryHistory.slice(-3).reverse().forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'activity-item';
+        el.textContent = item.title;
+        el.title = item.title;
+        activityList.appendChild(el);
+      });
+    } else {
+      activityList.innerHTML = '<div class="activity-item loading">No recent activity</div>';
+    }
   }
 
   if (!settings.onboardingDone) {

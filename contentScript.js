@@ -137,7 +137,10 @@
   let overlayHost = null;
 
   async function showLoadingOverlay() {
-    if (overlayHost) overlayHost.remove();
+    if (overlayHost) {
+      overlayHost.remove();
+      overlayHost = null;
+    }
     clearTimeout(autoCloseTimer);
     
     overlayHost = document.createElement('div');
