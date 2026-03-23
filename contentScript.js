@@ -10,7 +10,9 @@
 
   // Listen for text selection
   document.addEventListener('mouseup', async (event) => {
-    if (event.target && event.target.id === 'infoblend-shadow-host') return;
+    // Ignore events originating from our own overlay
+    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
+    
     const selection = window.getSelection().toString().trim();
     const wordCount = selection.split(/\s+/).filter(w => w.length > 0).length;
     
