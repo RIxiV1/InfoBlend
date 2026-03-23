@@ -10,6 +10,7 @@
 
   // Listen for text selection
   document.addEventListener('mouseup', async (event) => {
+    if (event.target && event.target.id === 'infoblend-shadow-host') return;
     const selection = window.getSelection().toString().trim();
     const wordCount = selection.split(/\s+/).filter(w => w.length > 0).length;
     
@@ -351,6 +352,8 @@
   function closeOverlay(host, container) {
     if (host._stopTimer) host._stopTimer();
     container.classList.add('ib-fade-out');
+    // Clear selection to prevent immediate re-trigger on next click
+    window.getSelection().removeAllRanges();
     setTimeout(() => {
       if (host.parentNode) host.remove();
       if (overlayHost === host) overlayHost = null;
