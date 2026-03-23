@@ -154,6 +154,7 @@
 
     const shadow = overlayHost.attachShadow({ mode: 'open' });
 
+    // CSS must be added to shadow root
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = chrome.runtime.getURL('overlay/overlay.css');
@@ -218,6 +219,8 @@
     
     setupOverlayEvents(overlayHost, container);
     startAutoCloseTimer(overlayHost, container);
+    
+    return container;
   }
 
   function smartHighlight(text) {
@@ -251,10 +254,15 @@
     return fragment;
   }
 
-  function updateOverlay(title, content, source) {
-    if (!overlayHost) showLoadingOverlay();
+  async function updateOverlay(title, content, source) {
+    let container;
+    if (!overlayHost || !overlayHost.shadowRoot) {
+      container = await showLoadingOverlay();
+    } else {
+      container = overlayHost.shadowRoot.querySelector('.infoblend-overlay');
+      if (!container) container = await showLoadingOverlay();
+    }
     
-    const container = overlayHost.shadowRoot.querySelector('.infoblend-overlay');
     const header = container.querySelector('.infoblend-header');
     header.querySelector('.infoblend-title').textContent = title;
     
@@ -286,7 +294,8 @@
       copyBtn.className = 'infoblend-btn infoblend-copy';
       copyBtn.innerHTML = '📋';
       copyBtn.title = 'Copy';
-      copyBtn.onclick = () => {
+      copyBtn.onclick = (e) => {
+        e.stopPropagation();
         navigator.clipboard.writeText(content);
         copyBtn.innerHTML = '✅';
         setTimeout(() => copyBtn.innerHTML = '📋', 2000);
@@ -351,11 +360,18 @@
   function setupOverlayEvents(host, container) {
     const closeBtn = container.querySelector('.infoblend-close');
     if (closeBtn) {
-      closeBtn.onclick = (e) => { e.stopPropagation(); closeOverlay(host, container); };
+      closeBtn.onclick = null; // Clear old
+      closeBtn.onclick = (e) => { 
+        e.preventDefault();
+        e.stopPropagation(); 
+        closeOverlay(host, container); 
+      };
     }
     const pinBtn = container.querySelector('.infoblend-pin');
     if (pinBtn) {
+      pinBtn.onclick = null; // Clear old
       pinBtn.onclick = (e) => {
+        e.preventDefault();
         e.stopPropagation();
         host._isPinned = !host._isPinned;
         pinBtn.classList.toggle('active', host._isPinned);
