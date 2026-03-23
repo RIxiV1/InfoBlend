@@ -75,10 +75,26 @@
 
   async function handlePageSummarization() {
     showLoadingOverlay();
-    const contentSources = Array.from(document.querySelectorAll('p, article, section, h1, h2, h3'))
-      .map(el => el.innerText.trim())
-      .filter(text => text.length > 40);
-    const content = contentSources.join(' ') || document.body.innerText;
+    
+    // Identify common noise and junk elements
+    const junkSelectors = 'nav, footer, header, script, style, aside, [class*="sidebar"], [id*="sidebar"], [class*="ad-"], [id*="ad-"], [class*="nav-"], [id*="nav-"]';
+    const mainContentSelectors = 'article, main, .post-content, .entry-content, #content, #main';
+    
+    let contentSources = [];
+    const mainContent = document.querySelector(mainContentSelectors);
+    
+    if (mainContent) {
+      contentSources = Array.from(mainContent.querySelectorAll('p, h1, h2, h3, h4'))
+        .map(el => el.innerText.trim())
+        .filter(text => text.length > 20);
+    } else {
+      contentSources = Array.from(document.querySelectorAll('p, section, h1, h2, h3'))
+        .filter(el => !el.closest(junkSelectors))
+        .map(el => el.innerText.trim())
+        .filter(text => text.length > 40);
+    }
+    
+    const content = contentSources.join(' ') || document.body.innerText.substring(0, 10000);
     
     try {
       const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);

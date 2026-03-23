@@ -10,23 +10,30 @@ self.onmessage = function(e) {
 };
 
 function generateIntelligentSummary(text, manualText = null) {
-  // Limit text size to 20,000 chars for safety
   const content = (manualText || text || '').substring(0, 20000);
-  
   if (!content) return '';
 
   const sentences = content.match(/[^.!?]+[.!?]+/g) || [content];
   if (sentences.length <= 4) return sentences.join(' ');
 
-  // Score sentences based on word frequency
-  const words = content.toLowerCase().match(/\b\w{4,}\b/g) || [];
-  const freq = {};
-  words.forEach(w => freq[w] = (freq[w] || 0) + 1);
+  // Standard English Stop Words
+  const stopWords = new Set(['the', 'and', 'for', 'was', 'with', 'that', 'this', 'but', 'from', 'have', 'were', 'not', 'will', 'your', 'their', 'when', 'which', 'than', 'more', 'about', 'some', 'could', 'should', 'would', 'into', 'these', 'those', 'also', 'only', 'very']);
 
-  const scores = sentences.map(s => {
-    const sWords = s.toLowerCase().match(/\b\w{4,}\b/g) || [];
-    const wordScore = sWords.reduce((acc, w) => acc + (freq[w] || 0), 0);
-    return wordScore / (Math.sqrt(sWords.length) || 1); // Normalize by length
+  // Score sentences based on word frequency
+  const rawWords = content.toLowerCase().match(/\b\w{3,}\b/g) || [];
+  const freq = {};
+  rawWords.forEach(w => {
+    if (!stopWords.has(w)) freq[w] = (freq[w] || 0) + 1;
+  });
+
+  const scores = sentences.map((s, idx) => {
+    const sWords = s.toLowerCase().match(/\b\w{3,}\b/g) || [];
+    let wordScore = sWords.reduce((acc, w) => acc + (freq[w] || 0), 0);
+    
+    // Position-based boosting (early sentences usually more important)
+    const positionBoost = (sentences.length - idx) / sentences.length * 2.0;
+    
+    return (wordScore / (Math.sqrt(sWords.length) || 1)) + positionBoost; // Length normalization
   });
 
   // Pick top 4 sentences and sort by appearance order

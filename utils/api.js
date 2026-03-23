@@ -63,7 +63,7 @@ export const fetchAIResponse = async (text, template, key, keyHeader, provider =
 
   let promptText;
   if (promptType === 'summarize') {
-    promptText = `Provide a concise 3-4 bullet point summary of the following text: "${text.substring(0, 10000)}"`;
+    promptText = `You are a professional research assistant. Provide a concise, highly insightful summary of the following text using 3-4 high-impact bullet points. Focus on key data points and the primary message: "${text.substring(0, 10000)}"`;
   } else {
     promptText = text.includes(' ') 
       ? `Explain this in one short, simple line: '${text}'`
