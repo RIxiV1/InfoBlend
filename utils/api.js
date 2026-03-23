@@ -28,7 +28,7 @@ export const fetchDefinition = async (word) => {
 export const fetchWikipediaSummary = async (term) => {
   try {
     const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
-    if (!response.ok) throw new Error('Wikipedia entry not found');
+    if (!response.ok) throw new Error(`Encyclopedia: No entry found for '${term}'.`);
     const data = await response.json();
     return {
       title: data.title,

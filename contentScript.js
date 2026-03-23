@@ -3,8 +3,31 @@
  */
 
 (async () => {
-  // Helper to get storage data
-  const getStorage = (keys) => new Promise(res => chrome.storage.local.get(keys, res));
+  // Helper to get storage data - handles extension context invalidation
+  const getStorage = (keys) => new Promise(res => {
+    try {
+      if (chrome.runtime && chrome.runtime.id) {
+        chrome.storage.local.get(keys, res);
+      } else {
+        res({});
+      }
+    } catch (e) {
+      res({});
+    }
+  });
+
+  // Helper for message sending
+  const sendMessage = (msg, cb) => {
+    try {
+      if (chrome.runtime && chrome.runtime.id) {
+        chrome.runtime.sendMessage(msg, cb);
+      } else if (cb) {
+        cb({ success: false, error: 'Context invalidated' });
+      }
+    } catch (e) {
+      if (cb) cb({ success: false, error: 'Context invalidated' });
+    }
+  };
 
   let overlay = null;
 
@@ -17,17 +40,20 @@
     const wordCount = selection.split(/\s+/).filter(w => w.length > 0).length;
     
     if (selection && wordCount > 0 && wordCount <= 2 && selection.length < 50) {
-      const settings = await getStorage(['definitionsEnabled']);
-      if (settings.definitionsEnabled !== false) {
-        showLoadingOverlay();
-        chrome.runtime.sendMessage({ type: 'FETCH_DEFINITION', word: selection }, (response) => {
-          if (response && response.success) {
-            updateOverlay(response.data.title, response.data.content, response.data.source);
-          } else {
-            updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
-          }
-        });
-      }
+      const run = async () => {
+        const settings = await getStorage(['definitionsEnabled']);
+        if (settings.definitionsEnabled !== false) {
+          showLoadingOverlay();
+          sendMessage({ type: 'FETCH_DEFINITION', word: selection }, (response) => {
+            if (response && response.success) {
+              updateOverlay(response.data.title, response.data.content, response.data.source);
+            } else {
+              updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
+            }
+          });
+        }
+      };
+      run();
     }
   });
 
@@ -57,7 +83,7 @@
     try {
       const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);
       if (settings.aiKey && settings.aiEndpoint) {
-        chrome.runtime.sendMessage({ 
+        sendMessage({ 
           type: 'SUMMARIZE_VIA_AI', 
           text: content.substring(0, 10000) 
         }, (response) => {
@@ -139,7 +165,7 @@
   let autoCloseTimer = null;
   let overlayHost = null;
 
-  async function showLoadingOverlay() {
+  function showLoadingOverlay() {
     if (overlayHost) {
       overlayHost.remove();
       overlayHost = null;
@@ -166,11 +192,13 @@
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
 
-    const settings = await getStorage(['theme']);
-    if (settings.theme === 'light' || 
-       (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches)) {
-      container.classList.add('ib-light-theme');
-    }
+    // Theme loading is handled asynchronously to prevent blocking UI
+    getStorage(['theme']).then(settings => {
+      if (settings.theme === 'light' || 
+         (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+        container.classList.add('ib-light-theme');
+      }
+    });
 
     const header = document.createElement('div');
     header.className = 'infoblend-header';
@@ -260,10 +288,10 @@
   async function updateOverlay(title, content, source) {
     let container;
     if (!overlayHost || !overlayHost.shadowRoot) {
-      container = await showLoadingOverlay();
+      container = showLoadingOverlay();
     } else {
       container = overlayHost.shadowRoot.querySelector('.infoblend-overlay');
-      if (!container) container = await showLoadingOverlay();
+      if (!container) container = showLoadingOverlay();
     }
     
     const header = container.querySelector('.infoblend-header');
