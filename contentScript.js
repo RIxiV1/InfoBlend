@@ -3,10 +3,28 @@
  */
 
 (async () => {
+  // Helper to check if the extension context is still valid
+  const isContextValid = () => {
+    try {
+      return !!(chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Helper for safe URL retrieval
+  const safeGetURL = (path) => {
+    try {
+      return chrome.runtime.getURL(path);
+    } catch (e) {
+      return '';
+    }
+  };
+
   // Helper to get storage data - handles extension context invalidation
   const getStorage = (keys) => new Promise(res => {
     try {
-      if (chrome.runtime && chrome.runtime.id) {
+      if (isContextValid()) {
         chrome.storage.local.get(keys, res);
       } else {
         res({});
@@ -19,7 +37,7 @@
   // Helper for message sending
   const sendMessage = (msg, cb) => {
     try {
-      if (chrome.runtime && chrome.runtime.id) {
+      if (isContextValid()) {
         chrome.runtime.sendMessage(msg, cb);
       } else if (cb) {
         cb({ success: false, error: 'Context invalidated' });
@@ -119,11 +137,16 @@
   }
 
   function runLocalSummarizer(text) {
-    const workerMock = {
-      terminate: () => {}
-    };
+    if (!isContextValid()) {
+      updateOverlay('Notice', 'Extension updated. Please refresh the page to continue.', 'InfoBlend');
+      return;
+    }
+    
     try {
-      const worker = new Worker(chrome.runtime.getURL('utils/summarizer.worker.js'));
+      const url = safeGetURL('utils/summarizer.worker.js');
+      if (!url) throw new Error('Could not get worker URL');
+      
+      const worker = new Worker(url);
       worker.postMessage({ text: text });
       worker.onmessage = (e) => {
         if (e.data.ok) {
@@ -134,11 +157,13 @@
         worker.terminate();
       };
       worker.onerror = (err) => {
-        updateOverlay('Notice', 'Summarization failed.', 'InfoBlend');
+        const errorMsg = isContextValid() ? 'Summarization failed.' : 'Extension updated. Please refresh.';
+        updateOverlay('Notice', errorMsg, 'InfoBlend');
         worker.terminate();
       };
     } catch (e) {
-      updateOverlay('Notice', 'Worker error.', 'InfoBlend');
+      const errorMsg = isContextValid() ? 'Worker error.' : 'Extension updated. Please refresh.';
+      updateOverlay('Notice', errorMsg, 'InfoBlend');
     }
   }
 
@@ -206,8 +231,11 @@
     // CSS must be added to shadow root
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = chrome.runtime.getURL('overlay/overlay.css');
-    shadow.appendChild(link);
+    const cssURL = safeGetURL('overlay/overlay.css');
+    if (cssURL) {
+      link.href = cssURL;
+      shadow.appendChild(link);
+    }
 
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
