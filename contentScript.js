@@ -22,53 +22,39 @@
   };
 
   // Helper to get storage data - handles extension context invalidation
-  const getStorage = (keys) => new Promise(res => {
+  const getStorage = async (keys) => {
     try {
-      if (isContextValid()) {
-        chrome.storage.local.get(keys, res);
-      } else {
-        res({});
-      }
+      if (!isContextValid()) return {};
+      return await chrome.storage.local.get(keys);
     } catch (e) {
-      res({});
+      return {};
     }
-  });
+  };
 
   // Helper for message sending
-  const sendMessage = (msg, cb) => {
+  const sendMessage = async (msg, cb) => {
     try {
-      if (isContextValid()) {
-        chrome.runtime.sendMessage(msg, (response) => {
-          if (chrome.runtime.lastError) {
-            console.warn('[InfoBlend] sendMessage error:', chrome.runtime.lastError.message);
-            if (cb) cb({ success: false, error: chrome.runtime.lastError.message });
-          } else if (cb) {
-            cb(response);
-          }
-        });
-      } else if (cb) {
-        cb({ success: false, error: 'Context invalidated' });
+      if (!isContextValid()) {
+        if (cb) cb({ success: false, error: 'Context invalidated' });
+        return;
       }
+      const response = await chrome.runtime.sendMessage(msg);
+      if (cb) cb(response);
     } catch (e) {
-      if (cb) cb({ success: false, error: 'Context invalidated' });
+      console.warn('[InfoBlend] sendMessage error:', e.message);
+      if (cb) cb({ success: false, error: e.message || 'Context invalidated' });
     }
   };
 
   // Helper to set storage data safely
-  const setStorage = (data) => new Promise(res => {
+  const setStorage = async (data) => {
     try {
-      if (isContextValid()) {
-        chrome.storage.local.set(data, () => {
-          if (chrome.runtime.lastError) console.warn('[InfoBlend] setStorage error:', chrome.runtime.lastError.message);
-          res();
-        });
-      } else {
-        res();
-      }
+      if (!isContextValid()) return;
+      await chrome.storage.local.set(data);
     } catch (e) {
-      res();
+      console.warn('[InfoBlend] setStorage error:', e.message);
     }
-  });
+  };
 
   let overlay = null;
 

@@ -17,14 +17,12 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Helper for safe tab messaging
-const safeSendMessage = (tabId, msg) => {
+const safeSendMessage = async (tabId, msg) => {
   try {
-    chrome.tabs.sendMessage(tabId, msg, () => {
-      if (chrome.runtime.lastError) {
-        // Silently fail for connection errors (usually means tab needs refresh)
-      }
-    });
-  } catch (e) {}
+    await chrome.tabs.sendMessage(tabId, msg);
+  } catch (e) {
+    // Silently fail for connection errors (usually means tab needs refresh)
+  }
 };
 
 // Handle context menu clicks

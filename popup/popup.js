@@ -106,15 +106,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab) {
       try {
-        chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.warn('[InfoBlend] Popup message failed:', chrome.runtime.lastError.message);
-          }
-          window.close();
-        });
+        await chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' });
       } catch (e) {
-        window.close();
+        console.warn('[InfoBlend] Popup message failed:', e.message);
       }
+      window.close();
     }
   });
 });
