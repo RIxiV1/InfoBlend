@@ -126,7 +126,11 @@
       const worker = new Worker(chrome.runtime.getURL('utils/summarizer.worker.js'));
       worker.postMessage({ text: text });
       worker.onmessage = (e) => {
-        updateOverlay('Summary', e.data, 'InfoBlend Local Summarizer');
+        if (e.data.ok) {
+          updateOverlay('Summary', e.data.summary, 'InfoBlend Local Summarizer');
+        } else {
+          updateOverlay('Notice', 'Summarization failed: ' + e.data.error, 'InfoBlend');
+        }
         worker.terminate();
       };
       worker.onerror = (err) => {
