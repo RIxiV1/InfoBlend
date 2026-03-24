@@ -1,5 +1,6 @@
 import { fetchDefinition, fetchAIResponse } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
+import { generateIntelligentSummary } from './utils/summarizer.js';
 
 // Create context menu items
 chrome.runtime.onInstalled.addListener(() => {
@@ -99,5 +100,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     })();
     return true;
+  } else if (message.type === 'SUMMARIZE_LOCALLY') {
+    try {
+      const summary = generateIntelligentSummary(message.text);
+      sendResponse({ success: true, summary: summary });
+    } catch (error) {
+      try {
+        sendResponse({ success: false, error: error.message });
+      } catch (e) {}
+    }
   }
 });

@@ -1,22 +1,9 @@
 /**
- * Summarizer Web Worker.
- * Offloads text-heavy processing from the main thread.
+ * Local Extractive Summarizer
+ * Offloaded to the background script to bypass Content Security Policy constraints.
  */
 
-self.onmessage = function(e) {
-  try {
-    const { text, manualText, maxSentences = 4 } = e.data;
-    const summary = generateIntelligentSummary(text, manualText, maxSentences);
-    self.postMessage({ ok: true, summary });
-  } catch (err) {
-    self.postMessage({ ok: false, error: err.message });
-  }
-};
-
-/**
- * Generates an extractive summary by scoring sentences based on word frequency.
- */
-function generateIntelligentSummary(text, manualText = null, maxSentences = 4) {
+export function generateIntelligentSummary(text, manualText = null, maxSentences = 4) {
   const raw = manualText || text || '';
   
   // Truncate at the last sentence boundary within the 20,000 char safety limit

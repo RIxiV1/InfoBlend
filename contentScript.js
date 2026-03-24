@@ -165,29 +165,14 @@
       return;
     }
     
-    try {
-      const url = safeGetURL('utils/summarizer.worker.js');
-      if (!url) throw new Error('Could not get worker URL');
-      
-      const worker = new Worker(url);
-      worker.postMessage({ text: text });
-      worker.onmessage = (e) => {
-        if (e.data.ok) {
-          updateOverlay('Summary', e.data.summary, 'InfoBlend Local Summarizer');
-        } else {
-          updateOverlay('Notice', 'Summarization failed: ' + e.data.error, 'InfoBlend');
-        }
-        worker.terminate();
-      };
-      worker.onerror = (err) => {
-        const errorMsg = isContextValid() ? 'Summarization failed.' : 'Extension updated. Please refresh.';
-        updateOverlay('Notice', errorMsg, 'InfoBlend');
-        worker.terminate();
-      };
-    } catch (e) {
-      const errorMsg = isContextValid() ? 'Worker error.' : 'Extension updated. Please refresh.';
-      updateOverlay('Notice', errorMsg, 'InfoBlend');
-    }
+    sendMessage({ type: 'SUMMARIZE_LOCALLY', text: text }, (response) => {
+      if (response && response.success) {
+        updateOverlay('Summary', response.summary, 'InfoBlend Local Summarizer');
+      } else {
+        const errorMsg = response?.error || 'Summarization failed.';
+        updateOverlay('Notice', isContextValid() ? errorMsg : 'Extension updated. Please refresh.', 'InfoBlend');
+      }
+    });
   }
 
   // Form Auto-fill Logic
