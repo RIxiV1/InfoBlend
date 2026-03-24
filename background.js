@@ -79,7 +79,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ success: true, data: result });
         }
       } catch (error) {
-        sendResponse({ success: false, error: error.message });
+        // Only send response if the connection is still open
+        try {
+          sendResponse({ success: false, error: error.message });
+        } catch (e) {}
       }
     })();
     return true; 
@@ -90,7 +93,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const summary = await fetchAIResponse(message.text, aiEndpoint, aiKey, null, aiProvider, 'summarize');
         sendResponse({ success: true, summary: summary });
       } catch (error) {
-        sendResponse({ success: false, error: error.message });
+        try {
+          sendResponse({ success: false, error: error.message });
+        } catch (e) {}
       }
     })();
     return true;

@@ -105,8 +105,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   summarizeBtn.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab) {
-      chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' });
-      window.close(); // Close popup to show overlay on page
+      try {
+        chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[InfoBlend] Popup message failed:', chrome.runtime.lastError.message);
+          }
+          window.close();
+        });
+      } catch (e) {
+        window.close();
+      }
     }
   });
 });
