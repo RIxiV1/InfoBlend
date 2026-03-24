@@ -15,10 +15,21 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// Helper for safe tab messaging
+const safeSendMessage = (tabId, msg) => {
+  try {
+    chrome.tabs.sendMessage(tabId, msg, () => {
+      if (chrome.runtime.lastError) {
+        // Silently fail for connection errors (usually means tab needs refresh)
+      }
+    });
+  } catch (e) {}
+};
+
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'define-with-infoblend' && info.selectionText) {
-    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
+    safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
     try {
       const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
       let definition;
@@ -31,25 +42,25 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       } else {
         definition = await fetchDefinition(info.selectionText);
       }
-      chrome.tabs.sendMessage(tab.id, { type: 'SHOW_DEFINITION', data: definition });
+      safeSendMessage(tab.id, { type: 'SHOW_DEFINITION', data: definition });
     } catch (error) {
-      chrome.tabs.sendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
+      safeSendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
     }
   } else if (info.menuItemId === 'summarize-with-infoblend' && info.selectionText) {
-    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
+    safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
     try {
       const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
       if (aiKey && aiEndpoint) {
         const summary = await fetchAIResponse(info.selectionText, aiEndpoint, aiKey, null, aiProvider, 'summarize');
-        chrome.tabs.sendMessage(tab.id, { 
+        safeSendMessage(tab.id, { 
           type: 'SHOW_DEFINITION', 
           data: { title: 'Selection Summary', content: summary, source: `AI (${aiProvider})` } 
         });
       } else {
-        chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_SELECTION', text: info.selectionText });
+        safeSendMessage(tab.id, { type: 'SUMMARIZE_SELECTION', text: info.selectionText });
       }
     } catch (error) {
-      chrome.tabs.sendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
+      safeSendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
     }
   }
 });

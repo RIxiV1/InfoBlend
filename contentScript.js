@@ -38,7 +38,14 @@
   const sendMessage = (msg, cb) => {
     try {
       if (isContextValid()) {
-        chrome.runtime.sendMessage(msg, cb);
+        chrome.runtime.sendMessage(msg, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[InfoBlend] sendMessage error:', chrome.runtime.lastError.message);
+            if (cb) cb({ success: false, error: chrome.runtime.lastError.message });
+          } else if (cb) {
+            cb(response);
+          }
+        });
       } else if (cb) {
         cb({ success: false, error: 'Context invalidated' });
       }
@@ -46,6 +53,22 @@
       if (cb) cb({ success: false, error: 'Context invalidated' });
     }
   };
+
+  // Helper to set storage data safely
+  const setStorage = (data) => new Promise(res => {
+    try {
+      if (isContextValid()) {
+        chrome.storage.local.set(data, () => {
+          if (chrome.runtime.lastError) console.warn('[InfoBlend] setStorage error:', chrome.runtime.lastError.message);
+          res();
+        });
+      } else {
+        res();
+      }
+    } catch (e) {
+      res();
+    }
+  });
 
   let overlay = null;
 
@@ -498,6 +521,6 @@
       timestamp: Date.now() 
     });
     if (history.length > 10) history.shift();
-    chrome.storage.local.set({ summaryHistory: history });
+    setStorage({ summaryHistory: history });
   }
 })();
