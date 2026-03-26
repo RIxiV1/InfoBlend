@@ -302,19 +302,22 @@
     return container;
   }
 
+  const _highlightPatterns = [
+    /\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\b/g,
+    /\b(?:AI|LLM|API|HTML|CSS|JS|URL|HTTP|JSON)\b/g,
+    /\b(?:algorithm|neural network|machine learning|automation|intelligence|optimization|minimalist|glassmorphism|gerund)\b/gi
+  ];
+  const _highlightCombinedPattern = new RegExp(_highlightPatterns.map(p => p.source).join('|'), 'gi');
+
   function smartHighlight(text) {
     if (!text) return document.createTextNode('');
-    const patterns = [
-      /\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\b/g,
-      /\b(?:AI|LLM|API|HTML|CSS|JS|URL|HTTP|JSON)\b/g,
-      /\b(?:algorithm|neural network|machine learning|automation|intelligence|optimization|minimalist|glassmorphism|gerund)\b/gi
-    ];
     const fragment = document.createDocumentFragment();
     const seen = new Set();
     let lastIndex = 0;
-    const combinedPattern = new RegExp(patterns.map(p => p.source).join('|'), 'gi');
+    
+    _highlightCombinedPattern.lastIndex = 0; // Essential reset since it's global
     let match;
-    while ((match = combinedPattern.exec(text)) !== null) {
+    while ((match = _highlightCombinedPattern.exec(text)) !== null) {
       fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
       const term = match[0];
       const cleanTerm = term.toLowerCase();
