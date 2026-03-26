@@ -67,8 +67,13 @@ export const encrypt = async (text) => {
     combined.set(iv);
     combined.set(new Uint8Array(encryptedContent), iv.length);
 
-    // Return as base64 string
-    return btoa(String.fromCharCode(...combined));
+    // Return as base64 string safely without stack overflow
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < combined.length; i += chunkSize) {
+      binary += String.fromCharCode(...combined.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
   } catch (err) {
     console.error('Encryption failed:', err);
     return text; // Fallback to plaintext if encryption fails (shouldn't happen)

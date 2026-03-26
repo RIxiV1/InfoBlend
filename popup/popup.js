@@ -106,11 +106,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab) {
       try {
+        if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:'))) {
+          throw new Error('Cannot run on internal browser pages.');
+        }
         await chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' });
+        window.close();
       } catch (e) {
         console.warn('[InfoBlend] Popup message failed:', e.message);
+        const originalText = summarizeBtn.textContent;
+        const originalBg = summarizeBtn.style.backgroundColor;
+        summarizeBtn.textContent = 'Restricted Page';
+        summarizeBtn.style.backgroundColor = '#ff4d4f';
+        setTimeout(() => {
+          summarizeBtn.textContent = originalText;
+          summarizeBtn.style.backgroundColor = originalBg;
+        }, 3000);
       }
-      window.close();
     }
   });
 });

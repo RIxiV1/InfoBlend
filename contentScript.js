@@ -169,6 +169,10 @@
       const inputs = document.querySelectorAll('input');
       let filledCount = 0;
       
+      const nameRegex = /full.name|first.name|display.name|^name$|^fname$/i;
+      const emailRegex = /email|e-mail|mail.address/i;
+      const phoneRegex = /phone|tel|mobile|cell/i;
+
       inputs.forEach(input => {
         const nameAttr = (input.name || '').toLowerCase();
         const idAttr = (input.id || '').toLowerCase();
@@ -176,10 +180,12 @@
         const typeAttr = (input.type || '').toLowerCase();
         const placeholder = (input.placeholder || '').toLowerCase();
 
+        const combinedAttrs = nameAttr + idAttr + labelAttr + placeholder;
+
         // Refined matching logic to reduce false positives
-        const isName = /full.name|first.name|display.name|^name$|^fname$/i.test(nameAttr + idAttr + labelAttr + placeholder);
-        const isEmail = typeAttr === 'email' || /email|e-mail|mail.address/i.test(nameAttr + idAttr + labelAttr + placeholder);
-        const isPhone = typeAttr === 'tel' || /phone|tel|mobile|cell/i.test(nameAttr + idAttr + labelAttr + placeholder);
+        const isName = nameRegex.test(combinedAttrs);
+        const isEmail = typeAttr === 'email' || emailRegex.test(combinedAttrs);
+        const isPhone = typeAttr === 'tel' || phoneRegex.test(combinedAttrs);
 
         if (name && isName && !input.value) {
           input.value = name;
@@ -409,16 +415,26 @@
       else animationFrameId = requestAnimationFrame(update);
     };
 
-    container.onmouseenter = () => { isPaused = true; };
-    container.onmouseleave = () => { 
+    const handleMouseEnter = () => { isPaused = true; };
+    const handleMouseLeave = () => { 
       isPaused = false; 
       if (!host._isPinned) {
         startTime = Date.now() - (delay - (parseFloat(progressBar.style.width) / 100 * delay));
         animationFrameId = requestAnimationFrame(update);
       }
     };
+
+    container.addEventListener('mouseenter', handleMouseEnter);
+    container.addEventListener('mouseleave', handleMouseLeave);
+    
     animationFrameId = requestAnimationFrame(update);
-    host._stopTimer = () => { isPaused = true; cancelAnimationFrame(animationFrameId); };
+    
+    host._stopTimer = () => { 
+      isPaused = true; 
+      cancelAnimationFrame(animationFrameId); 
+      container.removeEventListener('mouseenter', handleMouseEnter);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+    };
   }
 
   function closeOverlay(host, container) {
@@ -461,15 +477,6 @@
     let isDragging = false;
     let startX, startY, initialX, initialY;
     const header = container.querySelector('.infoblend-header');
-    header.onmousedown = (e) => {
-      if (e.target.closest('.infoblend-btn')) return;
-      isDragging = true;
-      startX = e.clientX; startY = e.clientY;
-      const rect = container.getBoundingClientRect();
-      initialX = rect.left; initialY = rect.top;
-      header.style.cursor = 'grabbing';
-      e.preventDefault();
-    };
     const handleMouseMove = (e) => {
       if (!isDragging) return;
       const dx = e.clientX - startX;
@@ -478,9 +485,25 @@
       host.style.top = `${initialY + dy}px`;
       host.style.right = 'auto'; host.style.bottom = 'auto';
     };
-    const handleMouseUp = () => { if (!isDragging) return; isDragging = false; header.style.cursor = 'move'; };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    const handleMouseUp = () => { 
+      if (!isDragging) return; 
+      isDragging = false; 
+      header.style.cursor = 'move'; 
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    header.onmousedown = (e) => {
+      if (e.target.closest('.infoblend-btn')) return;
+      isDragging = true;
+      startX = e.clientX; startY = e.clientY;
+      const rect = container.getBoundingClientRect();
+      initialX = rect.left; initialY = rect.top;
+      header.style.cursor = 'grabbing';
+      e.preventDefault();
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    };
   }
 
   async function saveToHistory(title, content) {

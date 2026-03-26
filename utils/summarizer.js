@@ -13,13 +13,20 @@ export function generateIntelligentSummary(text, manualText = null, maxSentences
     
   if (!truncated.trim()) return '';
 
-  // Improved sentence splitting to avoid mangling abbreviations (e.g., Mr., Dr., U.S.A.)
-  // We temporarily replace dots in common abbreviations with a placeholder
-  const abbrs = /\b(Mr|Mrs|Ms|Dr|St|Prof|Jr|Sr|vs|min|max|etc|eg|ie|U\.S|U\.K|U\.N)\./gi;
-  const preProcessed = truncated.replace(abbrs, (match) => match.replace('.', '[[DOT]]'));
-  
-  const sentencesRaw = preProcessed.match(/[^.!?]+[.!?]+/g) || [preProcessed];
-  const sentences = sentencesRaw.map(s => s.replace(/\[\[DOT\]\]/g, '.').trim());
+  // Use Intl.Segmenter for robust, locale-aware sentence segmentation
+  let sentences = [];
+  try {
+    const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+    sentences = Array.from(segmenter.segment(truncated))
+      .map(s => s.segment.trim())
+      .filter(s => s.length > 0);
+  } catch (e) {
+    // Fallback if Intl.Segmenter is not available
+    const abbrs = /\b(Mr|Mrs|Ms|Dr|St|Prof|Jr|Sr|vs|min|max|etc|eg|ie|U\.S|U\.K|U\.N)\./gi;
+    const preProcessed = truncated.replace(abbrs, (match) => match.replace('.', '[[DOT]]'));
+    const sentencesRaw = preProcessed.match(/[^.!?]+[.!?]+/g) || [preProcessed];
+    sentences = sentencesRaw.map(s => s.replace(/\[\[DOT\]\]/g, '.').trim());
+  }
 
   if (sentences.length <= maxSentences) return sentences.join(' ');
 
