@@ -4,105 +4,98 @@
 
 import { getStorageData, setStorageData } from '../utils/storage.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
-  const definitionsEnabled = document.getElementById('definitionsEnabled');
-  const autofillEnabled = document.getElementById('autofillEnabled');
-  const userName = document.getElementById('userName');
-  const userEmail = document.getElementById('userEmail');
-  const userPhone = document.getElementById('userPhone');
-  const aiEndpoint = document.getElementById('aiEndpoint');
-  const aiProvider = document.getElementById('aiProvider');
-  const aiKey = document.getElementById('aiKey');
-  const theme = document.getElementById('theme');
-  const saveBtn = document.getElementById('saveBtn');
-  const summarizeBtn = document.getElementById('summarizeBtn');
-  
-  // Onboarding
-  const onboardingModal = document.getElementById('onboardingModal');
-  const closeOnboarding = document.getElementById('closeOnboarding');
+const DOM = {
+  definitionsEnabled: () => document.getElementById('definitionsEnabled'),
+  autofillEnabled: () => document.getElementById('autofillEnabled'),
+  userName: () => document.getElementById('userName'),
+  userEmail: () => document.getElementById('userEmail'),
+  userPhone: () => document.getElementById('userPhone'),
+  aiEndpoint: () => document.getElementById('aiEndpoint'),
+  aiProvider: () => document.getElementById('aiProvider'),
+  aiKey: () => document.getElementById('aiKey'),
+  theme: () => document.getElementById('theme'),
+  adBlockEnabled: () => document.getElementById('adBlockEnabled'),
+  saveBtn: () => document.getElementById('saveBtn'),
+  summarizeBtn: () => document.getElementById('summarizeBtn'),
+  onboardingModal: () => document.getElementById('onboardingModal'),
+  closeOnboarding: () => document.getElementById('closeOnboarding'),
+  activityList: () => document.getElementById('recentActivity')
+};
 
-  // Load existing settings
+async function loadSettings() {
   const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'onboardingDone', 'summaryHistory', 'adBlockEnabled']);
   
-  // Update Recent Activity
-  const activityList = document.getElementById('recentActivity');
-  if (activityList) {
+  if (DOM.activityList()) {
     if (settings.summaryHistory && settings.summaryHistory.length > 0) {
-      activityList.innerHTML = '';
+      DOM.activityList().innerHTML = '';
       settings.summaryHistory.slice(-3).reverse().forEach(item => {
         const el = document.createElement('div');
         el.className = 'activity-item';
         el.textContent = item.title;
         el.title = item.title;
-        activityList.appendChild(el);
+        DOM.activityList().appendChild(el);
       });
     } else {
-      activityList.innerHTML = '<div class="activity-item loading">No recent activity</div>';
+      DOM.activityList().innerHTML = '<div class="activity-item loading">No recent activity</div>';
     }
   }
 
-  if (!settings.onboardingDone) {
-    onboardingModal.style.display = 'flex';
+  if (!settings.onboardingDone) DOM.onboardingModal().style.display = 'flex';
+  
+  if (settings.definitionsEnabled !== undefined) DOM.definitionsEnabled().checked = settings.definitionsEnabled;
+  if (settings.autofillEnabled !== undefined) DOM.autofillEnabled().checked = settings.autofillEnabled;
+  if (settings.userData) {
+    DOM.userName().value = settings.userData.name || '';
+    DOM.userEmail().value = settings.userData.email || '';
+    DOM.userPhone().value = settings.userData.phone || '';
   }
+  if (settings.aiEndpoint) DOM.aiEndpoint().value = settings.aiEndpoint;
+  if (settings.aiProvider) DOM.aiProvider().value = settings.aiProvider;
+  if (settings.aiKey) DOM.aiKey().value = settings.aiKey;
+  if (settings.theme) DOM.theme().value = settings.theme;
+  if (DOM.adBlockEnabled() && settings.adBlockEnabled !== undefined) {
+    DOM.adBlockEnabled().checked = settings.adBlockEnabled;
+  }
+}
 
-  closeOnboarding.addEventListener('click', async () => {
-    onboardingModal.style.display = 'none';
+async function saveSettings() {
+  const btn = DOM.saveBtn();
+  await setStorageData({
+    definitionsEnabled: DOM.definitionsEnabled().checked,
+    autofillEnabled: DOM.autofillEnabled().checked,
+    userData: {
+      name: DOM.userName().value,
+      email: DOM.userEmail().value,
+      phone: DOM.userPhone().value
+    },
+    aiEndpoint: DOM.aiEndpoint().value,
+    aiProvider: DOM.aiProvider().value,
+    aiKey: DOM.aiKey().value,
+    theme: DOM.theme().value,
+    adBlockEnabled: DOM.adBlockEnabled() ? DOM.adBlockEnabled().checked : false
+  });
+
+  const originalText = btn.textContent;
+  btn.textContent = 'Saved ✓';
+  btn.classList.add('saved');
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.classList.remove('saved');
+  }, 1500);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadSettings();
+
+  DOM.closeOnboarding().addEventListener('click', async () => {
+    DOM.onboardingModal().style.display = 'none';
     await setStorageData({ onboardingDone: true });
   });
-  
-  if (settings.definitionsEnabled !== undefined) {
-    definitionsEnabled.checked = settings.definitionsEnabled;
-  }
-  if (settings.autofillEnabled !== undefined) {
-    autofillEnabled.checked = settings.autofillEnabled;
-  }
-  if (settings.userData) {
-    userName.value = settings.userData.name || '';
-    userEmail.value = settings.userData.email || '';
-    userPhone.value = settings.userData.phone || '';
-  }
-  if (settings.aiEndpoint) aiEndpoint.value = settings.aiEndpoint;
-  if (settings.aiProvider) aiProvider.value = settings.aiProvider;
-  if (settings.aiKey) aiKey.value = settings.aiKey;
-  if (settings.theme) theme.value = settings.theme;
 
-  const adBlockEnabled = document.getElementById('adBlockEnabled');
-  if (adBlockEnabled) { // Check if the element exists before trying to access its properties
-    if (settings.adBlockEnabled !== undefined) {
-      adBlockEnabled.checked = settings.adBlockEnabled;
-    }
-  }
+  DOM.saveBtn().addEventListener('click', saveSettings);
 
-  // Save settings
-  saveBtn.addEventListener('click', async () => {
-    const userData = {
-      name: userName.value,
-      email: userEmail.value,
-      phone: userPhone.value
-    };
-
-    await setStorageData({
-      definitionsEnabled: definitionsEnabled.checked,
-      autofillEnabled: autofillEnabled.checked,
-      userData: userData,
-      aiEndpoint: aiEndpoint.value,
-      aiProvider: aiProvider.value,
-      aiKey: aiKey.value,
-      theme: theme.value,
-      adBlockEnabled: adBlockEnabled ? adBlockEnabled.checked : false // Save adBlockEnabled state
-    });
-
-    const originalText = saveBtn.textContent;
-    saveBtn.textContent = 'Saved ✓';
-    saveBtn.classList.add('saved');
-    setTimeout(() => {
-      saveBtn.textContent = originalText;
-      saveBtn.classList.remove('saved');
-    }, 1500);
-  });
-
-  // Summarize current page
-  summarizeBtn.addEventListener('click', async () => {
+  DOM.summarizeBtn().addEventListener('click', async () => {
+    const btn = DOM.summarizeBtn();
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab) {
       try {
@@ -113,13 +106,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.close();
       } catch (e) {
         console.warn('[InfoBlend] Popup message failed:', e.message);
-        const originalText = summarizeBtn.textContent;
-        const originalBg = summarizeBtn.style.backgroundColor;
-        summarizeBtn.textContent = 'Restricted Page';
-        summarizeBtn.style.backgroundColor = '#ff4d4f';
+        const originalText = btn.textContent;
+        const originalBg = btn.style.backgroundColor;
+        btn.textContent = 'Restricted Page';
+        btn.style.backgroundColor = '#ff4d4f';
         setTimeout(() => {
-          summarizeBtn.textContent = originalText;
-          summarizeBtn.style.backgroundColor = originalBg;
+          btn.textContent = originalText;
+          btn.style.backgroundColor = originalBg;
         }, 3000);
       }
     }
