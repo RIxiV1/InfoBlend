@@ -25,12 +25,17 @@ const safeSendMessage = async (tabId, msg) => {
   }
 };
 
+// Helper for fetching AI settings DRY
+const getAISettings = async () => {
+  return await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+};
+
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'define-with-infoblend' && info.selectionText) {
     safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
     try {
-      const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+      const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
       let definition;
       if (aiKey && aiEndpoint) {
         definition = {
@@ -48,7 +53,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   } else if (info.menuItemId === 'summarize-with-infoblend' && info.selectionText) {
     safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
     try {
-      const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+      const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
       if (aiKey && aiEndpoint) {
         const summary = await fetchAIResponse(info.selectionText, aiEndpoint, aiKey, null, aiProvider, 'summarize');
         safeSendMessage(tab.id, { 
@@ -69,7 +74,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FETCH_DEFINITION') {
     (async () => {
       try {
-        const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+        const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
         if (aiKey && aiEndpoint) {
           const aiResponse = await fetchAIResponse(message.word, aiEndpoint, aiKey, null, aiProvider, 'define');
           sendResponse({ success: true, data: { title: message.word, content: aiResponse, source: `AI (${aiProvider})` } });
@@ -88,7 +93,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'SUMMARIZE_VIA_AI') {
     (async () => {
       try {
-        const { aiEndpoint, aiKey, aiProvider } = await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+        const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
         const summary = await fetchAIResponse(message.text, aiEndpoint, aiKey, null, aiProvider, 'summarize');
         sendResponse({ success: true, summary: summary });
       } catch (error) {
