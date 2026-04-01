@@ -61,4 +61,4 @@ The user interface utilizes a high-performance Shadow DOM architecture, ensuring
 - **host_permissions**: Facilitates communication with Dictionary and Wikipedia APIs.
 
 ---
-Developed by the InfoBlend AI Team.
+Developed by ME.
