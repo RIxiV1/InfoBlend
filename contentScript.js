@@ -467,14 +467,64 @@
 
     const shadow = overlayHost.attachShadow({ mode: 'open' });
 
-    // CSS must be added to shadow root
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    const cssURL = safeGetURL('overlay/overlay.css');
-    if (cssURL) {
-      link.href = cssURL;
-      shadow.appendChild(link);
-    }
+    // Bypassing Wikipedia CSP: Use a <style> tag instead of a <link>
+    const style = document.createElement('style');
+    style.textContent = `
+      :host {
+        all: initial;
+        display: block;
+        --mouse-x: -100px;
+        --mouse-y: -100px;
+        --ib-accent: #f5a623;
+        --ib-accent-lo: rgba(245,166,35,0.15);
+      }
+      .infoblend-overlay {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        width: 320px;
+        background: #050505 !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 16px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        z-index: 2147483647;
+        font-family: 'Geist Mono', ui-monospace, monospace !important;
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: auto 0fr;
+      }
+      .ib-bento-card {
+        color: #ffffff !important; /* Pure Luminous White */
+        padding: 14px 16px;
+        border-radius: 12px;
+        margin: 8px;
+        font-size: 14px !important; /* Slightly larger */
+        font-weight: 600 !important; /* Semi-Bold for maximum visibility */
+        line-height: 1.6 !important;
+        border: 1px solid rgba(255,255,255,0.15) !important;
+        text-shadow: 0 0 1px rgba(255,255,255,0.2); /* Subtle glow */
+      }
+
+      .infoblend-title { color: #ffffff !important; font-style: italic; }
+      .ib-highlight, b { color: var(--ib-accent) !important; font-weight: 500 !important; }
+      .infoblend-content { background: #050505 !important; padding: 4px; }
+      .infoblend-progress-container { height: 2px; background: rgba(255,255,255,0.1); }
+      .infoblend-progress-bar { background: var(--ib-accent); height: 100%; box-shadow: 0 0 8px var(--ib-accent-lo); }
+      @keyframes ibSlideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+      .infoblend-overlay { animation: ibSlideIn 0.3s ease-out both; }
+    `;
+    shadow.appendChild(style);
+
+    // Also attempt to load the full stylesheet for secondary animations/styles
+    fetch(chrome.runtime.getURL('overlay/overlay.css'))
+      .then(r => r.text())
+      .then(css => {
+        const fullStyle = document.createElement('style');
+        fullStyle.textContent = css;
+        shadow.appendChild(fullStyle);
+      }).catch(e => console.warn("Full CSS load failed (CSP):", e));
+
 
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
