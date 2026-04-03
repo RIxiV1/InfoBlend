@@ -17,7 +17,7 @@
   --ib-ink-3:   rgba(240,236,230,0.28);
   --ib-ink-4:   rgba(240,236,230,0.1);
 
-  --ib-blur: 24px;
+  --ib-blur: 40px;
   --ib-serif: 'Instrument Serif', Georgia, serif;
   --ib-mono:  'Geist Mono', ui-monospace, monospace;
 }
@@ -36,18 +36,19 @@
 /* PANEL */
 .infoblend-overlay {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 296px;
-  max-height: 420px;
+  top: 16px;
+  right: 16px;
+  width: 320px;
+  height: max-content;
+  max-height: calc(100vh - 32px);
   background: var(--ib-bg);
   backdrop-filter: blur(var(--ib-blur)) saturate(140%);
   -webkit-backdrop-filter: blur(var(--ib-blur)) saturate(140%);
   border: 1px solid var(--ib-line);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow:
     0 0 0 1px rgba(245,166,35,0.03),
-    0 24px 48px -8px rgba(0,0,0,0.55),
+    -12px 0 48px rgba(0,0,0,0.4),
     0 4px 16px rgba(0,0,0,0.25);
   z-index: 2147483647;
   font-family: var(--ib-mono);
@@ -55,19 +56,19 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: ibIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: ibSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   user-select: text;
   transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
-@keyframes ibIn {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes ibSlideIn {
+  from { opacity: 0; transform: translateX(40px) scale(0.98); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
 }
 
 .infoblend-overlay.ib-fade-out {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateX(16px);
   pointer-events: none;
 }
 
@@ -236,6 +237,81 @@
 @keyframes ibPulse {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
+}
+
+/* Luminous Shimmer Effect */
+.ib-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.ib-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  animation: shimmer 2.5s infinite;
+}
+
+.ib-light-theme .ib-shimmer::after {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 0, 0, 0.06),
+    transparent
+  );
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Knowledge Card (Bento Layout) */
+.ib-knowledge-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ib-knowledge-image {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--ib-line-d);
+  background: var(--ib-surface);
+}
+
+.ib-knowledge-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ib-line-d);
+}
+
+.ib-related-chip {
+  padding: 4px 8px;
+  background: var(--ib-surface);
+  border: 1px solid var(--ib-line-d);
+  border-radius: 6px;
+  font-size: 10px;
+  color: var(--ib-ink-2);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.ib-related-chip:hover {
+  background: var(--ib-amb-lo);
+  border-color: rgba(245,166,35,0.3);
+  color: var(--ib-amber);
 }
 
 @keyframes ibSpin {

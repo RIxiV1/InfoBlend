@@ -58,6 +58,14 @@
 
   let overlay = null;
 
+  // Listen for CMD+K or Ctrl+K to trigger page summary
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      handlePageSummarization();
+    }
+  });
+
   // Listen for text selection
   document.addEventListener('mouseup', async (event) => {
     // Ignore events originating from our own overlay
@@ -102,6 +110,34 @@
 
   async function handlePageSummarization() {
     showLoadingOverlay();
+    
+    // Check if on a YouTube video
+    if (window.location.hostname.includes('youtube.com') && window.location.pathname.includes('/watch')) {
+      sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', url: window.location.href }, async (resp) => {
+        if (resp && resp.success) {
+          const content = resp.transcript;
+          try {
+            const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);
+            if (settings.aiKey && settings.aiEndpoint) {
+              sendMessage({ type: 'SUMMARIZE_VIA_AI', text: content.substring(0, 10000) }, (response) => {
+                if (response && response.success) {
+                  updateOverlay('Video Summary', response.summary, `AI (${settings.aiProvider})`);
+                } else {
+                  runLocalSummarizer(content);
+                }
+              });
+            } else {
+              runLocalSummarizer(content);
+            }
+          } catch (e) {
+            runLocalSummarizer(content);
+          }
+        } else {
+          updateOverlay('Notice', 'Could not extract video transcript.', 'YouTube Insights');
+        }
+      });
+      return;
+    }
     
     // Identify common noise and junk elements
     const junkSelectors = 'nav, footer, header, script, style, aside, [class*="sidebar"], [id*="sidebar"], [class*="ad-"], [id*="ad-"], [class*="nav-"], [id*="nav-"]';
@@ -216,13 +252,15 @@
       overlayHost = null;
     }
     clearTimeout(autoCloseTimer);
-    
     overlayHost = document.createElement('div');
     overlayHost.id = 'infoblend-shadow-host';
     overlayHost.style.all = 'initial';
     overlayHost.style.position = 'fixed';
-    overlayHost.style.bottom = '24px';
-    overlayHost.style.right = '24px';
+    overlayHost.style.top = '0';
+    overlayHost.style.left = '0';
+    overlayHost.style.width = '0';
+    overlayHost.style.height = '0';
+    overlayHost.style.overflow = 'visible';
     overlayHost.style.zIndex = '2147483647';
     document.body.appendChild(overlayHost);
 
@@ -274,12 +312,12 @@
     header.appendChild(controls);
 
     const loading = document.createElement('div');
-    loading.className = 'infoblend-loading';
+    loading.className = 'infoblend-loading ib-shimmer';
     const spinner = document.createElement('div');
     spinner.className = 'infoblend-spinner';
     const loadingText = document.createElement('div');
     loadingText.className = 'loading-text';
-    loadingText.textContent = 'Analyzing...';
+    loadingText.textContent = 'Processing Context...';
     
     loading.appendChild(spinner);
     loading.appendChild(loadingText);
@@ -330,7 +368,7 @@
       } else {
         fragment.appendChild(document.createTextNode(term));
       }
-      lastIndex = combinedPattern.lastIndex;
+      lastIndex = _highlightCombinedPattern.lastIndex;
     }
     fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
     return fragment;
@@ -358,7 +396,56 @@
     
     const textBody = document.createElement('div');
     textBody.className = 'infoblend-text-body';
-    textBody.appendChild(smartHighlight(content));
+    
+    // Check if the response contains knowledge card data (JSON stringified)
+    try {
+      const data = JSON.parse(content);
+      if (data.isKnowledgeCard) {
+        
+        const cardBody = document.createElement('div');
+        cardBody.className = 'ib-knowledge-card';
+        
+        if (data.thumbnail) {
+            const img = document.createElement('img');
+            img.src = data.thumbnail;
+            img.className = 'ib-knowledge-image';
+            cardBody.appendChild(img);
+        }
+        
+        const summaryText = document.createElement('div');
+        summaryText.appendChild(smartHighlight(data.summary));
+        cardBody.appendChild(summaryText);
+        
+        if (data.related && data.related.length > 0) {
+            const relatedDiv = document.createElement('div');
+            relatedDiv.className = 'ib-knowledge-related';
+            data.related.forEach(term => {
+                const a = document.createElement('a');
+                a.className = 'ib-related-chip';
+                a.href = '#';
+                a.textContent = term;
+                a.onclick = (e) => {
+                    e.preventDefault();
+                    showLoadingOverlay();
+                    sendMessage({ type: 'FETCH_DEFINITION', word: term }, (response) => {
+                        if (response && response.success) {
+                            updateOverlay(response.data.title, response.data.content, response.data.source);
+                        }
+                    });
+                };
+                relatedDiv.appendChild(a);
+            });
+            cardBody.appendChild(relatedDiv);
+        }
+        textBody.appendChild(cardBody);
+        
+      } else {
+        textBody.appendChild(smartHighlight(content));
+      }
+    } catch (e) {
+      // Normal content
+      textBody.appendChild(smartHighlight(content));
+    }
     
     const sourceDiv = document.createElement('div');
     sourceDiv.className = 'infoblend-source';
@@ -475,38 +562,8 @@
       };
     }
 
-    if (host._dragInitialized) return;
-    host._dragInitialized = true;
-    let isDragging = false;
-    let startX, startY, initialX, initialY;
-    const header = container.querySelector('.infoblend-header');
-    const handleMouseMove = (e) => {
-      if (!isDragging) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      host.style.left = `${initialX + dx}px`;
-      host.style.top = `${initialY + dy}px`;
-      host.style.right = 'auto'; host.style.bottom = 'auto';
-    };
-    const handleMouseUp = () => { 
-      if (!isDragging) return; 
-      isDragging = false; 
-      header.style.cursor = 'move'; 
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    header.onmousedown = (e) => {
-      if (e.target.closest('.infoblend-btn')) return;
-      isDragging = true;
-      startX = e.clientX; startY = e.clientY;
-      const rect = container.getBoundingClientRect();
-      initialX = rect.left; initialY = rect.top;
-      header.style.cursor = 'grabbing';
-      e.preventDefault();
-      
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    };
+    // Dragging is disabled for the static Sidebar format.
+    // If floating is restored in the future, dragging logic goes here.
   }
 
   async function saveToHistory(title, content) {

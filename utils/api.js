@@ -3,6 +3,10 @@
  */
 
 export const fetchDefinition = async (word) => {
+  const wordCount = word.trim().split(/\s+/).length;
+  if (wordCount > 5) {
+    throw new Error('Selection too long for definition. Try summarizing instead.');
+  }
   try {
     const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
     if (!response.ok) {
@@ -30,9 +34,28 @@ export const fetchWikipediaSummary = async (term) => {
     const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
     if (!response.ok) throw new Error(`Encyclopedia: No entry found for '${term}'.`);
     const data = await response.json();
+    
+    let relatedTerms = [];
+    try {
+      const relatedResp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/related/${encodeURIComponent(data.title)}`);
+      if (relatedResp.ok) {
+        const relatedData = await relatedResp.json();
+        relatedTerms = (relatedData.pages || []).slice(0, 3).map(p => p.title);
+      }
+    } catch (e) {
+      // Ignore failure on related terms
+    }
+
+    const payload = {
+      isKnowledgeCard: true,
+      summary: data.extract,
+      thumbnail: data.thumbnail ? data.thumbnail.source : null,
+      related: relatedTerms
+    };
+
     return {
       title: data.title,
-      content: data.extract,
+      content: JSON.stringify(payload),
       source: 'Wikipedia'
     };
   } catch (error) {

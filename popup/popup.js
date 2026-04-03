@@ -19,24 +19,44 @@ const DOM = {
   summarizeBtn: () => document.getElementById('summarizeBtn'),
   onboardingModal: () => document.getElementById('onboardingModal'),
   closeOnboarding: () => document.getElementById('closeOnboarding'),
-  activityList: () => document.getElementById('recentActivity')
+  historyContainer: () => document.getElementById('historyContainer')
 };
 
 async function loadSettings() {
   const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'onboardingDone', 'summaryHistory', 'adBlockEnabled']);
   
-  if (DOM.activityList()) {
+  if (DOM.historyContainer()) {
     if (settings.summaryHistory && settings.summaryHistory.length > 0) {
-      DOM.activityList().innerHTML = '';
-      settings.summaryHistory.slice(-3).reverse().forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'activity-item';
-        el.textContent = item.title;
-        el.title = item.title;
-        DOM.activityList().appendChild(el);
+      DOM.historyContainer().innerHTML = '';
+      settings.summaryHistory.slice(-4).reverse().forEach(item => {
+        const a = document.createElement('a');
+        a.className = 'ib-history-item';
+        a.href = '#';
+        a.title = item.title;
+        
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'ib-history-title';
+        titleSpan.textContent = item.title;
+        
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'ib-history-time';
+        
+        let timeStr = 'Recent';
+        if (item.timestamp) {
+          const diff = Math.floor((Date.now() - item.timestamp) / 60000);
+          if (diff < 1) timeStr = 'Just now';
+          else if (diff < 60) timeStr = `${diff}m ago`;
+          else if (diff < 1440) timeStr = `${Math.floor(diff/60)}h ago`;
+          else timeStr = `${Math.floor(diff/1440)}d ago`;
+        }
+        timeSpan.textContent = timeStr;
+        
+        a.appendChild(titleSpan);
+        a.appendChild(timeSpan);
+        DOM.historyContainer().appendChild(a);
       });
     } else {
-      DOM.activityList().innerHTML = '<div class="activity-item loading">No recent activity</div>';
+      DOM.historyContainer().innerHTML = '<span style="font-size: 10px; color: var(--ink-4); font-style: italic; grid-column: span 2; text-align: center; padding: 12px 0;">No recent blends</span>';
     }
   }
 

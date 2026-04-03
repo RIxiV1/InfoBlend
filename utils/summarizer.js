@@ -7,9 +7,10 @@ export function generateIntelligentSummary(text, manualText = null, maxSentences
   const raw = manualText || text || '';
   
   // Truncate at the last sentence boundary within the 20,000 char safety limit
-  const truncated = raw.length > 20000 
-    ? raw.substring(0, 20000).replace(/[^.!?]*$/, '') 
-    : raw;
+  let truncated = raw.length > 20000 ? raw.substring(0, 20000) : raw;
+  if (raw.length > 20000 && /[.!?]/.test(truncated)) {
+    truncated = truncated.replace(/[^.!?]*$/, '');
+  }
     
   if (!truncated.trim()) return '';
 

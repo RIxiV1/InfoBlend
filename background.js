@@ -1,6 +1,7 @@
 import { fetchDefinition, fetchAIResponse } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
+import { extractYouTubeTranscript } from './utils/youtubeInsight.js';
 
 // Create context menu items
 chrome.runtime.onInstalled.addListener(() => {
@@ -112,5 +113,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: error.message });
       } catch (e) {}
     }
+  } else if (message.type === 'FETCH_YOUTUBE_TRANSCRIPT') {
+    (async () => {
+        try {
+            const transcript = await extractYouTubeTranscript(message.url);
+            sendResponse({ success: true, transcript });
+        } catch (error) {
+            try {
+                sendResponse({ success: false, error: error.message });
+            } catch (e) {}
+        }
+    })();
+    return true;
   }
 });
