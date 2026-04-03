@@ -56,13 +56,184 @@
     }
   };
 
-  let overlay = null;
+  // Helper to extract brand color for Ambilight effect
+  const getThemeColor = () => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta && meta.content) return meta.content;
+    
+    // Fallback: try to find a dominant color from common brand elements
+    const brandSelectors = ['header', 'nav', '.navbar', '[class*="brand"]', '[class*="logo"]'];
+    for (const selector of brandSelectors) {
+      const el = document.querySelector(selector);
+      if (el) {
+        const style = window.getComputedStyle(el);
+        const bg = style.backgroundColor;
+        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'rgb(255, 255, 255)' && bg !== 'rgb(0, 0, 0)') {
+          return bg;
+        }
+      }
+    }
+    return '#f5a623'; // Default InfoBlend Amber
+  };
 
-  // Listen for CMD+K or Ctrl+K to trigger page summary
+  let overlay = null;
+  let palette = null;
+  let paletteHost = null;
+
+  async function togglePalette() {
+    if (paletteHost) {
+      paletteHost.remove();
+      paletteHost = null;
+      return;
+    }
+
+    paletteHost = document.createElement('div');
+    paletteHost.id = 'infoblend-palette-host';
+    paletteHost.style.all = 'initial';
+    paletteHost.style.position = 'fixed';
+    paletteHost.style.inset = '0';
+    paletteHost.style.width = '0';
+    paletteHost.style.height = '0';
+    paletteHost.style.overflow = 'visible';
+    paletteHost.style.zIndex = '2147483647';
+    document.body.appendChild(paletteHost);
+
+    const shadow = paletteHost.attachShadow({ mode: 'open' });
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = safeGetURL('overlay/overlay.css');
+    shadow.appendChild(link);
+
+    const overlayBg = document.createElement('div');
+    overlayBg.className = 'ib-palette-overlay';
+    overlayBg.onclick = () => togglePalette();
+
+    const paletteDiv = document.createElement('div');
+    paletteDiv.className = 'ib-palette';
+    paletteDiv.onclick = (e) => e.stopPropagation();
+
+    const searchArea = document.createElement('div');
+    searchArea.className = 'ib-palette-search';
+    searchArea.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    `;
+
+    const input = document.createElement('input');
+    input.className = 'ib-palette-input';
+    input.placeholder = 'Search commands or define something...';
+    input.spellcheck = false;
+    searchArea.appendChild(input);
+
+    const resultsArea = document.createElement('div');
+    resultsArea.className = 'ib-palette-results';
+
+    const commands = [
+      { id: 'summarize', label: 'Summarize Page', hint: 'Enter', icon: '📝' },
+      { id: 'define', label: 'Define...', hint: 'Type word', icon: '📖' },
+      { id: 'history', label: 'View History', hint: 'Gallery', icon: '⏳' }
+    ];
+
+    let selectedIndex = 0;
+
+    const renderResults = (filter = '') => {
+      resultsArea.innerHTML = '';
+      const filtered = commands.filter(c => 
+        c.label.toLowerCase().includes(filter.toLowerCase()) || 
+        filter.startsWith('define ')
+      );
+
+      if (filter.startsWith('define ')) {
+        const word = filter.replace('define ', '').trim();
+        if (word) {
+          filtered.unshift({ id: 'define-word', label: `Define "${word}"`, hint: 'Enter', icon: '🔍', word });
+        }
+      } else if (filter && !filtered.length) {
+        filtered.push({ id: 'define-word', label: `Define "${filter}"`, hint: 'Enter', icon: '🔍', word: filter });
+      }
+
+      filtered.forEach((cmd, i) => {
+        const item = document.createElement('div');
+        item.className = `ib-palette-item ${i === selectedIndex ? 'selected' : ''}`;
+        item.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:14px;">${cmd.icon}</span>
+            <span class="ib-palette-label">${cmd.label}</span>
+          </div>
+          <span class="ib-palette-hint">${cmd.hint}</span>
+        `;
+        item.onclick = () => executeCommand(cmd);
+        resultsArea.appendChild(item);
+      });
+      return filtered;
+    };
+
+    let currentFiltered = renderResults();
+
+    const executeCommand = (cmd) => {
+      togglePalette();
+      if (cmd.id === 'summarize') {
+        handlePageSummarization();
+      } else if (cmd.id === 'define-word') {
+        showLoadingOverlay();
+        sendMessage({ type: 'FETCH_DEFINITION', word: cmd.word }, (response) => {
+          if (response && response.success) {
+            updateOverlay(response.data.title, response.data.content, response.data.source);
+          }
+        });
+      } else if (cmd.id === 'history') {
+        // Future: Show history in palette
+        sendMessage({ type: 'OPEN_POPUP' });
+      }
+    };
+
+    input.oninput = (e) => {
+      selectedIndex = 0;
+      currentFiltered = renderResults(e.target.value);
+    };
+
+    input.onkeydown = (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedIndex = (selectedIndex + 1) % currentFiltered.length;
+        currentFiltered = renderResults(input.value);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedIndex = (selectedIndex - 1 + currentFiltered.length) % currentFiltered.length;
+        currentFiltered = renderResults(input.value);
+      } else if (e.key === 'Enter') {
+        if (currentFiltered[selectedIndex]) {
+          executeCommand(currentFiltered[selectedIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        togglePalette();
+      }
+    };
+
+    paletteDiv.appendChild(searchArea);
+    paletteDiv.appendChild(resultsArea);
+
+    const footer = document.createElement('div');
+    footer.className = 'ib-palette-footer';
+    footer.innerHTML = `
+      <div class="ib-key-hint"><span class="ib-key-box">↑↓</span> to navigate</div>
+      <div class="ib-key-hint"><span class="ib-key-box">↵</span> to select</div>
+      <div class="ib-key-hint"><span class="ib-key-box">esc</span> to close</div>
+    `;
+    paletteDiv.appendChild(footer);
+
+    overlayBg.appendChild(paletteDiv);
+    shadow.appendChild(overlayBg);
+
+    setTimeout(() => input.focus(), 50);
+  }
+
+  // Listen for CMD+K or Ctrl+K to trigger the Command Palette
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      handlePageSummarization();
+      togglePalette();
     }
   });
 
@@ -139,8 +310,8 @@
       return;
     }
     
-    // Identify common noise and junk elements
-    const junkSelectors = 'nav, footer, header, script, style, aside, [class*="sidebar"], [id*="sidebar"], [class*="ad-"], [id*="ad-"], [class*="nav-"], [id*="nav-"]';
+    // Stricter selectors to ignore non-prose and code
+    const junkSelectors = 'nav, footer, header, script, style, noscript, template, meta, link, head, aside, [class*="sidebar"], [id*="sidebar"], [class*="ad-"], [id*="ad-"], [class*="nav-"], [id*="nav-"]';
     const mainContentSelectors = 'article, main, .post-content, .entry-content, #content, #main';
     
     let contentSources = [];
@@ -148,16 +319,32 @@
     
     if (mainContent) {
       contentSources = Array.from(mainContent.querySelectorAll('p, h1, h2, h3, h4'))
+        .filter(el => !el.closest(junkSelectors))
         .map(el => el.innerText.trim())
-        .filter(text => text.length > 20);
+        .filter(text => {
+          // Heuristic to discard code snippets
+          const isCode = text.includes('function(') || text.includes('var ') || (text.match(/{/g) || []).length > 3;
+          return text.length > 20 && !isCode;
+        });
     } else {
       contentSources = Array.from(document.querySelectorAll('p, section, h1, h2, h3'))
         .filter(el => !el.closest(junkSelectors))
         .map(el => el.innerText.trim())
-        .filter(text => text.length > 40);
+        .filter(text => {
+          // Heuristic to discard code snippets
+          const isCode = text.includes('function(') || text.includes('var ') || (text.match(/{/g) || []).length > 3;
+          return text.length > 40 && !isCode;
+        });
     }
     
-    const content = contentSources.join(' ') || document.body.innerText.substring(0, 10000);
+    const content = contentSources.join(' ') || '';
+    if (!content) {
+      updateOverlay('Notice', 'No readable article content found on this page.', 'InfoBlend');
+      return;
+    }
+    
+    const finalContent = content.substring(0, 10000);
+
     
     try {
       const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);
@@ -278,12 +465,22 @@
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
 
-    // Theme loading is handled asynchronously to prevent blocking UI
+    // Theme & Ambilight logic
     getStorage(['theme']).then(settings => {
       if (settings.theme === 'light' || 
          (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches)) {
         container.classList.add('ib-light-theme');
       }
+      
+      const accent = getThemeColor();
+      container.style.setProperty('--ib-accent', accent);
+      // Create a low-opacity version for glows
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = accent;
+      const [r, g, b] = ctx.fillStyle.match(/\d+/g) || [245, 166, 35];
+      container.style.setProperty('--ib-accent-lo', `rgba(${r}, ${g}, ${b}, 0.15)`);
+      container.style.setProperty('--ib-accent-xs', `rgba(${r}, ${g}, ${b}, 0.03)`);
     });
 
     const header = document.createElement('div');
@@ -312,15 +509,27 @@
     header.appendChild(controls);
 
     const loading = document.createElement('div');
-    loading.className = 'infoblend-loading ib-shimmer';
-    const spinner = document.createElement('div');
-    spinner.className = 'infoblend-spinner';
-    const loadingText = document.createElement('div');
-    loadingText.className = 'loading-text';
-    loadingText.textContent = 'Processing Context...';
+    loading.className = 'infoblend-loading';
     
-    loading.appendChild(spinner);
-    loading.appendChild(loadingText);
+    const skeletonGroup = document.createElement('div');
+    skeletonGroup.className = 'ib-skeleton-group';
+    
+    // Create a few skeleton lines
+    const skTitle = document.createElement('div');
+    skTitle.className = 'ib-skeleton ib-sk-title';
+    const skLine1 = document.createElement('div');
+    skLine1.className = 'ib-skeleton ib-sk-line';
+    const skLine2 = document.createElement('div');
+    skLine2.className = 'ib-skeleton ib-sk-line';
+    const skLine3 = document.createElement('div');
+    skLine3.className = 'ib-skeleton ib-sk-line-short';
+    
+    skeletonGroup.appendChild(skTitle);
+    skeletonGroup.appendChild(skLine1);
+    skeletonGroup.appendChild(skLine2);
+    skeletonGroup.appendChild(skLine3);
+    
+    loading.appendChild(skeletonGroup);
 
     const progressContainer = document.createElement('div');
     progressContainer.className = 'infoblend-progress-container';
@@ -336,6 +545,9 @@
     
     setupOverlayEvents(overlayHost, container);
     startAutoCloseTimer(overlayHost, container);
+    
+    // Trigger height transition for the loading state
+    setTimeout(() => container.classList.add('open'), 10);
     
     return container;
   }
@@ -382,6 +594,9 @@
       container = overlayHost.shadowRoot.querySelector('.infoblend-overlay');
       if (!container) container = showLoadingOverlay();
     }
+    
+    // Start height transition
+    setTimeout(() => container.classList.add('open'), 10);
     
     const header = container.querySelector('.infoblend-header');
     header.querySelector('.infoblend-title').textContent = title;

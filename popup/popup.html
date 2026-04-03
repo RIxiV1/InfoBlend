@@ -131,7 +131,29 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
     }
+
+    .bento-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.5s;
+      background: radial-gradient(
+        800px circle at var(--mouse-x) var(--mouse-y),
+        rgba(255, 255, 255, 0.06),
+        transparent 40%
+      );
+    }
+
+    .bento-card:hover::before { opacity: 1; }
+    .bento-card:hover { border-color: rgba(255,255,255,0.12); }
+
 
     .col-span-2 { grid-column: span 2; }
 
