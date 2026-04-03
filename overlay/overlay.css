@@ -17,9 +17,9 @@
   --ib-amb-lo:  rgba(245,166,35,0.2);
 
   --ib-ink:     #ffffff;
-  --ib-ink-2:   #f2f2f2;
-  --ib-ink-3:   #cccccc;
-  --ib-ink-4:   #888888;
+  --ib-ink-2:   #ffffff;
+  --ib-ink-3:   #f2f2f2;
+  --ib-ink-4:   #cccccc;
 
   --ib-mono:  'Geist Mono', ui-monospace, monospace;
   --ib-serif: 'Instrument Serif', serif;
@@ -188,15 +188,17 @@
 .ib-bento-card {
   position: relative;
   padding: 12px 14px;
-  background: var(--ib-surface) !important;
+  background: #0a0a0a !important; /* Solid obsidian */
   border-radius: 12px;
-  border: 1px solid transparent;
-  color: #f2f2f2 !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  color: #ffffff !important; /* Pure White */
   font-size: 13px;
+  font-weight: 500 !important; /* Boost density */
   line-height: 1.6;
-  font-family: var(--ib-mono);
+  font-family: var(--ib-mono) !important;
   overflow: hidden;
   transition: transform 0.2s ease, border-color 0.2s ease;
+
 
   /* Flashlight Border Effect */
   background-clip: padding-box;
