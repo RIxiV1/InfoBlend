@@ -6,50 +6,49 @@
 :host {
   all: initial;
   display: block;
-}
 
-.infoblend-overlay, .ib-palette-overlay {
-  font-family: 'Geist Mono', ui-monospace, monospace !important;
-  color: var(--ib-ink) !important;
-  -webkit-font-smoothing: antialiased;
-  box-sizing: border-box;
-}
-
-.infoblend-overlay *, .ib-palette-overlay * {
-  box-sizing: border-box;
-}
-
-:root {
-  --ib-bg:      rgba(15, 14, 12, 0.98);
-  --ib-surface: #141210;
-  --ib-line:    rgba(255,255,255,0.12);
-  --ib-line-d:  rgba(255,255,255,0.08);
+  /* OBSIDIAN (DARK) COLORS */
+  --ib-bg:      #050505;
+  --ib-surface: #0a0a0a;
+  --ib-line:    rgba(255,255,255,0.1);
+  --ib-line-d:  rgba(255,255,255,0.06);
 
   --ib-amber:   #f5a623;
-  --ib-amb-lo:  rgba(245,166,35,0.15);
+  --ib-amb-lo:  rgba(245,166,35,0.2);
 
   --ib-ink:     #ffffff;
-  --ib-ink-2:   rgba(255,255,255,0.85);
-  --ib-ink-3:   rgba(255,255,255,0.5);
-  --ib-ink-4:   rgba(255,255,255,0.22);
+  --ib-ink-2:   #f2f2f2;
+  --ib-ink-3:   #cccccc;
+  --ib-ink-4:   #888888;
 
   --ib-mono:  'Geist Mono', ui-monospace, monospace;
+  --ib-serif: 'Instrument Serif', serif;
 
   --ib-accent:    var(--ib-amber);
   --ib-accent-lo: var(--ib-amb-lo);
   --ib-accent-xs: rgba(245,166,35,0.03);
+  --ib-blur: 12px;
+
+  /* MOUSE POSITIONING */
+  --mouse-x: -100px;
+  --mouse-y: -100px;
 }
 
+
 .ib-light-theme {
-  --ib-bg:     rgba(252, 250, 246, 0.99);
+  --ib-bg:      #fcfaf6;
   --ib-surface: #ffffff;
-  --ib-line:   rgba(0,0,0,0.12);
-  --ib-line-d: rgba(0,0,0,0.06);
-  --ib-ink:    #1a1714;
-  --ib-ink-2:  rgba(26,23,20,0.85);
-  --ib-ink-3:  rgba(26,23,20,0.5);
-  --ib-ink-4:  rgba(26,23,20,0.2);
+  --ib-line:    rgba(0,0,0,0.12);
+  --ib-line-d:  rgba(0,0,0,0.06);
+
+  --ib-ink:     #1a1714;
+  --ib-ink-2:   #2a2724;
+  --ib-ink-3:   #555555;
+  --ib-ink-4:   #888888;
+
+  --ib-blur: 40px;
 }
+
 
 /* PANEL */
 .infoblend-overlay {
@@ -59,18 +58,18 @@
   width: 320px;
   height: max-content;
   max-height: calc(100vh - 32px);
-  background: var(--ib-bg);
+  background: var(--ib-bg) !important;
   backdrop-filter: blur(var(--ib-blur)) saturate(140%);
   -webkit-backdrop-filter: blur(var(--ib-blur)) saturate(140%);
-  border: 1px solid var(--ib-line);
+  border: 1px solid var(--ib-line) !important;
   border-radius: 16px;
   box-shadow:
     0 0 0 1px rgba(255,255,255,0.05),
-    -12px 0 64px rgba(0,0,0,0.8),
-    0 10px 32px rgba(0,0,0,0.6);
+    -12px 0 64px rgba(0,0,0,0.2),
+    0 10px 32px rgba(0,0,0,0.1);
   z-index: 2147483647;
-  font-family: var(--ib-mono);
-  color: var(--ib-ink);
+  font-family: var(--ib-mono) !important;
+  color: var(--ib-ink) !important;
   overflow: hidden;
   display: grid;
   grid-template-rows: auto 0fr;
@@ -128,7 +127,7 @@
   font-family: var(--ib-serif);
   font-size: 13px;
   font-style: italic;
-  color: var(--ib-ink-2);
+  color: #f2f2f2 !important;
 }
 
 .infoblend-controls {
@@ -140,29 +139,30 @@
   width: 22px;
   height: 22px;
   border-radius: 5px;
-  background: transparent;
-  border: 1px solid transparent;
+  background: transparent !important;
+  border: 1px solid transparent !important;
   display: grid;
   place-items: center;
   cursor: pointer;
-  color: var(--ib-ink-4);
+  color: #999999 !important;
   font-size: 11px;
   padding: 0;
   transition: all 0.15s ease;
 }
 
 .infoblend-btn:hover {
-  background: var(--ib-accent-lo);
-  border-color: var(--ib-accent-xs);
-  color: var(--ib-accent);
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: #ffffff !important;
   transform: none;
 }
 
 .infoblend-pin.active {
-  background: var(--ib-accent-lo);
-  border-color: var(--ib-accent-xs);
-  color: var(--ib-accent);
+  background: rgba(245,166,35,0.2) !important;
+  border-color: rgba(245,166,35,0.3) !important;
+  color: #f5a623 !important;
 }
+
 
 .infoblend-close:hover {
   background: rgba(235,87,87,0.1);
@@ -172,14 +172,77 @@
 
 /* CONTENT */
 .infoblend-content {
-  padding: 14px 16px;
+  padding: 8px; /* Bento Padding */
   overflow-y: auto;
-  font-size: 12.5px;
-  font-weight: 300;
-  line-height: 1.7;
-  color: var(--ib-ink-2);
   min-height: 0;
+  background: var(--ib-bg) !important;
 }
+
+.ib-bento-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ib-bento-card {
+  position: relative;
+  padding: 12px 14px;
+  background: var(--ib-surface) !important;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  color: #f2f2f2 !important;
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: var(--ib-mono);
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+
+  /* Flashlight Border Effect */
+  background-clip: padding-box;
+}
+
+.ib-bento-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 12px;
+  padding: 1px;
+  background: radial-gradient(
+    200px circle at var(--mouse-x) var(--mouse-y),
+    rgba(255,255,255,0.15),
+    transparent 80%
+  );
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.infoblend-overlay:hover .ib-bento-card::before {
+  opacity: 1;
+}
+
+.ib-bento-card * {
+  color: inherit !important;
+  font-family: inherit !important;
+}
+
+.ib-highlight, b {
+  color: var(--ib-accent) !important;
+  font-weight: 500 !important;
+}
+
+
+
 
 .infoblend-text-body {
   animation: ibContentFade 0.25s ease forwards;
@@ -209,11 +272,13 @@
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--ib-ink-4);
-  border-top: 1px solid var(--ib-line-d);
+  color: var(--ib-ink-4) !important;
+  background: var(--ib-bg) !important;
+  border-top: 1px solid var(--ib-line-d) !important;
   font-weight: 400;
   text-align: left;
 }
+
 
 /* PROGRESS */
 .infoblend-progress-container {
