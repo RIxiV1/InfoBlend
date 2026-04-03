@@ -56,10 +56,24 @@
     }
   };
 
-  // Helper to extract brand color for Ambilight effect
+  // Helper to extract brand color and ensure it's readable
   const getThemeColor = () => {
+    const getLuminance = (r, g, b) => (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    const adjustColor = (color) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = color;
+      const rgb = ctx.fillStyle.match(/\d+/g);
+      if (!rgb) return '#f5a623'; // Default Amber
+      const [r, g, b] = rgb.map(Number);
+      const L = getLuminance(r, g, b);
+      if (L < 0.6) return '#f5a623'; // Even strictier: Use InfoBlend Amber if too dark
+      return color;
+    };
+
+
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta && meta.content) return meta.content;
+    if (meta && meta.content) return adjustColor(meta.content);
     
     // Fallback: try to find a dominant color from common brand elements
     const brandSelectors = ['header', 'nav', '.navbar', '[class*="brand"]', '[class*="logo"]'];
@@ -69,7 +83,7 @@
         const style = window.getComputedStyle(el);
         const bg = style.backgroundColor;
         if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'rgb(255, 255, 255)' && bg !== 'rgb(0, 0, 0)') {
-          return bg;
+          return adjustColor(bg);
         }
       }
     }
@@ -608,65 +622,44 @@
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'infoblend-content';
-    
-    const textBody = document.createElement('div');
-    textBody.className = 'infoblend-text-body';
-    
-    // Check if the response contains knowledge card data (JSON stringified)
+    const bentoGrid = document.createElement('div');
+    bentoGrid.className = 'ib-bento-grid';
+
     try {
-      const data = JSON.parse(content);
-      if (data.isKnowledgeCard) {
+      // INTELLECTUALLY FRAGMENT CONTENT INTO BENTO CARDS
+      // Split by double newlines or list items
+      const fragments = content.split(/\n\n|(?=\n[ \t]*[-*•]|\n[ \t]*\d+\.)/);
+      
+      fragments.forEach(frag => {
+        const trimmed = frag.trim();
+        if (!trimmed) return;
         
-        const cardBody = document.createElement('div');
-        cardBody.className = 'ib-knowledge-card';
-        
-        if (data.thumbnail) {
-            const img = document.createElement('img');
-            img.src = data.thumbnail;
-            img.className = 'ib-knowledge-image';
-            cardBody.appendChild(img);
-        }
-        
-        const summaryText = document.createElement('div');
-        summaryText.appendChild(smartHighlight(data.summary));
-        cardBody.appendChild(summaryText);
-        
-        if (data.related && data.related.length > 0) {
-            const relatedDiv = document.createElement('div');
-            relatedDiv.className = 'ib-knowledge-related';
-            data.related.forEach(term => {
-                const a = document.createElement('a');
-                a.className = 'ib-related-chip';
-                a.href = '#';
-                a.textContent = term;
-                a.onclick = (e) => {
-                    e.preventDefault();
-                    showLoadingOverlay();
-                    sendMessage({ type: 'FETCH_DEFINITION', word: term }, (response) => {
-                        if (response && response.success) {
-                            updateOverlay(response.data.title, response.data.content, response.data.source);
-                        }
-                    });
-                };
-                relatedDiv.appendChild(a);
-            });
-            cardBody.appendChild(relatedDiv);
-        }
-        textBody.appendChild(cardBody);
-        
-      } else {
-        textBody.appendChild(smartHighlight(content));
+        const card = document.createElement('div');
+        card.className = 'ib-bento-card';
+        card.appendChild(smartHighlight(trimmed));
+        bentoGrid.appendChild(card);
+      });
+
+      if (bentoGrid.children.length === 0) {
+        // Fallback if split failed
+        const card = document.createElement('div');
+        card.className = 'ib-bento-card';
+        card.appendChild(smartHighlight(content));
+        bentoGrid.appendChild(card);
       }
     } catch (e) {
-      // Normal content
-      textBody.appendChild(smartHighlight(content));
+      console.warn("Bento fragmentation failed:", e);
+      const card = document.createElement('div');
+      card.className = 'ib-bento-card';
+      card.appendChild(smartHighlight(content));
+      bentoGrid.appendChild(card);
     }
     
     const sourceDiv = document.createElement('div');
     sourceDiv.className = 'infoblend-source';
     sourceDiv.textContent = `Source: ${source}`;
     
-    contentDiv.appendChild(textBody);
+    contentDiv.appendChild(bentoGrid);
     contentDiv.appendChild(sourceDiv);
     
     const progressContainer = container.querySelector('.infoblend-progress-container');
@@ -692,6 +685,16 @@
     }
 
     setupOverlayEvents(overlayHost, container);
+    
+    // BENTO FLASHLIGHT MOUSE TRACKING
+    container.addEventListener('mousemove', (e) => {
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      container.style.setProperty('--mouse-x', `${x}px`);
+      container.style.setProperty('--mouse-y', `${y}px`);
+    });
+
     
     const wordCount = content.split(/\s+/).length;
     const delay = Math.max(10000, (wordCount / 200) * 60 * 1000 + 5000); 
