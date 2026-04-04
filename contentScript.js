@@ -483,17 +483,19 @@
         top: 16px;
         right: 16px;
         width: 320px;
-        background: #050505 !important;
+        background: #000000 !important;
         color: #ffffff !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
+        border: 2px solid #ffffff !important; /* Luminous Border */
         border-radius: 16px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         z-index: 2147483647;
-        font-family: 'Geist Mono', ui-monospace, monospace !important;
+        font-family: Arial, sans-serif !important; /* Use a thicker font for visibility */
         overflow: hidden;
         display: grid;
         grid-template-rows: auto 0fr;
+        filter: none !important; /* Prevent inversion by other extensions */
       }
+
       .ib-bento-card {
         color: #ffffff !important; /* Pure Luminous White */
         padding: 14px 16px;
@@ -686,8 +688,11 @@
         
         const card = document.createElement('div');
         card.className = 'ib-bento-card';
+        card.style.color = '#ffffff'; // ABSOLUTE INLINE WHITE
+        card.style.background = '#000000'; // ABSOLUTE INLINE BLACK
         card.appendChild(smartHighlight(trimmed));
         bentoGrid.appendChild(card);
+
       });
 
       if (bentoGrid.children.length === 0) {
