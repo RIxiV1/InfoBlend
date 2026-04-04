@@ -1,9 +1,13 @@
 /**
  * Popup logic for InfoBlend AI.
+ * Handles settings persistence and bento-grid interactions.
  */
 
 import { getStorageData, setStorageData } from '../utils/storage.js';
 
+/**
+ * Cache for frequently used DOM elements.
+ */
 const DOM = {
   definitionsEnabled: () => document.getElementById('definitionsEnabled'),
   autofillEnabled: () => document.getElementById('autofillEnabled'),
@@ -22,11 +26,20 @@ const DOM = {
   historyContainer: () => document.getElementById('historyContainer')
 };
 
+/**
+ * Loads all user settings from chrome.storage and populates the UI.
+ */
 async function loadSettings() {
-  const settings = await getStorageData(['definitionsEnabled', 'autofillEnabled', 'userData', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'onboardingDone', 'summaryHistory', 'adBlockEnabled']);
+  const keys = [
+    'definitionsEnabled', 'autofillEnabled', 'userData', 
+    'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 
+    'onboardingDone', 'summaryHistory', 'adBlockEnabled'
+  ];
+  const settings = await getStorageData(keys);
   
+  // 1. Render History
   if (DOM.historyContainer()) {
-    if (settings.summaryHistory && settings.summaryHistory.length > 0) {
+    if (settings.summaryHistory?.length > 0) {
       DOM.historyContainer().innerHTML = '';
       settings.summaryHistory.slice(-4).reverse().forEach(item => {
         const a = document.createElement('a');
@@ -51,17 +64,18 @@ async function loadSettings() {
         }
         timeSpan.textContent = timeStr;
         
-        a.appendChild(titleSpan);
-        a.appendChild(timeSpan);
+        a.append(titleSpan, timeSpan);
         DOM.historyContainer().appendChild(a);
       });
     } else {
-      DOM.historyContainer().innerHTML = '<span style="font-size: 10px; color: var(--ink-4); font-style: italic; grid-column: span 2; text-align: center; padding: 12px 0;">No recent blends</span>';
+      DOM.historyContainer().innerHTML = '<span class="ib-history-empty">No recent blends</span>';
     }
   }
 
+  // 2. Initial state
   if (!settings.onboardingDone) DOM.onboardingModal().style.display = 'flex';
   
+  // 3. Form population
   if (settings.definitionsEnabled !== undefined) DOM.definitionsEnabled().checked = settings.definitionsEnabled;
   if (settings.autofillEnabled !== undefined) DOM.autofillEnabled().checked = settings.autofillEnabled;
   if (settings.userData) {
@@ -78,6 +92,9 @@ async function loadSettings() {
   }
 }
 
+/**
+ * Saves current UI state to chrome.storage.
+ */
 async function saveSettings() {
   const btn = DOM.saveBtn();
   await setStorageData({
@@ -92,7 +109,7 @@ async function saveSettings() {
     aiProvider: DOM.aiProvider().value,
     aiKey: DOM.aiKey().value,
     theme: DOM.theme().value,
-    adBlockEnabled: DOM.adBlockEnabled() ? DOM.adBlockEnabled().checked : false
+    adBlockEnabled: DOM.adBlockEnabled()?.checked || false
   });
 
   const originalText = btn.textContent;
@@ -104,51 +121,47 @@ async function saveSettings() {
   }, 1500);
 }
 
+// Initialization and Event Listeners
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
 
-  DOM.closeOnboarding().addEventListener('click', async () => {
+  DOM.closeOnboarding()?.addEventListener('click', async () => {
     DOM.onboardingModal().style.display = 'none';
     await setStorageData({ onboardingDone: true });
   });
 
-  DOM.saveBtn().addEventListener('click', saveSettings);
+  DOM.saveBtn()?.addEventListener('click', saveSettings);
 
-  DOM.summarizeBtn().addEventListener('click', async () => {
+  DOM.summarizeBtn()?.addEventListener('click', async () => {
     const btn = DOM.summarizeBtn();
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab) {
+    
+    if (tab?.url) {
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('about:')) {
+        btn.textContent = 'Restricted Page';
+        btn.style.backgroundColor = '#ff4d4f';
+        return;
+      }
       try {
-        if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:'))) {
-          throw new Error('Cannot run on internal browser pages.');
-        }
         await chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' });
         window.close();
       } catch (e) {
         console.warn('[InfoBlend] Popup message failed:', e.message);
-        const originalText = btn.textContent;
-        const originalBg = btn.style.backgroundColor;
-        btn.textContent = 'Restricted Page';
-        btn.style.backgroundColor = '#ff4d4f';
-        setTimeout(() => {
-          btn.textContent = originalText;
-          btn.style.backgroundColor = originalBg;
-        }, 3000);
       }
     }
   });
 
-  // Flashlight Border Effect
+  // Optimized Flashlight Border Effect
   const grid = document.querySelector('.bento-grid');
   if (grid) {
-    grid.onmousemove = e => {
-      for (const card of document.querySelectorAll('.bento-card')) {
-        const rect = card.getBoundingClientRect(),
-              x = e.clientX - rect.left,
-              y = e.clientY - rect.top;
-        card.style.setProperty('--mouse-x', `${x}px`);
-        card.style.setProperty('--mouse-y', `${y}px`);
-      }
-    };
+    grid.addEventListener('mousemove', e => {
+      const cards = document.querySelectorAll('.bento-card');
+      cards.forEach(card => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+        card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+      });
+    });
   }
 });
+
