@@ -1,6 +1,55 @@
 /**
  * Content script for InfoBlend AI.
+ * Premium Deep-Tech Web Augmentation.
  */
+
+const Z_INDEX = '2147483647';
+const SHADOW_STYLES = `
+  :host {
+    all: initial;
+    display: block;
+    --mouse-x: -100px;
+    --mouse-y: -100px;
+    --ib-accent: #f5a623;
+    --ib-accent-lo: rgba(245,166,35,0.15);
+  }
+  .infoblend-overlay {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 320px;
+    background: #000000 !important;
+    color: #ffffff !important;
+    border: 2px solid #ffffff !important;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    z-index: ${Z_INDEX};
+    font-family: Arial, sans-serif !important;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 0fr;
+    filter: none !important;
+  }
+  .ib-bento-card {
+    background: #0a0a0a !important;
+    color: #ffffff !important;
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin: 8px;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    line-height: 1.6 !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    text-shadow: 0 0 1px rgba(255,255,255,0.2);
+  }
+  .infoblend-title { color: #ffffff !important; font-style: italic; }
+  .ib-highlight, b { color: var(--ib-accent) !important; font-weight: 500 !important; }
+  .infoblend-content { background: #050505 !important; padding: 4px; }
+  .infoblend-progress-container { height: 2px; background: rgba(255,255,255,0.1); }
+  .infoblend-progress-bar { background: var(--ib-accent); height: 100%; box-shadow: 0 0 8px var(--ib-accent-lo); }
+  @keyframes ibSlideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+  .infoblend-overlay { animation: ibSlideIn 0.3s ease-out both; }
+`;
 
 (async () => {
   // Helper to check if the extension context is still valid
@@ -56,6 +105,28 @@
     }
   };
 
+  // Helper to create a Shadow Host reliably
+  const createShadowHost = (id) => {
+    const host = document.createElement('div');
+    host.id = id;
+    Object.assign(host.style, {
+      all: 'initial',
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '0',
+      height: '0',
+      overflow: 'visible',
+      zIndex: Z_INDEX
+    });
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = SHADOW_STYLES;
+    shadow.appendChild(style);
+    return { host, shadow };
+  };
+
   // Helper to extract brand color and ensure it's readable
   const getThemeColor = () => {
     const getLuminance = (r, g, b) => (0.299 * r + 0.587 * g + 0.114 * b) / 255;
@@ -101,22 +172,15 @@
       return;
     }
 
-    paletteHost = document.createElement('div');
-    paletteHost.id = 'infoblend-palette-host';
-    paletteHost.style.all = 'initial';
-    paletteHost.style.position = 'fixed';
-    paletteHost.style.inset = '0';
-    paletteHost.style.width = '0';
-    paletteHost.style.height = '0';
-    paletteHost.style.overflow = 'visible';
-    paletteHost.style.zIndex = '2147483647';
-    document.body.appendChild(paletteHost);
-
-    const shadow = paletteHost.attachShadow({ mode: 'open' });
+    const { host, shadow } = createShadowHost('infoblend-palette-host');
+    paletteHost = host;
+    
+    // Command Palettes still need the external CSS for deep styling
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = safeGetURL('overlay/overlay.css');
     shadow.appendChild(link);
+
 
     const overlayBg = document.createElement('div');
     overlayBg.className = 'ib-palette-overlay';
@@ -454,72 +518,11 @@
       overlayHost = null;
     }
     clearTimeout(autoCloseTimer);
-    overlayHost = document.createElement('div');
-    overlayHost.id = 'infoblend-shadow-host';
-    overlayHost.style.all = 'initial';
-    overlayHost.style.position = 'fixed';
-    overlayHost.style.top = '0';
-    overlayHost.style.left = '0';
-    overlayHost.style.width = '0';
-    overlayHost.style.height = '0';
-    overlayHost.style.overflow = 'visible';
-    overlayHost.style.zIndex = '2147483647';
-    document.body.appendChild(overlayHost);
+    
+    const { host, shadow } = createShadowHost('infoblend-shadow-host');
+    overlayHost = host;
 
-    const shadow = overlayHost.attachShadow({ mode: 'open' });
-
-    // Bypassing Wikipedia CSP: Use a <style> tag instead of a <link>
-    const style = document.createElement('style');
-    style.textContent = `
-      :host {
-        all: initial;
-        display: block;
-        --mouse-x: -100px;
-        --mouse-y: -100px;
-        --ib-accent: #f5a623;
-        --ib-accent-lo: rgba(245,166,35,0.15);
-      }
-      .infoblend-overlay {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        width: 320px;
-        background: #000000 !important;
-        color: #ffffff !important;
-        border: 2px solid #ffffff !important; /* Luminous Border */
-        border-radius: 16px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-        z-index: 2147483647;
-        font-family: Arial, sans-serif !important; /* Use a thicker font for visibility */
-        overflow: hidden;
-        display: grid;
-        grid-template-rows: auto 0fr;
-        filter: none !important; /* Prevent inversion by other extensions */
-      }
-
-      .ib-bento-card {
-        color: #ffffff !important; /* Pure Luminous White */
-        padding: 14px 16px;
-        border-radius: 12px;
-        margin: 8px;
-        font-size: 14px !important; /* Slightly larger */
-        font-weight: 600 !important; /* Semi-Bold for maximum visibility */
-        line-height: 1.6 !important;
-        border: 1px solid rgba(255,255,255,0.15) !important;
-        text-shadow: 0 0 1px rgba(255,255,255,0.2); /* Subtle glow */
-      }
-
-      .infoblend-title { color: #ffffff !important; font-style: italic; }
-      .ib-highlight, b { color: var(--ib-accent) !important; font-weight: 500 !important; }
-      .infoblend-content { background: #050505 !important; padding: 4px; }
-      .infoblend-progress-container { height: 2px; background: rgba(255,255,255,0.1); }
-      .infoblend-progress-bar { background: var(--ib-accent); height: 100%; box-shadow: 0 0 8px var(--ib-accent-lo); }
-      @keyframes ibSlideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-      .infoblend-overlay { animation: ibSlideIn 0.3s ease-out both; }
-    `;
-    shadow.appendChild(style);
-
-    // Also attempt to load the full stylesheet for secondary animations/styles
+    // Load the full stylesheet for secondary animations/styles
     fetch(chrome.runtime.getURL('overlay/overlay.css'))
       .then(r => r.text())
       .then(css => {
@@ -528,9 +531,9 @@
         shadow.appendChild(fullStyle);
       }).catch(e => console.warn("Full CSS load failed (CSP):", e));
 
-
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
+
 
     // Theme & Ambilight logic
     getStorage(['theme']).then(settings => {
