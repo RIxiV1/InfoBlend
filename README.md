@@ -1,64 +1,66 @@
-# InfoBlend AI
+# InfoBlend AI v2.0
 
-InfoBlend AI is a sophisticated Chrome Extension designed for intelligent web augmentation. Built on Manifest V3, it provides a suite of tools for information retrieval, content summarization, and task automation, all delivered through a premium, isolated user interface.
+InfoBlend AI is a high-performance Chrome Extension for intelligent web augmentation. Built on Manifest V3, it delivers a suite of tools for content summarization, semantic analysis, and privacy-focused browsing through a premium, isolated Shadow DOM interface.
 
-> [!NOTE]
-> **What's New in V3**: Enhanced "Ultra-Glass" UI, improved extractive summarization, and privacy-focused ad blocking.
+> [!IMPORTANT]
+> **Latest Update**: Introduced the **Modular Bento Dashboard** with interactive "Flashlight" effects, Ironclad XSS protection, and optimized CSS caching.
 
-## Core Intelligence
+## 🚀 Key Features
 
-### Intelligent Summarization
-InfoBlend AI features a frequency-based extractive summarization algorithm that analyzes document density to surface the most relevant context clusters.
-- **Page Summarization**: Extract key insights from an entire document with a single click.
-- **Selection Summarization**: Target specific text blocks for instant summarization via the context menu.
-- **AI Intelligence (Alpha)**: Supports integration with large language models (Gemini/Vertex) for human-like explanations and deep insights when an API key is provided.
+### 🍱 Modular Bento Dashboard
+The extension UI is now composed of a modular Bento-style layout. Each summary fragment is isolated into high-contrast cards for maximum readability.
+- **Flashlight Interaction**: Hover-reactive radial highlights on bento cards.
+- **Glassmorphism**: 12px backdrop blur with obsidian-dark and warm-light themes.
+- **Total Isolation**: Shadow DOM architecture prevents host-page style leakage.
 
-### Smart Semantic Highlights
-The extension automatically identifies and highlights key technical terms, proper nouns, and entities within summaries and definitions. This system uses a tag-safe parser to ensure seamless integration without interfering with host page styles.
+### 🧠 Intelligent Summarization
+A hybrid engine that combines local density-based extraction with multi-provider AI support (Gemini, OpenAI, etc.).
+- **Page Context Extraction**: Sophisticated article scraping with boilerplate removal.
+- **YouTube Insight**: Instant transcript summarization for video content.
+- **Local Fallback**: High-speed extractive summarization when AI is unavailable.
 
-### Instant Definitions
-Select any single word to trigger an automatic information overlay. The system prioritizes high-quality dictionary entries with a Wikipedia fallback to ensure comprehensive coverage.
+### 🛡️ Ironclad Security & Performance
+- **XSS Protection**: All dynamic content is injected via `textContent` and safe DOM manipulation, eliminating the risk of injection attacks.
+- **Performance Caching**: Stylesheets are cached in memory after the first load to ensure instantaneous UI response.
+- **Lean Architecture**: Zero-bloat codebase with decoupled site-specific logic (Fully site-agnostic).
 
-## Platform Features
+### 🔇 Privacy-First Ad Blocking
+Leveraging the `declarativeNetRequest` API to block ad networks and trackers at the browser level for a faster, cleaner experience.
 
-### Privacy-First Ad Blocking
-Leveraging the `declarativeNetRequest` API, InfoBlend AI blocks common ad networks and tracking scripts at the browser level, ensuring a faster and cleaner browsing experience without compromising privacy.
+## 🛠️ Technical Foundation
 
-### Smart Form Automation
-Securely manage contact profiles to automate repetitive form entries. The system intelligently maps field attributes to your encrypted local data for seamless auto-completion.
+- **Manifest V3**: Compliant with the latest security and performance standards.
+- **Modular JS**: Decoupled helpers for storage, API, and summarization.
+- **Shadow DOM**: Encapsulated UI state using inlined `SHADOW_STYLES` for CSP resilience.
+- **Multi-AI Adapter**: Built-in support for multiple LLM providers with customizable prompt engineering.
 
-### Ultra-Glass Interface
-The user interface utilizes a high-performance Shadow DOM architecture, ensuring total isolation from host page styles. The design features a premium "Ultra-Glass" aesthetic with 40px backdrop blurs, luminous borders, and smooth slide-up animations.
+## 📦 Installation
 
-## Technical Foundation
+1. Clone or download this repository.
+2. Open `chrome://extensions/` in your browser.
+3. Enable **Developer Mode**.
+4. Click **Load unpacked** and select the project root folder.
 
-- **Manifest V3**: Compliant with the latest Chrome extension standards for security and performance.
-- **Shadow DOM Isolation**: Prevents style leakage between the extension UI and the host website.
-- **Service Worker Architecture**: High-efficiency background processing for API communication and state management.
+## 📂 Project Structure
 
-## Installation
+- `background.js`: Service worker for background coordination and messaging.
+- `contentScript.js`: Core logic for scraping, UI injection, and event handling.
+- `popup/`: Settings interface and summary history management.
+- `utils/`: 
+  - `api.js`: Unified AI/Dictionary adapter.
+  - `storage.js`: Secure storage wrappers.
+  - `summarizer.js`: Local extraction engine.
+  - `youtubeInsight.js`: Transcript processing logic.
+- `overlay/`: Style definitions and UI tokens.
 
-1. Download or clone this repository to your local directory.
-2. Navigate to `chrome://extensions/` in Google Chrome.
-3. Enable Developer Mode in the top right corner.
-4. Click "Load unpacked" and select the `infoblend-ai` directory.
+## 🔐 Permissions
 
-## Project Structure
-
-- `background.js`: Service worker for background logic and context menu management.
-- `contentScript.js`: Core logic for page interaction, selection triggers, and UI injection.
-- `popup/`: Extension configuration interface and settings management.
-- `overlay/`: Style definitions for the isolated Shadow DOM overlay.
-- `utils/`: Modular utilities for API communication, storage, and summarization.
-- `rules/`: Static rulesets for the ad-blocking engine.
-
-## Permissions
-
-- **storage**: Local persistence of user configurations and profiles.
-- **declarativeNetRequest**: High-performance ad blocking.
-- **activeTab**: Permission to interact with the current document upon user trigger.
-- **contextMenus**: Integration of deep-dive tools into the browser's right-click interface.
-- **host_permissions**: Facilitates communication with Dictionary and Wikipedia APIs.
+- `storage`: Local persistence for settings and history.
+- `declarativeNetRequest`: High-performance ad-blocking engine.
+- `activeTab`: Just-in-time permission for current page interaction.
+- `contextMenus`: Right-click integration for definitions and summaries.
+- `scripting`: Dynamic content script injection for UI overlays.
 
 ---
-Developed by ME.
+*Developed for performance, privacy, and insight.*
+
