@@ -3,127 +3,99 @@ import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
 import { extractYouTubeTranscript } from './utils/youtubeInsight.js';
 
-// Create context menu items
+/**
+ * Background Service Worker for InfoBlend AI.
+ * Orchestrates API requests, context menus, and content script coordination.
+ */
+
+// 1. Extension Lifecycle & Context Menus
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'define-with-infoblend',
-    title: 'Define with InfoBlend',
-    contexts: ['selection']
-  });
-  chrome.contextMenus.create({
-    id: 'summarize-with-infoblend',
-    title: 'Summarize with InfoBlend',
-    contexts: ['selection']
-  });
+  chrome.contextMenus.create({ id: 'define-ib', title: 'Define with InfoBlend', contexts: ['selection'] });
+  chrome.contextMenus.create({ id: 'summarize-ib', title: 'Summarize Selection', contexts: ['selection'] });
 });
 
-// Helper for safe tab messaging
+// 2. Messaging Helpers
 const safeSendMessage = async (tabId, msg) => {
-  try {
-    await chrome.tabs.sendMessage(tabId, msg);
-  } catch (e) {
-    // Silently fail for connection errors (usually means tab needs refresh)
+  try { await chrome.tabs.sendMessage(tabId, msg); } catch (e) { /* Silently fail */ }
+};
+
+const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+
+/**
+ * Higher-order function to handle chrome.runtime.onMessage async responses.
+ */
+const wrapAsync = (callback) => (message, sender, sendResponse) => {
+  callback(message, sender, sendResponse).catch(err => {
+    console.error('[InfoBlend Background Error]', err);
+    sendResponse({ success: false, error: err.message });
+  });
+  return true; // Keep channel open
+};
+
+// 3. Core Request Handlers
+const handleDefinition = async (word) => {
+  const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
+  if (aiKey && aiEndpoint) {
+    const aiResponse = await fetchAIResponse(word, aiEndpoint, aiKey, null, aiProvider, 'define');
+    return { title: word, content: aiResponse, source: `AI (${aiProvider})` };
   }
+  return await fetchDefinition(word);
 };
 
-// Helper for fetching AI settings DRY
-const getAISettings = async () => {
-  return await getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+const handleSummarization = async (text) => {
+  const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
+  if (aiKey && aiEndpoint) {
+    return await fetchAIResponse(text, aiEndpoint, aiKey, null, aiProvider, 'summarize');
+  }
+  return generateIntelligentSummary(text);
 };
 
-// Handle context menu clicks
+// 4. Listeners
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'define-with-infoblend' && info.selectionText) {
-    safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
-    try {
-      const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
-      let definition;
-      if (aiKey && aiEndpoint) {
-        definition = {
-          title: info.selectionText,
-          content: await fetchAIResponse(info.selectionText, aiEndpoint, aiKey, null, aiProvider, 'define'),
-          source: `AI (${aiProvider})`
-        };
-      } else {
-        definition = await fetchDefinition(info.selectionText);
-      }
-      safeSendMessage(tab.id, { type: 'SHOW_DEFINITION', data: definition });
-    } catch (error) {
-      safeSendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
+  if (!info.selectionText) return;
+  safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
+
+  try {
+    if (info.menuItemId === 'define-ib') {
+      const data = await handleDefinition(info.selectionText);
+      safeSendMessage(tab.id, { type: 'SHOW_DEFINITION', data });
+    } else if (info.menuItemId === 'summarize-ib') {
+      const summary = await handleSummarization(info.selectionText);
+      safeSendMessage(tab.id, { 
+        type: 'SHOW_DEFINITION', 
+        data: { title: 'Selection Summary', content: summary, source: 'AI/Local Hybrid' } 
+      });
     }
-  } else if (info.menuItemId === 'summarize-with-infoblend' && info.selectionText) {
-    safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
-    try {
-      const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
-      if (aiKey && aiEndpoint) {
-        const summary = await fetchAIResponse(info.selectionText, aiEndpoint, aiKey, null, aiProvider, 'summarize');
-        safeSendMessage(tab.id, { 
-          type: 'SHOW_DEFINITION', 
-          data: { title: 'Selection Summary', content: summary, source: `AI (${aiProvider})` } 
-        });
-      } else {
-        safeSendMessage(tab.id, { type: 'SUMMARIZE_SELECTION', text: info.selectionText });
-      }
-    } catch (error) {
-      safeSendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
-    }
+  } catch (error) {
+    safeSendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
   }
 });
 
-// Handle messages from content scripts
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'FETCH_DEFINITION') {
-    (async () => {
-      try {
-        const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
-        if (aiKey && aiEndpoint) {
-          const aiResponse = await fetchAIResponse(message.word, aiEndpoint, aiKey, null, aiProvider, 'define');
-          sendResponse({ success: true, data: { title: message.word, content: aiResponse, source: `AI (${aiProvider})` } });
-        } else {
-          const result = await fetchDefinition(message.word);
-          sendResponse({ success: true, data: result });
-        }
-      } catch (error) {
-        // Only send response if the connection is still open
-        try {
-          sendResponse({ success: false, error: error.message });
-        } catch (e) {}
-      }
-    })();
-    return true; 
-  } else if (message.type === 'SUMMARIZE_VIA_AI') {
-    (async () => {
-      try {
-        const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
-        const summary = await fetchAIResponse(message.text, aiEndpoint, aiKey, null, aiProvider, 'summarize');
-        sendResponse({ success: true, summary: summary });
-      } catch (error) {
-        try {
-          sendResponse({ success: false, error: error.message });
-        } catch (e) {}
-      }
-    })();
-    return true;
-  } else if (message.type === 'SUMMARIZE_LOCALLY') {
-    try {
-      const summary = generateIntelligentSummary(message.text);
-      sendResponse({ success: true, summary: summary });
-    } catch (error) {
-      try {
-        sendResponse({ success: false, error: error.message });
-      } catch (e) {}
-    }
-  } else if (message.type === 'FETCH_YOUTUBE_TRANSCRIPT') {
-    (async () => {
-        try {
-            const transcript = await extractYouTubeTranscript(message.url);
-            sendResponse({ success: true, transcript });
-        } catch (error) {
-            try {
-                sendResponse({ success: false, error: error.message });
-            } catch (e) {}
-        }
-    })();
-    return true;
+chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendResponse) => {
+  switch (message.type) {
+    case 'FETCH_DEFINITION':
+      const data = await handleDefinition(message.word);
+      sendResponse({ success: true, data });
+      break;
+
+    case 'SUMMARIZE_VIA_AI':
+      const aiSummary = await handleSummarization(message.text);
+      sendResponse({ success: true, summary: aiSummary });
+      break;
+
+    case 'SUMMARIZE_LOCALLY':
+      const localSummary = generateIntelligentSummary(message.text);
+      sendResponse({ success: true, summary: localSummary });
+      break;
+
+    case 'FETCH_YOUTUBE_TRANSCRIPT':
+      const transcript = await extractYouTubeTranscript(message.url);
+      sendResponse({ success: true, transcript });
+      break;
+      
+    case 'OPEN_POPUP':
+      // Placeholder for future palette interactions
+      break;
   }
-});
+}));
+
