@@ -12,8 +12,8 @@
   ],
   "host_permissions": [
     "https://api.dictionaryapi.dev/api/v2/entries/en/*",
-    "https://en.wikipedia.org/api/rest_v1/*",
     "<all_urls>"
+
   ],
   "background": {
     "service_worker": "background.js",
