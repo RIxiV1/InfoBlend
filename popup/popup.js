@@ -68,7 +68,11 @@ async function loadSettings() {
         DOM.historyContainer().appendChild(a);
       });
     } else {
-      DOM.historyContainer().innerHTML = '<span class="ib-history-empty">No recent blends</span>';
+      DOM.historyContainer().innerHTML = '';
+      const emptySpan = document.createElement('span');
+      emptySpan.className = 'ib-history-empty';
+      emptySpan.textContent = 'No recent blends';
+      DOM.historyContainer().appendChild(emptySpan);
     }
   }
 
