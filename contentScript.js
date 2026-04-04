@@ -11,76 +11,93 @@ const SHADOW_STYLES = `
     --mouse-x: -100px;
     --mouse-y: -100px;
     --ib-accent: #f5a623;
-    --ib-accent-lo: rgba(245,166,35,0.15);
   }
   .infoblend-overlay {
     position: fixed;
     top: 16px;
     right: 16px;
     width: 320px;
-    background: #000000 !important;
+    background: #050505 !important;
     color: #ffffff !important;
-    border: 2px solid #ffffff !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
     border-radius: 16px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     z-index: ${Z_INDEX};
-    font-family: Arial, sans-serif !important;
+    font-family: ui-monospace, 'Geist Mono', monospace !important;
     overflow: hidden;
     display: grid;
     grid-template-rows: auto 0fr;
-    filter: none !important;
+    transition: grid-template-rows 0.4s ease;
   }
+  .infoblend-overlay.open { grid-template-rows: auto 1fr; }
   .ib-bento-card {
+    position: relative;
     background: #0a0a0a !important;
     color: #ffffff !important;
-    padding: 14px 16px;
+    padding: 12px 14px;
     border-radius: 12px;
     margin: 8px;
-    font-size: 14px !important;
-    font-weight: 600 !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
     line-height: 1.6 !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
-    text-shadow: 0 0 1px rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    overflow: hidden;
   }
-  .infoblend-title { color: #ffffff !important; font-style: italic; }
+  .ib-bento-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    padding: 1px;
+    background: radial-gradient(200px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.15), transparent 80%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
   .ib-highlight, b { color: var(--ib-accent) !important; font-weight: 500 !important; }
-  .infoblend-content { background: #050505 !important; padding: 4px; }
-  .infoblend-progress-container { height: 2px; background: rgba(255,255,255,0.1); }
-  .infoblend-progress-bar { background: var(--ib-accent); height: 100%; box-shadow: 0 0 8px var(--ib-accent-lo); }
+  .infoblend-content { background: #050505 !important; padding: 4px; overflow-y: auto; }
+  .infoblend-header { padding: 10px 12px; display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); }
   @keyframes ibSlideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
   .infoblend-overlay { animation: ibSlideIn 0.3s ease-out both; }
 `;
 
 (async () => {
-  // Helper to check if the extension context is still valid
+  /**
+   * Validates if the extension context is still active.
+   * @returns {boolean}
+   */
   const isContextValid = () => {
-    try {
-      return !!(chrome.runtime && chrome.runtime.id);
-    } catch (e) {
-      return false;
-    }
+    try { return !!(chrome.runtime && chrome.runtime.id); } 
+    catch (e) { return false; }
   };
 
-  // Helper for safe URL retrieval
+  /**
+   * Retrieves a safe URL for internal assets.
+   * @param {string} path 
+   * @returns {string}
+   */
   const safeGetURL = (path) => {
-    try {
-      return chrome.runtime.getURL(path);
-    } catch (e) {
-      return '';
-    }
+    try { return chrome.runtime.getURL(path); } 
+    catch (e) { return ''; }
   };
 
-  // Helper to get storage data - handles extension context invalidation
+  /**
+   * Safely retrieves storage data, handling invalidated contexts.
+   * @param {string|string[]} keys 
+   * @returns {Promise<Object>}
+   */
   const getStorage = async (keys) => {
     try {
       if (!isContextValid()) return {};
       return await chrome.storage.local.get(keys);
-    } catch (e) {
-      return {};
-    }
+    } catch (e) { return {}; }
   };
 
-  // Helper for message sending
+  /**
+   * Dispatches messages to the background script with error handling.
+   * @param {Object} msg 
+   * @param {Function} [cb] 
+   */
   const sendMessage = async (msg, cb) => {
     try {
       if (!isContextValid()) {
@@ -90,19 +107,19 @@ const SHADOW_STYLES = `
       const response = await chrome.runtime.sendMessage(msg);
       if (cb) cb(response);
     } catch (e) {
-      console.warn('[InfoBlend] sendMessage error:', e.message);
-      if (cb) cb({ success: false, error: e.message || 'Context invalidated' });
+      console.warn('[InfoBlend] Messaging error:', e.message);
+      if (cb) cb({ success: false, error: e.message || 'Context Invalid' });
     }
   };
 
-  // Helper to set storage data safely
+  /**
+   * Safely updates storage.
+   * @param {Object} data 
+   */
   const setStorage = async (data) => {
     try {
-      if (!isContextValid()) return;
-      await chrome.storage.local.set(data);
-    } catch (e) {
-      console.warn('[InfoBlend] setStorage error:', e.message);
-    }
+      if (isContextValid()) await chrome.storage.local.set(data);
+    } catch (e) { /* Fail silently */ }
   };
 
   // Helper to create a Shadow Host reliably
