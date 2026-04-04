@@ -357,111 +357,105 @@ const SHADOW_STYLES = `
     }
   });
 
+  /**
+   * Main entry point for page summarization logic.
+   * Handles YouTube transcripts and general web article extraction.
+   */
   async function handlePageSummarization() {
     showLoadingOverlay();
     
-    // Check if on a YouTube video
+    // 1. YouTube Specialized Extraction
     if (window.location.hostname.includes('youtube.com') && window.location.pathname.includes('/watch')) {
-      sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', url: window.location.href }, async (resp) => {
-        if (resp && resp.success) {
-          const content = resp.transcript;
-          try {
-            const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);
-            if (settings.aiKey && settings.aiEndpoint) {
-              sendMessage({ type: 'SUMMARIZE_VIA_AI', text: content.substring(0, 10000) }, (response) => {
-                if (response && response.success) {
-                  updateOverlay('Video Summary', response.summary, `AI (${settings.aiProvider})`);
-                } else {
-                  runLocalSummarizer(content);
-                }
-              });
-            } else {
-              runLocalSummarizer(content);
-            }
-          } catch (e) {
-            runLocalSummarizer(content);
-          }
-        } else {
-          updateOverlay('Notice', 'Could not extract video transcript.', 'YouTube Insights');
-        }
-      });
+      handleYouTubeSummarization();
       return;
     }
     
-    // Stricter selectors to ignore non-prose and code
-    const junkSelectors = 'nav, footer, header, script, style, noscript, template, meta, link, head, aside, [class*="sidebar"], [id*="sidebar"], [class*="ad-"], [id*="ad-"], [class*="nav-"], [id*="nav-"]';
-    const mainContentSelectors = 'article, main, .post-content, .entry-content';
-
-    
-    let contentSources = [];
-    const mainContent = document.querySelector(mainContentSelectors);
-    
-    if (mainContent) {
-      contentSources = Array.from(mainContent.querySelectorAll('p, h1, h2, h3, h4'))
-        .filter(el => !el.closest(junkSelectors))
-        .map(el => el.innerText.trim())
-        .filter(text => {
-          // Heuristic to discard code snippets
-          const isCode = text.includes('function(') || text.includes('var ') || (text.match(/{/g) || []).length > 3;
-          return text.length > 20 && !isCode;
-        });
-    } else {
-      contentSources = Array.from(document.querySelectorAll('p, section, h1, h2, h3'))
-        .filter(el => !el.closest(junkSelectors))
-        .map(el => el.innerText.trim())
-        .filter(text => {
-          // Heuristic to discard code snippets
-          const isCode = text.includes('function(') || text.includes('var ') || (text.match(/{/g) || []).length > 3;
-          return text.length > 40 && !isCode;
-        });
-    }
-    
-    const content = contentSources.join(' ') || '';
+    // 2. Standard Web Article Extraction
+    const content = extractArticleContent();
     if (!content) {
       updateOverlay('Notice', 'No readable article content found on this page.', 'InfoBlend');
       return;
     }
     
-    const finalContent = content.substring(0, 10000);
-
-    
-    try {
-      const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);
-      if (settings.aiKey && settings.aiEndpoint) {
-        sendMessage({ 
-          type: 'SUMMARIZE_VIA_AI', 
-          text: content.substring(0, 10000) 
-        }, (response) => {
-          if (response && response.success) {
-            updateOverlay('Page Summary', response.summary, `AI (${settings.aiProvider})`);
-          } else {
-            console.warn('AI Summarization failed:', response?.error);
-            runLocalSummarizer(content);
-          }
-        });
-      } else {
-        runLocalSummarizer(content);
-      }
-    } catch (error) {
-      runLocalSummarizer(content);
-    }
+    runSummarizer(content, 'Page Summary');
   }
 
-  function runLocalSummarizer(text) {
-    if (!isContextValid()) {
-      updateOverlay('Notice', 'Extension updated. Please refresh the page to continue.', 'InfoBlend');
-      return;
-    }
+  /**
+   * Extracts prose content from the page using heuristic-based selection.
+   * @returns {string|null} The extracted and cleaned text content.
+   */
+  function extractArticleContent() {
+    const junkSelectors = 'nav, footer, header, script, style, noscript, template, [class*="sidebar"], [id*="sidebar"], [class*="ad-"], [class*="nav-"]';
+    const mainContentSelectors = 'article, main, .post-content, .entry-content';
     
-    sendMessage({ type: 'SUMMARIZE_LOCALLY', text: text }, (response) => {
-      if (response && response.success) {
-        updateOverlay('Summary', response.summary, 'InfoBlend Local Summarizer');
+    const mainArea = document.querySelector(mainContentSelectors) || document.body;
+    const isMainHeuristic = !!document.querySelector(mainContentSelectors);
+    
+    const elements = isMainHeuristic 
+      ? mainArea.querySelectorAll('p, h1, h2, h3, h4') 
+      : mainArea.querySelectorAll('p, section, h1, h2, h3');
+
+    const prose = Array.from(elements)
+      .filter(el => !el.closest(junkSelectors))
+      .map(el => el.innerText.trim())
+      .filter(text => {
+        const isCode = text.includes('function(') || text.includes('var ') || (text.match(/{/g) || []).length > 3;
+        return text.length > (isMainHeuristic ? 20 : 40) && !isCode;
+      });
+
+    return prose.join(' ').substring(0, 10000) || null;
+  }
+
+  /**
+   * Specialized handler for YouTube video transcripts.
+   */
+  function handleYouTubeSummarization() {
+    sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', url: window.location.href }, async (resp) => {
+      if (resp && resp.success && resp.transcript) {
+        runSummarizer(resp.transcript, 'Video Summary');
       } else {
-        const errorMsg = response?.error || 'Summarization failed.';
-        updateOverlay('Notice', isContextValid() ? errorMsg : 'Extension updated. Please refresh.', 'InfoBlend');
+        updateOverlay('Notice', 'Could not extract video transcript.', 'YouTube Insights');
       }
     });
   }
+
+  /**
+   * Orchestrates the summarization process (AI or Local).
+   */
+  async function runSummarizer(text, title = 'Summary') {
+    try {
+      const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);
+      if (settings.aiKey && settings.aiEndpoint) {
+        sendMessage({ type: 'SUMMARIZE_VIA_AI', text }, (response) => {
+          if (response && response.success) {
+            updateOverlay(title, response.summary, `AI (${settings.aiProvider})`);
+          } else {
+            runLocalSummarizer(text, title);
+          }
+        });
+      } else {
+        runLocalSummarizer(text, title);
+      }
+    } catch (e) {
+      runLocalSummarizer(text, title);
+    }
+  }
+
+  function runLocalSummarizer(text, title = 'Summary') {
+    if (!isContextValid()) {
+      updateOverlay('Notice', 'Extension updated. Please refresh the page.', 'InfoBlend');
+      return;
+    }
+    
+    sendMessage({ type: 'SUMMARIZE_LOCALLY', text }, (response) => {
+      if (response && response.success) {
+        updateOverlay(title, response.summary, 'InfoBlend Local');
+      } else {
+        updateOverlay('Notice', response?.error || 'Summarization failed.', 'InfoBlend');
+      }
+    });
+  }
+
 
   // Form Auto-fill Logic
   const autofillForms = async () => {
