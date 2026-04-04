@@ -10,7 +10,7 @@ export const fetchDefinition = async (word) => {
   try {
     const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
     if (!response.ok) {
-      return await fetchWikipediaSummary(word);
+      throw new Error(`Encyclopedia: No entry found for '${word}'.`);
     }
     const data = await response.json();
     if (data && data[0]) {
@@ -25,44 +25,10 @@ export const fetchDefinition = async (word) => {
     throw new Error('No definition found');
   } catch (error) {
     console.error('Dictionary API error:', error);
-    return await fetchWikipediaSummary(word);
-  }
-};
-
-export const fetchWikipediaSummary = async (term) => {
-  try {
-    const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
-    if (!response.ok) throw new Error(`Encyclopedia: No entry found for '${term}'.`);
-    const data = await response.json();
-    
-    let relatedTerms = [];
-    try {
-      const relatedResp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/related/${encodeURIComponent(data.title)}`);
-      if (relatedResp.ok) {
-        const relatedData = await relatedResp.json();
-        relatedTerms = (relatedData.pages || []).slice(0, 3).map(p => p.title);
-      }
-    } catch (e) {
-      // Ignore failure on related terms
-    }
-
-    const payload = {
-      isKnowledgeCard: true,
-      summary: data.extract,
-      thumbnail: data.thumbnail ? data.thumbnail.source : null,
-      related: relatedTerms
-    };
-
-    return {
-      title: data.title,
-      content: JSON.stringify(payload),
-      source: 'Wikipedia'
-    };
-  } catch (error) {
-    console.error('Wikipedia API error:', error);
     throw error;
   }
 };
+
 
 /**
  * Custom AI Fetcher with Adapter Support
