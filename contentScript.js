@@ -533,14 +533,26 @@ const SHADOW_STYLES = `
     const { host, shadow } = createShadowHost('infoblend-shadow-host');
     overlayHost = host;
 
-    // Load the full stylesheet for secondary animations/styles
-    fetch(chrome.runtime.getURL('overlay/overlay.css'))
-      .then(r => r.text())
-      .then(css => {
-        const fullStyle = document.createElement('style');
-        fullStyle.textContent = css;
-        shadow.appendChild(fullStyle);
-      }).catch(e => console.warn("Full CSS load failed (CSP):", e));
+    let cachedCSS = null;
+
+    const loadFullStyles = (targetShadow) => {
+      if (cachedCSS) {
+        const style = document.createElement('style');
+        style.textContent = cachedCSS;
+        targetShadow.appendChild(style);
+        return;
+      }
+      fetch(chrome.runtime.getURL('overlay/overlay.css'))
+        .then(r => r.text())
+        .then(css => {
+          cachedCSS = css;
+          const style = document.createElement('style');
+          style.textContent = css;
+          targetShadow.appendChild(style);
+        }).catch(e => console.warn("[InfoBlend] CSS load failed (CSP):", e));
+    };
+
+    loadFullStyles(shadow);
 
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
@@ -576,7 +588,7 @@ const SHADOW_STYLES = `
 
     const pinBtn = document.createElement('button');
     pinBtn.className = 'infoblend-btn infoblend-pin';
-    pinBtn.innerHTML = '📌'; 
+    pinBtn.textContent = '📌'; 
     pinBtn.title = 'Pin Overlay';
 
     const closeBtn = document.createElement('button');
@@ -739,13 +751,13 @@ const SHADOW_STYLES = `
     if (!controls.querySelector('.infoblend-copy')) {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'infoblend-btn infoblend-copy';
-      copyBtn.innerHTML = '📋';
+      copyBtn.textContent = '📋';
       copyBtn.title = 'Copy';
       copyBtn.onclick = (e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(content);
-        copyBtn.innerHTML = '✅';
-        setTimeout(() => copyBtn.innerHTML = '📋', 2000);
+        copyBtn.textContent = '✅';
+        setTimeout(() => copyBtn.textContent = '📋', 2000);
       };
       controls.insertBefore(copyBtn, controls.lastChild);
     }
