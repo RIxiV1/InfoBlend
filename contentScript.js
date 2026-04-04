@@ -326,7 +326,8 @@
     
     // Stricter selectors to ignore non-prose and code
     const junkSelectors = 'nav, footer, header, script, style, noscript, template, meta, link, head, aside, [class*="sidebar"], [id*="sidebar"], [class*="ad-"], [id*="ad-"], [class*="nav-"], [id*="nav-"]';
-    const mainContentSelectors = 'article, main, .post-content, .entry-content, #content, #main';
+    const mainContentSelectors = 'article, main, .post-content, .entry-content';
+
     
     let contentSources = [];
     const mainContent = document.querySelector(mainContentSelectors);
