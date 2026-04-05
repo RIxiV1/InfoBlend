@@ -1,68 +1,62 @@
 # InfoBlend AI
 
-![InfoBlend Logo](icons/icon128.png)
-
-InfoBlend AI is a high-performance Chrome Extension for intelligent web augmentation. Built on Manifest V3, it delivers a suite of tools for content summarization, semantic analysis, and privacy-focused browsing through a premium, isolated Shadow DOM interface.
-
-> [!IMPORTANT]
-> **Latest Update**: Introduced the **Modular Bento Dashboard** with interactive "Flashlight" effects, Ironclad XSS protection, and optimized CSS caching.
-
-## 🚀 Key Features
-
-### 🍱 Modular Bento Dashboard
-The extension UI is now composed of a modular Bento-style layout. Each summary fragment is isolated into high-contrast cards for maximum readability.
-- **Flashlight Interaction**: Hover-reactive radial highlights on bento cards.
-- **Glassmorphism**: 12px backdrop blur with obsidian-dark and warm-light themes.
-- **Total Isolation**: Shadow DOM architecture prevents host-page style leakage.
-
-### 🧠 Intelligent Summarization
-A hybrid engine that combines local density-based extraction with multi-provider AI support (Gemini, OpenAI, etc.).
-- **Page Context Extraction**: Sophisticated article scraping with boilerplate removal.
-- **YouTube Insight**: Instant transcript summarization for video content.
-- **Local Fallback**: High-speed extractive summarization when AI is unavailable.
-
-### 🛡️ Ironclad Security & Performance
-- **XSS Protection**: All dynamic content is injected via `textContent` and safe DOM manipulation, eliminating the risk of injection attacks.
-- **Performance Caching**: Stylesheets are cached in memory after the first load to ensure instantaneous UI response.
-- **Lean Architecture**: Zero-bloat codebase with decoupled site-specific logic (Fully site-agnostic).
-
-### 🔇 Privacy-First Ad Blocking
-Leveraging the `declarativeNetRequest` API to block ad networks and trackers at the browser level for a faster, cleaner experience.
-
-## 🛠️ Technical Foundation
-
-- **Manifest V3**: Compliant with the latest security and performance standards.
-- **Modular JS**: Decoupled helpers for storage, API, and summarization.
-- **Shadow DOM**: Encapsulated UI state using inlined `SHADOW_STYLES` for CSP resilience.
-- **Multi-AI Adapter**: Built-in support for multiple LLM providers with customizable prompt engineering.
-
-## 📦 Installation
-
-1. Clone or download this repository.
-2. Open `chrome://extensions/` in your browser.
-3. Enable **Developer Mode**.
-4. Click **Load unpacked** and select the project root folder.
-
-## 📂 Project Structure
-
-- `background.js`: Service worker for background coordination and messaging.
-- `contentScript.js`: Core logic for scraping, UI injection, and event handling.
-- `popup/`: Settings interface and summary history management.
-- `utils/`: 
-  - `api.js`: Unified AI/Dictionary adapter.
-  - `storage.js`: Secure storage wrappers.
-  - `summarizer.js`: Local extraction engine.
-  - `youtubeInsight.js`: Transcript processing logic.
-- `overlay/`: Style definitions and UI tokens.
-
-## 🔐 Permissions
-
-- `storage`: Local persistence for settings and history.
-- `declarativeNetRequest`: High-performance ad-blocking engine.
-- `activeTab`: Just-in-time permission for current page interaction.
-- `contextMenus`: Right-click integration for definitions and summaries.
-- `scripting`: Dynamic content script injection for UI overlays.
+<div align="center">
+  <img src="icons/icon128.png" width="128" height="128" alt="InfoBlend AI Logo">
+  <h3>The Ultimate Web Augmentation Extension</h3>
+  <p>Manifest V3 • High Performance • Privacy First</p>
+</div>
 
 ---
-*Developed for performance, privacy, and insight.*
 
+InfoBlend AI is a premium browser extension designed for high-speed information synthesis. It empowers users with intelligent page summarization, semantic word analysis, and a sophisticated command-driven interface, all while maintaining absolute UI isolation via Shadow DOM.
+
+## 🚀 Recent Core Advancements
+
+### ⌨️ Floating Command Palette (`Ctrl + K`)
+The fastest way to interact with the web. Launch the palette to execute commands or define terms instantly.
+- **Self-Adaptive Focus**: Input is focused immediately upon opening.
+- **Interactive Navigation**: Smooth keyboard-driven selection with `↑↓` keys and `Enter`.
+- **Intelligent Fallbacks**: Typing any word that isn't a command automatically offers a **Smart Definition**.
+
+### 🧪 Advanced Definition Fallback Chain
+We've implemented a robust, multi-stage fallback logic to ensure you're never without an answer:
+1.  **Primary**: *Free Dictionary API* (Standard English).
+2.  **Fallback 1**: *Datamuse API* (Slang and technical terms).
+3.  **Fallback 2**: *Wiktionary API* (Rich etymological and dictionary data).
+4.  **Fallback 3**: *Wikipedia API* (Concise first-sentence summaries for people/places).
+5.  **Safety Net**: Direct search link to **Merriam-Webster** if no automated match is found.
+
+### 🍱 Premium Bento Dashboard
+Information is rendered into beautiful, hover-reactive card layouts.
+- **Modular Summarization**: Hybrid local/AI extraction for page and YouTube content.
+- **Insight Cards**: Break down complex text into digestible "insights".
+- **Dynamic Flashlight**: Micro-animations and radial highlights that follow your mouse for a premium feel.
+
+### 🛡️ Shadow DOM Isolation (Ironclad)
+- **Theme Resilience**: Uses `color-scheme: only light` to ensure the UI remains high-contrast even on sites forced into dark mode by extensions like *Dark Reader*.
+- **Style Encapsulation**: Zero bleed-through from host page CSS, ensuring InfoBlend looks perfect every time.
+- **Z-Index Superiority**: Guaranteed to stay on top of any website layout.
+
+## 🛠️ Built for Performance
+
+- **Manifest V3 Architecture**: Lean service workers and declarative ad-blocking.
+- **Multi-AI Adapter**: Seamlessly switch between Gemini, OpenAI, and local summarization.
+- **XSS Protection**: All data injection is sanitized via `textContent`, making it 100% resilient to injection attacks.
+- **Declarative Net Request**: Blazing fast ad and tracker blocking at the core level.
+
+## 📂 Installation
+
+1.  **Clone** the repository.
+2.  Navigate to `chrome://extensions/` in your browser.
+3.  Enable **Developer Mode**.
+4.  Click **Load unpacked** and select the extension folder.
+
+## 🔒 Permissions
+
+- `storage`: Persistence for settings and summary history.
+- `declarativeNetRequest`: High-performance ad-blocking.
+- `activeTab`: Just-in-time permission for interactions.
+- `contextMenus`: Right-click power tools for definitions.
+
+---
+*Created for those who value speed, privacy, and insight.*
