@@ -22,7 +22,6 @@
     {
       "matches": ["<all_urls>"],
       "js": ["contentScript.js"],
-      "css": ["overlay/overlay.css"],
       "run_at": "document_idle"
     }
   ],
