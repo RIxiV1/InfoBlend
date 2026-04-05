@@ -12,9 +12,10 @@
   "host_permissions": [
     "https://api.dictionaryapi.dev/api/v2/entries/en/*",
     "<all_urls>"
+
   ],
   "background": {
-    "scripts": ["background.js"],
+    "service_worker": "background.js",
     "type": "module"
   },
   "content_scripts": [
@@ -46,10 +47,5 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  },
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "infoblend-ai@extension"
-    }
   }
 }
