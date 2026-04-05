@@ -44,12 +44,22 @@ Information is rendered into beautiful, hover-reactive card layouts.
 - **XSS Protection**: All data injection is sanitized via `textContent`, making it 100% resilient to injection attacks.
 - **Declarative Net Request**: Blazing fast ad and tracker blocking at the core level.
 
-## 📂 Installation
+## 📦 Installation & Browser Support
 
-1.  **Clone** the repository.
-2.  Navigate to `chrome://extensions/` in your browser.
-3.  Enable **Developer Mode**.
-4.  Click **Load unpacked** and select the extension folder.
+### **Chrome, Edge, Safari, Brave, and Chromium-based**
+- Uses the standard `manifest.json`.
+1.  Open your browser's extensions page (`chrome://extensions/` or `edge://extensions/`).
+2.  Enable **Developer Mode**.
+3.  Click **Load unpacked** and select this repository folder.
+
+### **Firefox (Gecko-based)**
+- Uses the dedicated `manifest.firefox.json`.
+1.  Temporarily rename `manifest.firefox.json` to `manifest.json` (backup the original first).
+2.  Open `about:debugging` in Firefox.
+3.  Click **This Firefox** → **Load Temporary Add-on...**.
+4.  Select the project's `manifest.json`.
+
+*Note: In the future, we will provide a build script to automate this prefix swapping.*
 
 ## 🔒 Permissions
 
