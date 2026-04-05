@@ -571,12 +571,17 @@
               <select id="aiProvider" style="padding: 4px; border: 1px solid var(--line-dim); border-radius: 4px;">
                 <option value="gemini">Google Gemini</option>
                 <option value="openai">OpenAI GPT</option>
+                <option value="generic">Generic AI</option>
               </select>
             </div>
           </div>
           <div class="field">
             <span class="field-key">API Key</span>
             <input type="password" id="aiKey" placeholder="sk-••••" spellcheck="false" style="padding: 4px; border: 1px solid var(--line-dim); border-radius: 4px;">
+          </div>
+          <div class="field col-span-2" style="margin-top: 4px;">
+            <span class="field-key">Endpoint URL</span>
+            <input type="text" id="aiEndpoint" placeholder="https://api.provider.com/v1/..." spellcheck="false" style="padding: 4px; border: 1px solid var(--line-dim); border-radius: 4px; width: 100%;">
           </div>
         </div>
       </div>
