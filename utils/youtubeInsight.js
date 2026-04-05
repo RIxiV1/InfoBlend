@@ -3,55 +3,66 @@
  * Extracts and processes YouTube transcripts using native endpoints.
  */
 
+const decodeHTML = (text) => {
+  const entities = {
+    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'", '&#x2F;': '/'
+  };
+  return text.replace(/&[#\w]+;/g, (match) => entities[match] || match);
+};
+
 export const extractYouTubeTranscript = async (url) => {
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch YouTube page.');
+    if (!response.ok) throw new Error('YouTube unreachable. Check your connection.');
     const html = await response.text();
     
-    // Find captions tracks in the HTML
-    const captionsRegex = /"captionTracks":\[(.*?)\]/;
+    // Improved regex to find caption data in different script blocks
+    const captionsRegex = /"captionTracks":\s*\[(.*?)\]/;
     const match = html.match(captionsRegex);
-    if (!match || match.length < 2) {
-      throw new Error('No captions available for this video.');
+    
+    if (!match) {
+      // Fallback: Check for innertrack or other common locations
+      const fallbackRegex = /ytInitialPlayerResponse\s*=\s*({.*?});/s;
+      const fbMatch = html.match(fallbackRegex);
+      if (fbMatch) {
+         try {
+           const data = JSON.parse(fbMatch[1]);
+           const tracks = data.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+           if (tracks) return await fetchAndProcessTrack(tracks);
+         } catch (e) { /* ignore JSON parse error */ }
+      }
+      throw new Error('Captions are disabled or unavailable for this video.');
     }
     
-    // Parse the JSON string for caption tracks
-    const tracksRaw = `[${match[1]}]`;
-    const tracks = JSON.parse(tracksRaw);
-    
-    // Find English track or just pick the first one
-    const enTrack = tracks.find(t => t.languageCode === 'en' || t.name?.simpleText?.includes('English')) || tracks[0];
-    
-    if (!enTrack || !enTrack.baseUrl) {
-      throw new Error('No valid caption track found.');
-    }
-    
-    const xmlResponse = await fetch(enTrack.baseUrl);
-    if (!xmlResponse.ok) throw new Error('Failed to fetch caption XML.');
-    const xml = await xmlResponse.text();
-    
-    // Simple XML parsing to extract text
-    const textMatches = xml.match(/<text.*?>(.*?)<\/text>/gi);
-    if (!textMatches) throw new Error('No text found in captions.');
-    
-    // Decode HTML entities and join
-    const fullTranscript = textMatches.map(tag => {
-        const contentMatch = tag.match(/<text.*?>(.*?)<\/text>/i);
-        if (!contentMatch) return '';
-        let text = contentMatch[1];
-        // Decode common entities
-        text = text.replace(/&amp;/g, '&')
-                   .replace(/&lt;/g, '<')
-                   .replace(/&gt;/g, '>')
-                   .replace(/&quot;/g, '"')
-                   .replace(/&#39;/g, "'");
-        return text;
-    }).join(' ');
+    const tracks = JSON.parse(`[${match[1]}]`);
+    return await fetchAndProcessTrack(tracks);
 
-    return fullTranscript;
   } catch (error) {
-    console.error('YouTube Transcript Extraction Error:', error);
-    throw error;
+    console.warn('[InfoBlend] YouTube Insight Error:', error.message);
+    throw new Error(`YouTube Insight: ${error.message}`);
   }
 };
+
+async function fetchAndProcessTrack(tracks) {
+  // Priority: English -> English (Auto-generated) -> First available
+  const enTrack = tracks.find(t => t.languageCode === 'en' && !t.kind) || 
+                  tracks.find(t => t.languageCode === 'en') || 
+                  tracks[0];
+  
+  if (!enTrack?.baseUrl) throw new Error('No readable transcript tracks found.');
+
+  const xmlResponse = await fetch(enTrack.baseUrl);
+  const xml = await xmlResponse.text();
+  
+  const textMatches = xml.match(/<text.*?>(.*?)<\/text>/gi);
+  if (!textMatches) throw new Error('Transcript is empty.');
+  
+  return textMatches
+    .map(tag => {
+      const content = tag.match(/<text.*?>(.*?)<\/text>/i)?.[1] || '';
+      return decodeHTML(content);
+    })
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
