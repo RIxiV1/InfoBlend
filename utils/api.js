@@ -8,34 +8,90 @@
  * @param {string} word - The term to define.
  * @returns {Promise<Object>} Title, content, and source.
  */
+/**
+ * Fetches a word definition with a multi-stage fallback chain.
+ * Priority: Free Dictionary -> Datamuse -> Wiktionary -> Wikipedia
+ * @param {string} word - The term to define.
+ * @returns {Promise<Object>} Title, content, source and optional link.
+ */
 export const fetchDefinition = async (word) => {
-  const wordCount = word.trim().split(/\s+/).length;
+  const term = word.trim();
+  const wordCount = term.split(/\s+/).length;
   if (wordCount > 5) {
     throw new Error('Selection too long for definition. Try summarizing instead.');
   }
-  
+
+  // 1. Free Dictionary API (Primary)
   try {
-    const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-    if (!response.ok) {
-      throw new Error(`Encyclopedia: No entry found for '${word}'.`);
+    const resp = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data?.[0]?.meanings?.[0]?.definitions?.[0]?.definition) {
+        return {
+          title: data[0].word,
+          content: data[0].meanings[0].definitions[0].definition,
+          source: 'Dictionary API'
+        };
+      }
     }
-    
-    const data = await response.json();
-    if (data && data[0]) {
-      const entry = data[0];
-      const definition = entry.meanings[0].definitions[0].definition;
-      return {
-        title: entry.word,
-        content: definition,
-        source: 'Dictionary API'
-      };
+  } catch (e) { console.warn('[InfoBlend] Dictionary API failed, trying Datamuse...'); }
+
+  // 2. Datamuse API (Technical/Slang)
+  try {
+    const resp = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&md=d&max=1`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data?.[0]?.defs?.[0]) {
+        return {
+          title: term,
+          content: data[0].defs[0].replace(/^[a-z]+\t/, ''), // Remove part of speech prefix
+          source: 'Datamuse'
+        };
+      }
     }
-    throw new Error('No definition found');
-  } catch (error) {
-    console.error('[InfoBlend] Dictionary API error:', error);
-    throw error;
-  }
+  } catch (e) { console.warn('[InfoBlend] Datamuse failed, trying Wiktionary...'); }
+
+  // 3. Wiktionary API (Restful Summary)
+  try {
+    const resp = await fetch(`https://en.wiktionary.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.extract) {
+        return {
+          title: term,
+          content: data.extract,
+          source: 'Wiktionary'
+        };
+      }
+    }
+  } catch (e) { console.warn('[InfoBlend] Wiktionary failed, trying Wikipedia...'); }
+
+  // 4. Wikipedia (Last Resort - First Sentence Only)
+  try {
+    const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.extract) {
+        const firstSentence = data.extract.split(/[.!?]\s/)[0].trim() + '.';
+        return {
+          title: term,
+          content: firstSentence,
+          source: 'Wikipedia'
+        };
+      }
+    }
+  } catch (e) { console.warn('[InfoBlend] Wikipedia failed.'); }
+
+  // 5. Absolute Failure - Merriam-Webster Link
+  return {
+    title: 'Definition Not Found',
+    content: `We couldn't find a local definition for "${term}".`,
+    source: 'Search Merriam-Webster',
+    isNotFound: true,
+    url: `https://www.merriam-webster.com/dictionary/${encodeURIComponent(term)}`
+  };
 };
+
 
 /**
  * Orchestrates AI requests with multi-provider adapter support.
