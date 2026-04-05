@@ -54,17 +54,27 @@ const SHADOW_STYLES = `
   .ib-bento-card {
     position: relative;
     background: var(--ib-card-bg) !important;
+    color: var(--ib-ink) !important;
     padding: 12px 14px;
     border-radius: 12px;
-    font-size: 13px !important;
+    font-size: 13.5px !important;
+    font-weight: 400 !important;
     line-height: 1.6 !important;
+    letter-spacing: 0.01em;
     border: 1px solid var(--ib-border) !important;
     transition: transform 0.2s ease, border-color 0.2s ease;
   }
   .ib-bento-card.compact { grid-column: span 1; }
   .ib-bento-card:hover { border-color: var(--ib-accent-lo); }
 
-  .ib-highlight { color: var(--ib-accent) !important; font-weight: 600 !important; background: var(--ib-accent-lo); border-radius: 3px; padding: 0 2px; }
+  .ib-highlight { 
+    color: var(--ib-accent) !important; 
+    font-weight: 600 !important; 
+    background: var(--ib-accent-lo); 
+    border-radius: 4px; 
+    padding: 0 4px;
+    text-shadow: 0 0 1px rgba(0,0,0,0.5);
+  }
   .infoblend-header { 
     padding: 10px 12px; 
     display: flex; 
@@ -73,11 +83,18 @@ const SHADOW_STYLES = `
     border-bottom: 1px solid var(--ib-border); 
     background: rgba(0,0,0,0.05);
   }
-  .infoblend-title { font-family: var(--ib-serif); font-size: 14px; font-style: italic; }
+  .infoblend-title { 
+    font-family: var(--ib-serif); 
+    font-size: 14.5px; 
+    font-style: italic; 
+    color: var(--ib-ink) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,1);
+  }
   .infoblend-controls { display: flex; gap: 4px; }
   .infoblend-btn {
-    background: none; border: none; color: #888; cursor: pointer;
+    background: none; border: none; color: #aaa; cursor: pointer;
     padding: 4px; border-radius: 6px; transition: 0.15s;
+    font-size: 14px;
   }
   .infoblend-btn:hover { color: var(--ib-ink); background: var(--ib-border); }
   
@@ -90,7 +107,7 @@ const SHADOW_STYLES = `
   .infoblend-progress-container { height: 2px; width: 100%; background: var(--ib-border); }
   .infoblend-progress-bar { height: 100%; width: 0; background: var(--ib-accent); transition: width 0.1s linear; }
   
-  .infoblend-source { padding: 8px 12px; font-size: 9px; color: #888; text-align: right; text-transform: uppercase; letter-spacing: 0.05em; border-top: 1px solid var(--ib-border); }
+  .infoblend-source { padding: 8px 12px; font-size: 9px; color: rgba(255,255,255,0.4) !important; text-align: right; text-transform: uppercase; letter-spacing: 0.05em; border-top: 1px solid var(--ib-border); }
 `;
 
 (async () => {
