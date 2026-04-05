@@ -22,12 +22,13 @@ const safeSendMessage = async (tabId, msg) => {
 const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
 
 /**
- * Higher-order function to handle chrome.runtime.onMessage async responses.
+ * Global response wrapper to handle async errors and maintain channel integrity.
  */
 const wrapAsync = (callback) => (message, sender, sendResponse) => {
   callback(message, sender, sendResponse).catch(err => {
-    console.error('[InfoBlend Background Error]', err);
-    sendResponse({ success: false, error: err.message });
+    const friendlyError = translateError(err);
+    console.error('[InfoBlend Background Error]', err.message);
+    sendResponse({ success: false, error: friendlyError });
   });
   return true; // Keep channel open
 };
