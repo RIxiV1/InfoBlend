@@ -11,54 +11,80 @@ const SHADOW_STYLES = `
     --mouse-x: -100px;
     --mouse-y: -100px;
     --ib-accent: #f5a623;
+    --ib-accent-lo: rgba(245, 166, 35, 0.15);
+    --ib-bg: #050505;
+    --ib-card-bg: #0a0a0a;
+    --ib-border: rgba(255, 255, 255, 0.1);
   }
   .infoblend-overlay {
     position: fixed;
-    top: 16px;
-    right: 16px;
-    width: 320px;
-    background: #050505 !important;
+    top: 20px;
+    right: 20px;
+    width: 340px;
+    background: var(--ib-bg) !important;
     color: #ffffff !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 16px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    border: 1px solid var(--ib-border) !important;
+    border-radius: 20px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.9);
     z-index: ${Z_INDEX};
-    font-family: ui-monospace, 'Geist Mono', monospace !important;
+    font-family: ui-monospace, 'Geist Mono', 'SF Mono', monospace !important;
     overflow: hidden;
     display: grid;
     grid-template-rows: auto 0fr;
-    transition: grid-template-rows 0.4s ease;
+    transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .infoblend-overlay.open { grid-template-rows: auto 1fr; }
+  .infoblend-content { padding: 8px; overflow-y: auto; max-height: 70vh; }
+  
+  .ib-bento-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 4px;
+  }
   .ib-bento-card {
+    grid-column: span 2;
     position: relative;
-    background: #0a0a0a !important;
+    background: var(--ib-card-bg) !important;
     color: #ffffff !important;
-    padding: 12px 14px;
+    padding: 14px;
     border-radius: 12px;
-    margin: 8px;
     font-size: 13px !important;
-    font-weight: 500 !important;
     line-height: 1.6 !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    overflow: hidden;
+    border: 1px solid var(--ib-border) !important;
+    transition: transform 0.2s ease, border-color 0.2s ease;
   }
-  .ib-bento-card::before {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    padding: 1px;
-    background: radial-gradient(200px circle at var(--mouse-x) var(--mouse-y), rgba(255,255,255,0.15), transparent 80%);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
+  .ib-bento-card.compact { grid-column: span 1; }
+  .ib-bento-card:hover { border-color: var(--ib-accent-lo); }
+
+  .ib-highlight { color: var(--ib-accent) !important; font-weight: 600 !important; }
+  .infoblend-header { 
+    padding: 14px 16px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    border-bottom: 1px solid rgba(255,255,255,0.06); 
+    background: rgba(0,0,0,0.2);
   }
-  .ib-highlight, b { color: var(--ib-accent) !important; font-weight: 500 !important; }
-  .infoblend-content { background: #050505 !important; padding: 4px; overflow-y: auto; }
-  .infoblend-header { padding: 10px 12px; display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); }
-  @keyframes ibSlideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-  .infoblend-overlay { animation: ibSlideIn 0.3s ease-out both; }
+  .infoblend-title { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+  .infoblend-controls { display: flex; gap: 8px; }
+  .infoblend-btn {
+    background: none; border: none; color: #888; cursor: pointer;
+    padding: 4px; border-radius: 6px; transition: 0.2s;
+  }
+  .infoblend-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+  
+  /* Loading States */
+  .infoblend-loading { padding: 20px; }
+  .ib-skeleton { background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: ibSkeleton 1.5s infinite; border-radius: 4px; }
+  @keyframes ibSkeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .ib-sk-title { height: 16px; width: 60%; margin-bottom: 12px; }
+  .ib-sk-line { height: 12px; width: 100%; margin-bottom: 8px; }
+  
+  .infoblend-progress-container { height: 2px; width: 100%; background: rgba(255,255,255,0.05); }
+  .infoblend-progress-bar { height: 100%; width: 0; background: var(--ib-accent); transition: width 0.1s linear; }
+  
+  .infoblend-source { padding: 12px; font-size: 10px; color: #555; text-align: right; text-transform: uppercase; letter-spacing: 0.05em; }
 `;
 
 (async () => {
@@ -177,6 +203,65 @@ const SHADOW_STYLES = `
     }
     return '#f5a623'; // Default InfoBlend Amber
   };
+
+  /**
+   * BentoRenderer handles the intelligent fragmenting of text content
+   * to ensure a visually rich and consistent "Bento Box" grid layout.
+   */
+  class BentoRenderer {
+    static fragment(text) {
+      if (!text) return [];
+      
+      // Intelligent split points: double newline, bullet points, numbered lists, or short phrases followed by long ones
+      const fragments = text.split(/\n\n|(?=\n[ \t]*[-*•]|\n[ \t]*\d+\.)/);
+      
+      const refined = [];
+      fragments.forEach(frag => {
+        const trimmed = frag.trim();
+        if (!trimmed) return;
+        
+        // If a fragment is too long, try to split it into smaller "insight" cards by sentence count
+        if (trimmed.length > 400 && !trimmed.includes('\n')) {
+          const sentences = trimmed.match(/[^.!?]+[.!?]+/g) || [trimmed];
+          for (let i = 0; i < sentences.length; i += 2) {
+             refined.push(sentences.slice(i, i + 2).join(' ').trim());
+          }
+        } else {
+          refined.push(trimmed);
+        }
+      });
+      
+      return refined.filter(r => r.length > 5);
+    }
+
+    static render(content, container) {
+      const bentoGrid = document.createElement('div');
+      bentoGrid.className = 'ib-bento-grid';
+      
+      const fragments = this.fragment(content);
+      fragments.forEach((frag, index) => {
+        const card = document.createElement('div');
+        card.className = 'ib-bento-card';
+        
+        // Dynamic layout calculation: Every 3rd small fragment can be compact
+        if (frag.length < 100 && index > 0 && index % 2 === 0) {
+          card.classList.add('compact');
+        }
+        
+        card.appendChild(smartHighlight(frag));
+        bentoGrid.appendChild(card);
+      });
+
+      if (!bentoGrid.children.length) {
+        const fallback = document.createElement('div');
+        fallback.className = 'ib-bento-card';
+        fallback.appendChild(smartHighlight(content));
+        bentoGrid.appendChild(fallback);
+      }
+
+      container.appendChild(bentoGrid);
+    }
+  }
 
   let overlay = null;
   let palette = null;
@@ -402,25 +487,54 @@ const SHADOW_STYLES = `
    * @returns {string|null} The extracted and cleaned text content.
    */
   function extractArticleContent() {
-    const junkSelectors = 'nav, footer, header, script, style, noscript, template, [class*="sidebar"], [id*="sidebar"], [class*="ad-"], [class*="nav-"]';
-    const mainContentSelectors = 'article, main, .post-content, .entry-content';
+    // 1. Identify the core article area recursively
+    const mainContentSelectors = [
+      'article', 'main', '[role="main"]', '.post-content', '.entry-content', 
+      '#content', '.article-body', '.story-body', '.tg-article-content'
+    ];
     
-    const mainArea = document.querySelector(mainContentSelectors) || document.body;
-    const isMainHeuristic = !!document.querySelector(mainContentSelectors);
-    
-    const elements = isMainHeuristic 
-      ? mainArea.querySelectorAll('p, h1, h2, h3, h4') 
-      : mainArea.querySelectorAll('p, section, h1, h2, h3');
+    let mainArea = null;
+    for (const selector of mainContentSelectors) {
+      mainArea = document.querySelector(selector);
+      if (mainArea) break;
+    }
+    mainArea = mainArea || document.body;
 
+    // 2. Filter out "noise" elements
+    const junkSelectors = [
+      'nav', 'footer', 'header', 'script', 'style', 'noscript', 'template', 
+      'aside', '[role="complementary"]', '.sidebar', '#sidebar', 
+      '[class*="ad-"]', '[id*="ad-"]', '.nav-menu', '.footer-links',
+      '.social-share', '.comments-area', '.related-posts'
+    ].join(', ');
+
+    // 3. Extract text from high-value semantic tags
+    const elements = mainArea.querySelectorAll('p, h1, h2, h3, h4, li, section');
     const prose = Array.from(elements)
-      .filter(el => !el.closest(junkSelectors))
+      .filter(el => {
+        // Ensure element isn't hidden or inside a junk container
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        if (el.closest(junkSelectors)) return false;
+        
+        // Remove interactive elements like buttons or small links
+        if (el.tagName === 'LI' && el.innerText.length < 15) return false;
+        
+        return true;
+      })
       .map(el => el.innerText.trim())
       .filter(text => {
+        // Heuristic: Ignore code snippets, very short lines, and repetitive UI text
         const isCode = text.includes('function(') || text.includes('var ') || (text.match(/{/g) || []).length > 3;
-        return text.length > (isMainHeuristic ? 20 : 40) && !isCode;
+        const isMenu = text.split('|').length > 3 || text.split('•').length > 4;
+        return text.length > 25 && !isCode && !isMenu;
       });
 
-    return prose.join(' ').substring(0, 10000) || null;
+    // Deduplicate and join
+    const uniqueProse = Array.from(new Set(prose));
+    const finalContent = uniqueProse.join('\n\n');
+    
+    return finalContent.length > 100 ? finalContent.substring(0, 12000) : null;
   }
 
   /**
@@ -437,40 +551,25 @@ const SHADOW_STYLES = `
   }
 
   /**
-   * Orchestrates the summarization process (AI or Local).
+   * Orchestrates the summarization process via the background script.
    */
   async function runSummarizer(text, title = 'Summary') {
     try {
-      const settings = await getStorage(['aiEndpoint', 'aiKey', 'aiProvider']);
-      if (settings.aiKey && settings.aiEndpoint) {
-        sendMessage({ type: 'SUMMARIZE_VIA_AI', text }, (response) => {
-          if (response && response.success) {
-            updateOverlay(title, response.summary, `AI (${settings.aiProvider})`);
-          } else {
-            runLocalSummarizer(text, title);
-          }
-        });
-      } else {
-        runLocalSummarizer(text, title);
-      }
+      sendMessage({ type: 'PERFORM_SUMMARIZATION', text }, (response) => {
+        if (response && response.success) {
+          updateOverlay(title, response.summary, response.method || 'InfoBlend AI');
+        } else {
+          updateOverlay('Notice', response?.error || 'Summarization failed.', 'InfoBlend');
+        }
+      });
     } catch (e) {
-      runLocalSummarizer(text, title);
+      updateOverlay('Error', 'Communication with background script lost. Please refresh.', 'InfoBlend');
     }
   }
 
   function runLocalSummarizer(text, title = 'Summary') {
-    if (!isContextValid()) {
-      updateOverlay('Notice', 'Extension updated. Please refresh the page.', 'InfoBlend');
-      return;
-    }
-    
-    sendMessage({ type: 'SUMMARIZE_LOCALLY', text }, (response) => {
-      if (response && response.success) {
-        updateOverlay(title, response.summary, 'InfoBlend Local');
-      } else {
-        updateOverlay('Notice', response?.error || 'Summarization failed.', 'InfoBlend');
-      }
-    });
+    // This is now a legacy wrapper, redirecting to the unified flow
+    runSummarizer(text, title);
   }
 
 
@@ -586,6 +685,15 @@ const SHADOW_STYLES = `
     const controls = document.createElement('div');
     controls.className = 'infoblend-controls';
 
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'infoblend-btn infoblend-cancel';
+    cancelBtn.innerHTML = '✕'; 
+    cancelBtn.title = 'Cancel Task';
+    cancelBtn.onclick = () => {
+      if (overlayHost) overlayHost.remove();
+      overlayHost = null;
+    };
+
     const pinBtn = document.createElement('button');
     pinBtn.className = 'infoblend-btn infoblend-pin';
     pinBtn.textContent = '📌'; 
@@ -597,7 +705,7 @@ const SHADOW_STYLES = `
     closeBtn.setAttribute('aria-label', 'Close Overlay');
 
     controls.appendChild(pinBtn);
-    controls.appendChild(closeBtn);
+    controls.appendChild(cancelBtn);
     header.appendChild(titleSpan);
     header.appendChild(controls);
 
@@ -701,47 +809,21 @@ const SHADOW_STYLES = `
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'infoblend-content';
-    const bentoGrid = document.createElement('div');
-    bentoGrid.className = 'ib-bento-grid';
-
+    
     try {
-      // INTELLECTUALLY FRAGMENT CONTENT INTO BENTO CARDS
-      // Split by double newlines or list items
-      const fragments = content.split(/\n\n|(?=\n[ \t]*[-*•]|\n[ \t]*\d+\.)/);
-      
-      fragments.forEach(frag => {
-        const trimmed = frag.trim();
-        if (!trimmed) return;
-        
-        const card = document.createElement('div');
-        card.className = 'ib-bento-card';
-        card.style.color = '#ffffff'; // ABSOLUTE INLINE WHITE
-        card.style.background = '#000000'; // ABSOLUTE INLINE BLACK
-        card.appendChild(smartHighlight(trimmed));
-        bentoGrid.appendChild(card);
-
-      });
-
-      if (bentoGrid.children.length === 0) {
-        // Fallback if split failed
-        const card = document.createElement('div');
-        card.className = 'ib-bento-card';
-        card.appendChild(smartHighlight(content));
-        bentoGrid.appendChild(card);
-      }
+      BentoRenderer.render(content, contentDiv);
     } catch (e) {
-      console.warn("Bento fragmentation failed:", e);
-      const card = document.createElement('div');
-      card.className = 'ib-bento-card';
-      card.appendChild(smartHighlight(content));
-      bentoGrid.appendChild(card);
+      console.warn("Bento render failed:", e);
+      const fallback = document.createElement('div');
+      fallback.className = 'ib-bento-card';
+      fallback.appendChild(smartHighlight(content));
+      contentDiv.appendChild(fallback);
     }
     
     const sourceDiv = document.createElement('div');
     sourceDiv.className = 'infoblend-source';
     sourceDiv.textContent = `Source: ${source}`;
     
-    contentDiv.appendChild(bentoGrid);
     contentDiv.appendChild(sourceDiv);
     
     const progressContainer = container.querySelector('.infoblend-progress-container');

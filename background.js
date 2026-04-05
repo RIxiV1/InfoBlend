@@ -78,14 +78,21 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       sendResponse({ success: true, data });
       break;
 
-    case 'SUMMARIZE_VIA_AI':
-      const aiSummary = await handleSummarization(message.text);
-      sendResponse({ success: true, summary: aiSummary });
-      break;
-
-    case 'SUMMARIZE_LOCALLY':
-      const localSummary = generateIntelligentSummary(message.text);
-      sendResponse({ success: true, summary: localSummary });
+    case 'PERFORM_SUMMARIZATION':
+      // Background decides AI vs Local based on keys
+      const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
+      if (aiKey && aiEndpoint) {
+        try {
+          const aiSummary = await handleSummarization(message.text);
+          sendResponse({ success: true, summary: aiSummary, method: `AI (${aiProvider})` });
+        } catch (e) {
+          const localSummary = generateIntelligentSummary(message.text);
+          sendResponse({ success: true, summary: localSummary, method: 'InfoBlend Local (Fallback)' });
+        }
+      } else {
+        const localSummary = generateIntelligentSummary(message.text);
+        sendResponse({ success: true, summary: localSummary, method: 'InfoBlend Local' });
+      }
       break;
 
     case 'FETCH_YOUTUBE_TRANSCRIPT':
