@@ -10,7 +10,8 @@ const ERROR_MAP = {
   'API Error: 401': 'Invalid AI API Key. Please check your settings.',
   'API Error: 429': 'Rate limit exceeded. Try again in a few minutes.',
   'Fetch failed': 'Network error. Please check your internet connection.',
-  'No readable article': 'Could not find enough text on this page to summarize.'
+  'No readable article': 'Could not find enough text on this page to summarize.',
+  'No entry found': 'Word not found in standard dictionary. Try AI for complex terms.'
 };
 
 /**

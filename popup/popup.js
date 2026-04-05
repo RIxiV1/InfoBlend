@@ -80,17 +80,17 @@ async function loadSettings() {
   if (!settings.onboardingDone) DOM.onboardingModal().style.display = 'flex';
   
   // 3. Form population
-  if (settings.definitionsEnabled !== undefined) DOM.definitionsEnabled().checked = settings.definitionsEnabled;
-  if (settings.autofillEnabled !== undefined) DOM.autofillEnabled().checked = settings.autofillEnabled;
+  if (settings.definitionsEnabled !== undefined && DOM.definitionsEnabled()) DOM.definitionsEnabled().checked = settings.definitionsEnabled;
+  if (settings.autofillEnabled !== undefined && DOM.autofillEnabled()) DOM.autofillEnabled().checked = settings.autofillEnabled;
   if (settings.userData) {
-    DOM.userName().value = settings.userData.name || '';
-    DOM.userEmail().value = settings.userData.email || '';
-    DOM.userPhone().value = settings.userData.phone || '';
+    if (DOM.userName()) DOM.userName().value = settings.userData.name || '';
+    if (DOM.userEmail()) DOM.userEmail().value = settings.userData.email || '';
+    if (DOM.userPhone()) DOM.userPhone().value = settings.userData.phone || '';
   }
-  if (settings.aiEndpoint) DOM.aiEndpoint().value = settings.aiEndpoint;
-  if (settings.aiProvider) DOM.aiProvider().value = settings.aiProvider;
-  if (settings.aiKey) DOM.aiKey().value = settings.aiKey;
-  if (settings.theme) DOM.theme().value = settings.theme;
+  if (settings.aiEndpoint && DOM.aiEndpoint()) DOM.aiEndpoint().value = settings.aiEndpoint;
+  if (settings.aiProvider && DOM.aiProvider()) DOM.aiProvider().value = settings.aiProvider;
+  if (settings.aiKey && DOM.aiKey()) DOM.aiKey().value = settings.aiKey;
+  if (settings.theme && DOM.theme()) DOM.theme().value = settings.theme;
   if (DOM.adBlockEnabled() && settings.adBlockEnabled !== undefined) {
     DOM.adBlockEnabled().checked = settings.adBlockEnabled;
   }
@@ -101,18 +101,20 @@ async function loadSettings() {
  */
 async function saveSettings() {
   const btn = DOM.saveBtn();
+  const userData = {
+    name: DOM.userName()?.value || '',
+    email: DOM.userEmail()?.value || '',
+    phone: DOM.userPhone()?.value || ''
+  };
+
   await setStorageData({
-    definitionsEnabled: DOM.definitionsEnabled().checked,
-    autofillEnabled: DOM.autofillEnabled().checked,
-    userData: {
-      name: DOM.userName().value,
-      email: DOM.userEmail().value,
-      phone: DOM.userPhone().value
-    },
-    aiEndpoint: DOM.aiEndpoint().value,
-    aiProvider: DOM.aiProvider().value,
-    aiKey: DOM.aiKey().value,
-    theme: DOM.theme().value,
+    definitionsEnabled: DOM.definitionsEnabled()?.checked || false,
+    autofillEnabled: DOM.autofillEnabled()?.checked || false,
+    userData,
+    aiEndpoint: DOM.aiEndpoint()?.value || '',
+    aiProvider: DOM.aiProvider()?.value || '',
+    aiKey: DOM.aiKey()?.value || '',
+    theme: DOM.theme()?.value || 'dark',
     adBlockEnabled: DOM.adBlockEnabled()?.checked || false
   });
 
