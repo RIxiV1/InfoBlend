@@ -15,39 +15,46 @@ const SHADOW_STYLES = `
     --ib-bg: #050505;
     --ib-card-bg: #0a0a0a;
     --ib-border: rgba(255, 255, 255, 0.1);
+    --ib-ink: #ffffff;
+    --ib-serif: 'Instrument Serif', serif;
+  }
+  .ib-light-theme {
+    --ib-bg: #fcfaf6;
+    --ib-card-bg: #ffffff;
+    --ib-border: rgba(0, 0, 0, 0.12);
+    --ib-ink: #1a1714;
   }
   .infoblend-overlay {
     position: fixed;
     top: 20px;
     right: 20px;
-    width: 340px;
+    width: 320px;
     background: var(--ib-bg) !important;
-    color: #ffffff !important;
+    color: var(--ib-ink) !important;
     border: 1px solid var(--ib-border) !important;
-    border-radius: 20px;
-    box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+    border-radius: 16px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.5);
     z-index: ${Z_INDEX};
     font-family: ui-monospace, 'Geist Mono', 'SF Mono', monospace !important;
     overflow: hidden;
     display: grid;
     grid-template-rows: auto 0fr;
-    transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: ibSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes ibSlideIn {
+    from { opacity: 0; transform: translateX(20px) scale(0.98); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
   }
   .infoblend-overlay.open { grid-template-rows: auto 1fr; }
+  .infoblend-overlay.ib-fade-out { opacity: 0; transform: translateX(10px); pointer-events: none; }
   .infoblend-content { padding: 8px; overflow-y: auto; max-height: 70vh; }
   
-  .ib-bento-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    padding: 4px;
-  }
+  .ib-bento-grid { display: flex; flex-direction: column; gap: 8px; padding: 4px; }
   .ib-bento-card {
-    grid-column: span 2;
     position: relative;
     background: var(--ib-card-bg) !important;
-    color: #ffffff !important;
-    padding: 14px;
+    padding: 12px 14px;
     border-radius: 12px;
     font-size: 13px !important;
     line-height: 1.6 !important;
@@ -57,34 +64,33 @@ const SHADOW_STYLES = `
   .ib-bento-card.compact { grid-column: span 1; }
   .ib-bento-card:hover { border-color: var(--ib-accent-lo); }
 
-  .ib-highlight { color: var(--ib-accent) !important; font-weight: 600 !important; }
+  .ib-highlight { color: var(--ib-accent) !important; font-weight: 600 !important; background: var(--ib-accent-lo); border-radius: 3px; padding: 0 2px; }
   .infoblend-header { 
-    padding: 14px 16px; 
+    padding: 10px 12px; 
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    border-bottom: 1px solid rgba(255,255,255,0.06); 
-    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--ib-border); 
+    background: rgba(0,0,0,0.05);
   }
-  .infoblend-title { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
-  .infoblend-controls { display: flex; gap: 8px; }
+  .infoblend-title { font-family: var(--ib-serif); font-size: 14px; font-style: italic; }
+  .infoblend-controls { display: flex; gap: 4px; }
   .infoblend-btn {
     background: none; border: none; color: #888; cursor: pointer;
-    padding: 4px; border-radius: 6px; transition: 0.2s;
+    padding: 4px; border-radius: 6px; transition: 0.15s;
   }
-  .infoblend-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+  .infoblend-btn:hover { color: var(--ib-ink); background: var(--ib-border); }
   
-  /* Loading States */
-  .infoblend-loading { padding: 20px; }
-  .ib-skeleton { background: linear-gradient(90deg, #111 25%, #1a1a1a 50%, #111 75%); background-size: 200% 100%; animation: ibSkeleton 1.5s infinite; border-radius: 4px; }
+  .infoblend-loading { padding: 24px; display: flex; flex-direction: column; gap: 8px; }
+  .ib-skeleton { background: linear-gradient(90deg, var(--ib-border) 25%, var(--ib-bg) 50%, var(--ib-border) 75%); background-size: 200% 100%; animation: ibSkeleton 1.5s infinite; border-radius: 4px; }
   @keyframes ibSkeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-  .ib-sk-title { height: 16px; width: 60%; margin-bottom: 12px; }
-  .ib-sk-line { height: 12px; width: 100%; margin-bottom: 8px; }
+  .ib-sk-title { height: 16px; width: 60%; }
+  .ib-sk-line { height: 10px; width: 100%; }
   
-  .infoblend-progress-container { height: 2px; width: 100%; background: rgba(255,255,255,0.05); }
+  .infoblend-progress-container { height: 2px; width: 100%; background: var(--ib-border); }
   .infoblend-progress-bar { height: 100%; width: 0; background: var(--ib-accent); transition: width 0.1s linear; }
   
-  .infoblend-source { padding: 12px; font-size: 10px; color: #555; text-align: right; text-transform: uppercase; letter-spacing: 0.05em; }
+  .infoblend-source { padding: 8px 12px; font-size: 9px; color: #888; text-align: right; text-transform: uppercase; letter-spacing: 0.05em; border-top: 1px solid var(--ib-border); }
 `;
 
 (async () => {
@@ -112,12 +118,8 @@ const SHADOW_STYLES = `
    * @param {string|string[]} keys 
    * @returns {Promise<Object>}
    */
-  const getStorage = async (keys) => {
-    try {
-      if (!isContextValid()) return {};
-      return await chrome.storage.local.get(keys);
-    } catch (e) { return {}; }
-  };
+  const getStorage = async (keys) => (await chrome.storage.local.get(keys)) || {};
+  const setStorage = async (data) => await chrome.storage.local.set(data);
 
   /**
    * Dispatches messages to the background script with error handling.
@@ -136,16 +138,6 @@ const SHADOW_STYLES = `
       console.warn('[InfoBlend] Messaging error:', e.message);
       if (cb) cb({ success: false, error: e.message || 'Context Invalid' });
     }
-  };
-
-  /**
-   * Safely updates storage.
-   * @param {Object} data 
-   */
-  const setStorage = async (data) => {
-    try {
-      if (isContextValid()) await chrome.storage.local.set(data);
-    } catch (e) { /* Fail silently */ }
   };
 
   // Helper to create a Shadow Host reliably
@@ -567,11 +559,6 @@ const SHADOW_STYLES = `
     }
   }
 
-  function runLocalSummarizer(text, title = 'Summary') {
-    // This is now a legacy wrapper, redirecting to the unified flow
-    runSummarizer(text, title);
-  }
-
 
   // Form Auto-fill Logic
   const autofillForms = async () => {
@@ -631,27 +618,6 @@ const SHADOW_STYLES = `
     
     const { host, shadow } = createShadowHost('infoblend-shadow-host');
     overlayHost = host;
-
-    let cachedCSS = null;
-
-    const loadFullStyles = (targetShadow) => {
-      if (cachedCSS) {
-        const style = document.createElement('style');
-        style.textContent = cachedCSS;
-        targetShadow.appendChild(style);
-        return;
-      }
-      fetch(chrome.runtime.getURL('overlay/overlay.css'))
-        .then(r => r.text())
-        .then(css => {
-          cachedCSS = css;
-          const style = document.createElement('style');
-          style.textContent = css;
-          targetShadow.appendChild(style);
-        }).catch(e => console.warn("[InfoBlend] CSS load failed (CSP):", e));
-    };
-
-    loadFullStyles(shadow);
 
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';

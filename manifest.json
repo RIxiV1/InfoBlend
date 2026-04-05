@@ -7,8 +7,7 @@
     "storage",
     "declarativeNetRequest",
     "activeTab",
-    "contextMenus",
-    "scripting"
+    "contextMenus"
   ],
   "host_permissions": [
     "https://api.dictionaryapi.dev/api/v2/entries/en/*",
@@ -41,7 +40,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["utils/*.js", "overlay/*.js", "overlay/*.css"],
+      "resources": ["utils/*.js", "overlay/*.js"],
       "matches": ["<all_urls>"]
     }
   ],
