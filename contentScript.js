@@ -9,34 +9,20 @@ const SHADOW_STYLES = `
     all: initial;
     display: block;
     color: #ffffff !important;
+    color-scheme: only light;
     --ib-mouse-x: -100px;
     --ib-mouse-y: -100px;
     --ib-accent-color: #f5a623;
     --ib-accent-low: rgba(245, 166, 35, 0.15);
-    
-    /* LIQUID GLASS - DARK THEME */
-    --ib-bg-glass: rgba(10, 10, 10, 0.85);
-    --ib-card-glass: rgba(255, 255, 255, 0.03);
-    --ib-border-line: rgba(255, 255, 255, 0.1);
-    --ib-text-bright: #ffffff;
-    --ib-text-dim: rgba(255, 255, 255, 0.5);
-    
-    --ib-font-serif: 'Instrument Serif', serif;
-    --ib-font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
-    
-    /* ANTI-INVERSION SHIELD */
-    filter: none !important;
-  }
-  
-  .ib-light-theme {
     --ib-bg-glass: rgba(252, 250, 246, 0.9);
     --ib-card-glass: rgba(0, 0, 0, 0.03);
     --ib-border-line: rgba(0, 0, 0, 0.08);
     --ib-text-bright: #1a1714;
     --ib-text-dim: #666666;
+    --ib-font-serif: 'Instrument Serif', serif;
+    --ib-font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
   }
 
-  /* ABSOLUTE COLOR FORCE */
   .infoblend-overlay, 
   .infoblend-content, 
   .ib-bento-grid, 
@@ -162,11 +148,6 @@ const SHADOW_STYLES = `
   
   .infoblend-progress-container { height: 3px; width: 100%; background: rgba(255,255,255,0.05); }
   .infoblend-progress-bar { height: 100%; width: 0; background: var(--ib-accent-color); transition: width 0.1s linear; }
-
-  /* FORCED INVERSION COUNTER */
-  .ib-inverted-host {
-    filter: invert(1) hue-rotate(180deg) !important;
-  }
 `;
 
 (async () => {
@@ -236,12 +217,7 @@ const SHADOW_STYLES = `
     style.textContent = SHADOW_STYLES;
     shadow.appendChild(style);
 
-    // Detect if the page is being inverted by a dark mode extension
-    const bodyStyle = window.getComputedStyle(document.body);
-    const bodyFilter = bodyStyle.filter || '';
-    if (bodyFilter.includes('invert') || bodyFilter.includes('hue-rotate')) {
-      host.classList.add('ib-inverted-host');
-    }
+
 
     return { host, shadow };
   };
@@ -411,7 +387,8 @@ const SHADOW_STYLES = `
 
       filtered.forEach((cmd, i) => {
         const item = document.createElement('div');
-        item.className = `ib-palette-item ${i === selectedIndex ? 'selected' : ''}`;
+        const isSelected = i === selectedIndex;
+        item.className = `ib-palette-item ${isSelected ? 'selected' : ''}`;
         item.innerHTML = `
           <div style="display:flex; align-items:center; gap:10px;">
             <span style="font-size:14px;">${cmd.icon}</span>
@@ -421,6 +398,10 @@ const SHADOW_STYLES = `
         `;
         item.onclick = () => executeCommand(cmd);
         resultsArea.appendChild(item);
+
+        if (isSelected) {
+          item.scrollIntoView({ block: 'nearest' });
+        }
       });
       return filtered;
     };
@@ -428,6 +409,14 @@ const SHADOW_STYLES = `
     let currentFiltered = renderResults();
 
     const executeCommand = (cmd) => {
+      if (cmd.id === 'define') {
+        input.value = 'define ';
+        input.focus();
+        selectedIndex = 0;
+        currentFiltered = renderResults(input.value);
+        return;
+      }
+
       togglePalette();
       if (cmd.id === 'summarize') {
         handlePageSummarization();
@@ -435,7 +424,7 @@ const SHADOW_STYLES = `
         showLoadingOverlay();
         sendMessage({ type: 'FETCH_DEFINITION', word: cmd.word }, (response) => {
           if (response && response.success) {
-            updateOverlay(response.data.title, response.data.content, response.data.source);
+            updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
           }
         });
       } else if (cmd.id === 'history') {
@@ -450,6 +439,8 @@ const SHADOW_STYLES = `
     };
 
     input.onkeydown = (e) => {
+      if (!currentFiltered.length) return;
+
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         selectedIndex = (selectedIndex + 1) % currentFiltered.length;
@@ -508,7 +499,7 @@ const SHADOW_STYLES = `
           showLoadingOverlay();
           sendMessage({ type: 'FETCH_DEFINITION', word: selection }, (response) => {
             if (response && response.success) {
-              updateOverlay(response.data.title, response.data.content, response.data.source);
+              updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
             } else {
               updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
             }
@@ -522,7 +513,7 @@ const SHADOW_STYLES = `
   // Listen for messages from background script or popup
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'SHOW_DEFINITION') {
-      updateOverlay(message.data.title, message.data.content, message.data.source);
+      updateOverlay(message.data.title, message.data.content, message.data.source, message.data);
     } else if (message.type === 'SHOW_ERROR') {
       updateOverlay('Error', message.message, 'InfoBlend');
     } else if (message.type === 'SHOW_LOADING') {
@@ -837,7 +828,7 @@ const SHADOW_STYLES = `
     return fragment;
   }
 
-  async function updateOverlay(title, content, source) {
+  async function updateOverlay(title, content, source, extra = {}) {
     let container;
     if (!overlayHost || !overlayHost.shadowRoot) {
       container = showLoadingOverlay();
@@ -872,7 +863,12 @@ const SHADOW_STYLES = `
     
     const sourceDiv = document.createElement('div');
     sourceDiv.className = 'infoblend-source';
-    sourceDiv.textContent = `Source: ${source}`;
+    
+    if (extra.isNotFound && extra.url) {
+      sourceDiv.innerHTML = `Source: <a href="${extra.url}" target="_blank" style="color:var(--ib-accent-color); text-decoration:none; font-weight:600;">${source} ↗</a>`;
+    } else {
+      sourceDiv.textContent = `Source: ${source}`;
+    }
     
     contentDiv.appendChild(sourceDiv);
     
