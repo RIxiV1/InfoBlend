@@ -33,7 +33,7 @@
   z-index: 2147483647;
   display: flex;
   justify-content: center;
-  padding-top: 12vh;
+  padding-top: 8vh;
   animation: ibOverlayFade 0.2s ease-out;
 }
 
@@ -44,20 +44,20 @@
   max-width: 600px;
   background: var(--palette-bg);
   border: 1px solid var(--palette-border);
-  border-radius: 20px;
+  border-radius: 12px;
   box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.25);
   color: var(--text-main);
   font-family: var(--font-mono);
   overflow: hidden;
   height: auto;
-  max-height: 80vh;
+  max-height: 50vh;
   animation: ibPaletteIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes ibPaletteIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-.ib-palette-search { padding: 18px 24px; border-bottom: 1px solid var(--palette-border); }
-.ib-palette-input { width: 100%; background: transparent; border: none; outline: none; font-size: 18px; color: var(--text-main); }
+.ib-palette-search { padding: 12px 18px; border-bottom: 1px solid var(--palette-border); }
+.ib-palette-input { width: 100%; background: transparent; border: none; outline: none; font-size: 16px; color: var(--text-main); }
 
 .ib-palette-results { max-height: 400px; overflow-y: auto; padding: 8px; }
 .ib-palette-results::-webkit-scrollbar { display: none; }
@@ -73,5 +73,5 @@
 .ib-palette-item:hover { background: var(--item-hover); }
 .ib-palette-item.selected { background: var(--item-selected); box-shadow: inset 0 0 0 1px var(--accent-color); }
 
-.ib-palette-footer { padding: 12px 24px; background: rgba(0, 0, 0, 0.02); border-top: 1px solid var(--palette-border); display: flex; gap: 20px; font-size: 11px; color: var(--text-dim); }
+.ib-palette-footer { padding: 8px 18px; background: rgba(0, 0, 0, 0.02); border-top: 1px solid var(--palette-border); display: flex; gap: 15px; font-size: 10px; color: var(--text-dim); }
 .ib-key-box { background: rgba(0,0,0,0.1); padding: 1px 4px; border-radius: 4px; }
