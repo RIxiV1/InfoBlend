@@ -161,6 +161,8 @@ const SHADOW_STYLES = `
     catch (e) { return false; }
   };
 
+  console.log('[InfoBlend] Content script initialized.');
+
   const safeGetURL = (path) => {
     try { return chrome.runtime.getURL(path); } 
     catch (e) { return ''; }
@@ -194,6 +196,48 @@ const SHADOW_STYLES = `
     shadow.appendChild(style);
     return { host, shadow };
   };
+
+  /**
+   * Nuclear Strategy: Inject a probe into the page to read native memory.
+   */
+  const injectYouTubeProbe = () => {
+    const script = document.createElement('script');
+    script.textContent = `
+      (function() {
+        document.addEventListener('ib-get-yt-data', () => {
+          const data = window.ytInitialPlayerResponse || {};
+          document.dispatchEvent(new CustomEvent('ib-yt-data-response', { detail: JSON.stringify(data) }));
+        });
+        window.addEventListener('yt-navigate-finish', () => {
+          document.dispatchEvent(new CustomEvent('ib-yt-nav-reset'));
+        });
+      })();
+    `;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
+  };
+
+  const getNativeYouTubeData = () => {
+    return new Promise((resolve) => {
+      const handler = (e) => {
+        document.removeEventListener('ib-yt-data-response', handler);
+        try { resolve(JSON.parse(e.detail)); } catch (err) { resolve(null); }
+      };
+      document.addEventListener('ib-yt-data-response', handler);
+      document.dispatchEvent(new CustomEvent('ib-get-yt-data'));
+      // Timeout after 1s
+      setTimeout(() => { document.removeEventListener('ib-yt-data-response', handler); resolve(null); }, 1000);
+    });
+  };
+
+  if (window.location.hostname.includes('youtube.com')) {
+    injectYouTubeProbe();
+    console.log('[InfoBlend] YouTube probe injected.');
+    document.addEventListener('ib-yt-nav-reset', () => {
+      console.log('[InfoBlend] Navigation detected, resetting state.');
+      if (overlayHost) { overlayHost.remove(); overlayHost = null; }
+    });
+  }
 
   /**
    * BentoRenderer handles grid-based text fragmentation.
@@ -360,40 +404,27 @@ const SHADOW_STYLES = `
   }
 
   async function handleYouTubeSummarization() {
-    const findData = () => {
-      const scripts = Array.from(document.scripts);
-      const re = /(?:var|const|window\[['"])\s*ytInitialPlayerResponse['"]?\]?\s*=\s*({.+?})(?:\s*;|\s*<\/script|$)/s;
-      for (const s of scripts) {
-        const match = s.textContent.match(re);
-        if (match) return match[1];
-      }
-      return null;
-    };
+    console.log('[InfoBlend] Initiating YouTube summarization...');
+    showLoadingOverlay();
 
-    const rawData = findData();
-    if (rawData) {
-      try {
-        const data = JSON.parse(rawData);
-        const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-        if (tracks?.length) {
-          showLoadingOverlay();
-          sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', tracks, baseUrl: tracks[0].baseUrl }, (resp) => {
-            if (resp?.success) {
-              const summary = generateIntelligentSummary(resp.data);
-              updateOverlay('YouTube Insight', summary, 'Source: AI Summary');
-            } else {
-              updateOverlay('Notice', resp?.error || 'Transcription failed.', 'YouTube Insights');
-            }
-          });
-          return;
+    // 1. Nuclear Strategy (Direct Memory Access)
+    const nativeData = await getNativeYouTubeData();
+    if (nativeData?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.length) {
+      console.log('[InfoBlend] Successfully extracted native player data.');
+      const tracks = nativeData.captions.playerCaptionsTracklistRenderer.captionTracks;
+      sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', tracks, baseUrl: tracks[0].baseUrl }, (resp) => {
+        if (resp?.success) {
+          const summary = generateIntelligentSummary(resp.data);
+          updateOverlay('YouTube Insight', summary, 'Source: AI Summary');
+        } else {
+          updateOverlay('Notice', resp?.error || 'Transcription failed.', 'YouTube Insights');
         }
-      } catch (e) {
-        console.warn('[InfoBlend] Local JSON parse failed. Falling back to background.');
-      }
+      });
+      return;
     }
 
-    // Fallback: Background fetch if local DOM is not ready or failed
-    showLoadingOverlay();
+    console.log('[InfoBlend] Native data empty, falling back to background fetch.');
+    // Fallback: Background fetch if local data is not ready
     sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', url: window.location.href }, (resp) => {
       if (resp?.success) {
         const summary = generateIntelligentSummary(resp.data);
