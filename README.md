@@ -34,17 +34,14 @@ We ensure you're never without an answer with our multi-stage definition logic:
 3. **Wiktionary** (Detailed)
 4. **Wikipedia** (Contextual)
 
-## 🛠️ Installation & Setup
+## 📦 Installation & Browser Support
 
-### Chrome, Edge, Brave (Chromium)
-1. Open the extensions page (`chrome://extensions/` or `edge://extensions/`).
-2. Enable **Developer Mode**.
-3. Click **Load unpacked** and select this repository folder.
-
-### Firefox (Gecko)
-1. Replace the current `manifest.json` with a renamed `manifest.firefox.json`.
-2. Open `about:debugging` → **This Firefox**.
-3. Click **Load Temporary Add-on...** and select the `manifest.json`.
+### **Universal Browser Support (Chrome, Firefox, Brave, etc.)**
+- InfoBlend AI now uses a single, unified `manifest.json` for all modern browsers.
+1.  **Direct Load**:
+    - Open your browser's extensions page (`chrome://extensions/` or `about:debugging`).
+    - Enable **Developer Mode**.
+    - Click **Load unpacked** and select this repository folder.
 
 ### ⚙️ Bring Your Own Key (BYOK)
 To unlock AI-summaries and deep insights:

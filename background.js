@@ -6,7 +6,7 @@ import { translateError } from './utils/errors.js';
 
 /**
  * Background Service Worker for InfoBlend AI.
- * Orchestrates API requests and content script coordination.
+ * Orchestrates API requests, context menus, and content script coordination.
  */
 
 // 1. Extension Lifecycle & Context Menus
@@ -15,6 +15,11 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: 'summarize-ib', title: 'Summarize Selection', contexts: ['selection'] });
 });
 
+// 2. Messaging Helpers
+const safeSendMessage = async (tabId, msg) => {
+  try { await chrome.tabs.sendMessage(tabId, msg); } catch (e) { /* Silently fail */ }
+};
+
 const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
 
 /**
@@ -22,15 +27,20 @@ const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']
  */
 const wrapAsync = (callback) => (message, sender, sendResponse) => {
   callback(message, sender, sendResponse).catch(err => {
-    // Ensuring translateError exists even if module loading was wonky
-    const errorMsg = (typeof translateError === 'function') ? translateError(err) : (err.message || 'Unknown error');
-    console.error('[InfoBlend Background Error]', err.message);
-    sendResponse({ success: false, error: errorMsg });
+    try {
+      const friendlyError = translateError(err);
+      console.error('[InfoBlend Background Error]', err.message);
+      sendResponse({ success: false, error: friendlyError });
+    } catch (criticalErr) {
+      console.error('[InfoBlend Critical Failure]', criticalErr.message);
+      // Failsafe: send something to keep the channel closed cleanly
+      sendResponse({ success: false, error: 'Internal background error.' });
+    }
   });
   return true; // Keep channel open
 };
 
-// 2. Core Request Handlers
+// 3. Core Request Handlers
 const handleDefinition = async (word) => {
   const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
   if (aiKey && aiEndpoint) {
@@ -48,35 +58,36 @@ const handleSummarization = async (text) => {
   return generateIntelligentSummary(text);
 };
 
-// 3. Listeners
+// 4. Listeners
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!info.selectionText) return;
-  chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' }).catch(() => {});
+  safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
 
   try {
     if (info.menuItemId === 'define-ib') {
       const data = await handleDefinition(info.selectionText);
-      chrome.tabs.sendMessage(tab.id, { type: 'SHOW_DEFINITION', data }).catch(() => {});
+      safeSendMessage(tab.id, { type: 'SHOW_DEFINITION', data });
     } else if (info.menuItemId === 'summarize-ib') {
       const summary = await handleSummarization(info.selectionText);
-      chrome.tabs.sendMessage(tab.id, { 
+      safeSendMessage(tab.id, { 
         type: 'SHOW_DEFINITION', 
         data: { title: 'Selection Summary', content: summary, source: 'AI/Local Hybrid' } 
-      }).catch(() => {});
+      });
     }
   } catch (error) {
-    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message }).catch(() => {});
+    safeSendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
   }
 });
 
 chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendResponse) => {
   switch (message.type) {
     case 'FETCH_DEFINITION':
-      const defData = await handleDefinition(message.word);
-      sendResponse({ success: true, data: defData });
+      const data = await handleDefinition(message.word);
+      sendResponse({ success: true, data });
       break;
 
     case 'PERFORM_SUMMARIZATION':
+      // Background decides AI vs Local based on keys
       const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
       if (aiKey && aiEndpoint) {
         try {
@@ -93,25 +104,18 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       break;
 
     case 'FETCH_YOUTUBE_TRANSCRIPT':
-      console.log('[InfoBlend] Background: Fetching transcript for', message.url || 'supplied tracks');
-      let data;
-      if (message.tracks) {
-        data = await fetchAndProcessTrack(message.tracks);
-      } else {
-        data = await extractYouTubeTranscript(message.url);
-      }
-      sendResponse({ success: true, data });
+      const fullTranscript = await extractYouTubeTranscript(message.url);
+      sendResponse({ success: true, transcript: fullTranscript });
       break;
 
     case 'PROCESS_YOUTUBE_TRACKS':
-      console.log('[InfoBlend] Background: Processing tracks...');
-      const processed = await fetchAndProcessTrack(message.tracks);
-      sendResponse({ success: true, data: processed });
+      const processedTranscript = await fetchAndProcessTrack(message.tracks);
+      sendResponse({ success: true, transcript: processedTranscript });
       break;
-
-    case 'GET_HISTORY':
-      const history = await getStorageData(['history']);
-      sendResponse({ success: true, data: history.history || ['No recent activity.'] });
+      
+    case 'OPEN_POPUP':
+      // Placeholder for future palette interactions
       break;
   }
 }));
+
