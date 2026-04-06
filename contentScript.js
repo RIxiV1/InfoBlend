@@ -310,33 +310,63 @@ const SHADOW_STYLES = `
       { id: 'history', label: 'View History', icon: '⏳' }
     ];
 
+    let activeIndex = 0;
+    let filtered = [...commands];
+
     const renderResults = (filter = '') => {
       resultsArea.innerHTML = '';
-      const filtered = commands.filter(c => c.label.toLowerCase().includes(filter.toLowerCase()));
+      filtered = commands.filter(c => c.label.toLowerCase().includes(filter.toLowerCase()));
       if (filter && !filtered.length) {
         filtered.push({ id: 'define-word', label: `Define "${filter}"`, icon: '🔍', word: filter });
       }
-      filtered.forEach((cmd) => {
+      
+      if (activeIndex >= filtered.length) activeIndex = Math.max(0, filtered.length - 1);
+
+      filtered.forEach((cmd, index) => {
         const item = document.createElement('div');
-        item.className = 'ib-palette-item';
+        item.className = `ib-palette-item ${index === activeIndex ? 'selected' : ''}`;
         item.innerHTML = `<span>${cmd.icon} ${cmd.label}</span>`;
-        item.onclick = () => {
-          togglePalette();
-          if (cmd.id === 'summarize') handlePageSummarization();
-          else if (cmd.id === 'define-word') {
-            showLoadingOverlay();
-            sendMessage({ type: 'FETCH_DEFINITION', word: cmd.word }, (resp) => {
-              if (resp?.success) updateOverlay(resp.data.title, resp.data.content, resp.data.source);
-            });
-          }
-        };
+        item.onclick = () => executeCommand(cmd);
         resultsArea.appendChild(item);
+        if (index === activeIndex) item.scrollIntoView({ block: 'nearest' });
       });
     };
 
+    const executeCommand = (cmd) => {
+      togglePalette();
+      if (cmd.id === 'summarize') handlePageSummarization();
+      else if (cmd.id === 'define-word' || cmd.id === 'define') {
+        const word = cmd.word || input.value.trim();
+        if (word) {
+          showLoadingOverlay();
+          sendMessage({ type: 'FETCH_DEFINITION', word }, (resp) => {
+            if (resp?.success) updateOverlay(resp.data.title, resp.data.content, resp.data.source);
+          });
+        }
+      }
+    };
+
     renderResults();
-    input.oninput = (e) => renderResults(e.target.value);
-    input.onkeydown = (e) => { if (e.key === 'Escape') togglePalette(); };
+    input.oninput = (e) => {
+      activeIndex = 0;
+      renderResults(e.target.value);
+    };
+
+    input.onkeydown = (e) => {
+      if (e.key === 'Escape') togglePalette();
+      else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = (activeIndex + 1) % filtered.length;
+        renderResults(input.value);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = (activeIndex - 1 + filtered.length) % filtered.length;
+        renderResults(input.value);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filtered[activeIndex]) executeCommand(filtered[activeIndex]);
+      }
+    };
     const footer = document.createElement('div');
     footer.className = 'ib-palette-footer';
     footer.innerHTML = `

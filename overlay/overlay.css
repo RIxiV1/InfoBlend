@@ -71,7 +71,17 @@
   transition: 0.1s;
 }
 .ib-palette-item:hover { background: var(--item-hover); }
-.ib-palette-item.selected { background: var(--item-selected); box-shadow: inset 0 0 0 1px var(--accent-color); }
+.ib-palette-item.selected { 
+  background: var(--item-selected); 
+  box-shadow: inset 0 0 0 1px var(--accent-color); 
+  animation: ibItemPulse 2s infinite;
+}
+
+@keyframes ibItemPulse {
+  0% { box-shadow: inset 0 0 0 1px var(--accent-color); }
+  50% { box-shadow: inset 0 0 0 2px var(--accent-color), 0 0 15px var(--item-selected); }
+  100% { box-shadow: inset 0 0 0 1px var(--accent-color); }
+}
 
 .ib-palette-footer { padding: 8px 18px; background: rgba(0, 0, 0, 0.02); border-top: 1px solid var(--palette-border); display: flex; gap: 15px; font-size: 10px; color: var(--text-dim); }
 .ib-key-box { background: rgba(0,0,0,0.1); padding: 1px 4px; border-radius: 4px; }
