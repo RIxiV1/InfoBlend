@@ -93,13 +93,20 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       break;
 
     case 'FETCH_YOUTUBE_TRANSCRIPT':
-      const fullTranscript = await extractYouTubeTranscript(message.url);
-      sendResponse({ success: true, transcript: fullTranscript });
+      console.log('[InfoBlend] Background: Fetching transcript for', message.url || 'supplied tracks');
+      let data;
+      if (message.tracks) {
+        data = await fetchAndProcessTrack(message.tracks);
+      } else {
+        data = await extractYouTubeTranscript(message.url);
+      }
+      sendResponse({ success: true, data });
       break;
 
     case 'PROCESS_YOUTUBE_TRACKS':
-      const processedTranscript = await fetchAndProcessTrack(message.tracks);
-      sendResponse({ success: true, transcript: processedTranscript });
+      console.log('[InfoBlend] Background: Processing tracks...');
+      const processed = await fetchAndProcessTrack(message.tracks);
+      sendResponse({ success: true, data: processed });
       break;
   }
 }));
