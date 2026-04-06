@@ -49,8 +49,8 @@
   color: var(--text-main);
   font-family: var(--font-mono);
   overflow: hidden;
-  height: auto;
-  max-height: 50vh;
+  height: fit-content;
+  max-height: 85vh;
   animation: ibPaletteIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

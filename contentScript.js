@@ -76,12 +76,13 @@ const SHADOW_STYLES = `
   .infoblend-content { 
     padding: 12px; 
     overflow-y: auto; 
-    max-height: 70vh; 
+    height: fit-content;
+    max-height: 85vh;
     scrollbar-width: none;
   }
   .infoblend-content::-webkit-scrollbar { display: none; }
   
-  .ib-bento-grid { display: flex; flex-direction: column; gap: 10px; padding: 4px; }
+  .ib-bento-grid { display: flex; flex-direction: column; gap: 10px; padding: 4px; min-width: 0; }
   
   .ib-bento-card {
     position: relative;
@@ -261,7 +262,8 @@ const SHADOW_STYLES = `
 
     const commands = [
       { id: 'summarize', label: 'Summarize Page', icon: '📝' },
-      { id: 'define', label: 'Define Term...', icon: '📖' }
+      { id: 'define', label: 'Define Term...', icon: '📖' },
+      { id: 'history', label: 'View History', icon: '⏳' }
     ];
 
     const renderResults = (filter = '') => {
@@ -291,8 +293,17 @@ const SHADOW_STYLES = `
     renderResults();
     input.oninput = (e) => renderResults(e.target.value);
     input.onkeydown = (e) => { if (e.key === 'Escape') togglePalette(); };
+    const footer = document.createElement('div');
+    footer.className = 'ib-palette-footer';
+    footer.innerHTML = `
+      <span><span class="ib-key-box">↑↓</span> navigate</span>
+      <span><span class="ib-key-box">↵</span> select</span>
+      <span><span class="ib-key-box">esc</span> close</span>
+    `;
+
     paletteDiv.appendChild(searchArea);
     paletteDiv.appendChild(resultsArea);
+    paletteDiv.appendChild(footer);
     shadow.appendChild(overlayBg);
     overlayBg.appendChild(paletteDiv);
     setTimeout(() => input.focus(), 50);
