@@ -108,5 +108,10 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       const processed = await fetchAndProcessTrack(message.tracks);
       sendResponse({ success: true, data: processed });
       break;
+
+    case 'GET_HISTORY':
+      const history = await getStorageData(['history']);
+      sendResponse({ success: true, data: history.history || ['No recent activity.'] });
+      break;
   }
 }));
