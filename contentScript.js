@@ -333,17 +333,29 @@ const SHADOW_STYLES = `
     };
 
     const executeCommand = (cmd) => {
-      togglePalette();
-      if (cmd.id === 'summarize') handlePageSummarization();
-      else if (cmd.id === 'define-word' || cmd.id === 'define') {
-        const word = cmd.word || input.value.trim();
-        if (word) {
+      console.log(`[InfoBlend] Executing command: ${cmd.id}`, cmd);
+      paletteDiv.style.transform = 'scale(0.98)';
+      setTimeout(() => {
+        togglePalette();
+        if (cmd.id === 'summarize') handlePageSummarization();
+        else if (cmd.id === 'history') {
           showLoadingOverlay();
-          sendMessage({ type: 'FETCH_DEFINITION', word }, (resp) => {
-            if (resp?.success) updateOverlay(resp.data.title, resp.data.content, resp.data.source);
+          sendMessage({ type: 'GET_HISTORY' }, (resp) => {
+            if (resp?.success && resp.data.length) updateOverlay('Recent History', resp.data.join('\n\n'), 'Local Archive');
+            else updateOverlay('Notice', 'No history found.', 'InfoBlend');
           });
         }
-      }
+        else if (cmd.id === 'define-word' || cmd.id === 'define') {
+          const word = cmd.word || input.value.trim();
+          if (word) {
+            showLoadingOverlay();
+            sendMessage({ type: 'FETCH_DEFINITION', word }, (resp) => {
+              if (resp?.success) updateOverlay(resp.data.title, resp.data.content, resp.data.source);
+              else updateOverlay('Notice', 'No definition found.', 'InfoBlend');
+            });
+          }
+        }
+      }, 100);
     };
 
     renderResults();
@@ -353,6 +365,7 @@ const SHADOW_STYLES = `
     };
 
     input.onkeydown = (e) => {
+      const val = input.value.trim().toLowerCase();
       if (e.key === 'Escape') togglePalette();
       else if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -364,15 +377,20 @@ const SHADOW_STYLES = `
         renderResults(input.value);
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (filtered[activeIndex]) executeCommand(filtered[activeIndex]);
+        // One-Tap Smart Logic
+        if (val === '') executeCommand({ id: 'summarize' });
+        else if (val === 's') executeCommand({ id: 'summarize' });
+        else if (val === 'h') executeCommand({ id: 'history' });
+        else if (filtered.length > 0 && activeIndex < filtered.length) executeCommand(filtered[activeIndex]);
+        else executeCommand({ id: 'define-word', word: input.value.trim() });
       }
     };
     const footer = document.createElement('div');
     footer.className = 'ib-palette-footer';
     footer.innerHTML = `
+      <span><span class="ib-key-box">↵</span> focus summary</span>
+      <span><span class="ib-key-box">s, h, d</span> shorthands</span>
       <span><span class="ib-key-box">↑↓</span> navigate</span>
-      <span><span class="ib-key-box">↵</span> select</span>
-      <span><span class="ib-key-box">esc</span> close</span>
     `;
 
     paletteDiv.appendChild(searchArea);
