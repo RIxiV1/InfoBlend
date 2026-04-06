@@ -6,7 +6,7 @@ import { translateError } from './utils/errors.js';
 
 /**
  * Background Service Worker for InfoBlend AI.
- * Orchestrates API requests, context menus, and content script coordination.
+ * Orchestrates API requests and content script coordination.
  */
 
 // 1. Extension Lifecycle & Context Menus
@@ -15,11 +15,6 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: 'summarize-ib', title: 'Summarize Selection', contexts: ['selection'] });
 });
 
-// 2. Messaging Helpers
-const safeSendMessage = async (tabId, msg) => {
-  try { await chrome.tabs.sendMessage(tabId, msg); } catch (e) { /* Silently fail */ }
-};
-
 const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
 
 /**
@@ -27,14 +22,15 @@ const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']
  */
 const wrapAsync = (callback) => (message, sender, sendResponse) => {
   callback(message, sender, sendResponse).catch(err => {
-    const friendlyError = translateError(err);
+    // Ensuring translateError exists even if module loading was wonky
+    const errorMsg = (typeof translateError === 'function') ? translateError(err) : (err.message || 'Unknown error');
     console.error('[InfoBlend Background Error]', err.message);
-    sendResponse({ success: false, error: friendlyError });
+    sendResponse({ success: false, error: errorMsg });
   });
   return true; // Keep channel open
 };
 
-// 3. Core Request Handlers
+// 2. Core Request Handlers
 const handleDefinition = async (word) => {
   const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
   if (aiKey && aiEndpoint) {
@@ -52,36 +48,35 @@ const handleSummarization = async (text) => {
   return generateIntelligentSummary(text);
 };
 
-// 4. Listeners
+// 3. Listeners
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!info.selectionText) return;
-  safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
+  chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' }).catch(() => {});
 
   try {
     if (info.menuItemId === 'define-ib') {
       const data = await handleDefinition(info.selectionText);
-      safeSendMessage(tab.id, { type: 'SHOW_DEFINITION', data });
+      chrome.tabs.sendMessage(tab.id, { type: 'SHOW_DEFINITION', data }).catch(() => {});
     } else if (info.menuItemId === 'summarize-ib') {
       const summary = await handleSummarization(info.selectionText);
-      safeSendMessage(tab.id, { 
+      chrome.tabs.sendMessage(tab.id, { 
         type: 'SHOW_DEFINITION', 
         data: { title: 'Selection Summary', content: summary, source: 'AI/Local Hybrid' } 
-      });
+      }).catch(() => {});
     }
   } catch (error) {
-    safeSendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message });
+    chrome.tabs.sendMessage(tab.id, { type: 'SHOW_ERROR', message: error.message }).catch(() => {});
   }
 });
 
 chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendResponse) => {
   switch (message.type) {
     case 'FETCH_DEFINITION':
-      const data = await handleDefinition(message.word);
-      sendResponse({ success: true, data });
+      const defData = await handleDefinition(message.word);
+      sendResponse({ success: true, data: defData });
       break;
 
     case 'PERFORM_SUMMARIZATION':
-      // Background decides AI vs Local based on keys
       const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
       if (aiKey && aiEndpoint) {
         try {
@@ -106,10 +101,5 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       const processedTranscript = await fetchAndProcessTrack(message.tracks);
       sendResponse({ success: true, transcript: processedTranscript });
       break;
-      
-    case 'OPEN_POPUP':
-      // Placeholder for future palette interactions
-      break;
   }
 }));
-
