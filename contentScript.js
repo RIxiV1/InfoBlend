@@ -608,11 +608,13 @@ const SHADOW_STYLES = `
    * Specialized handler for YouTube video transcripts.
    */
   function handleYouTubeSummarization() {
+    showLoadingOverlay();
     sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', url: window.location.href }, async (resp) => {
       if (resp && resp.success && resp.transcript) {
         runSummarizer(resp.transcript, 'Video Summary');
       } else {
-        updateOverlay('Notice', 'Could not extract video transcript.', 'YouTube Insights');
+        const errorMsg = resp?.error || 'Could not extract video transcript. (Captions might be disabled)';
+        updateOverlay('Notice', errorMsg, 'YouTube Insights');
       }
     });
   }
@@ -621,6 +623,11 @@ const SHADOW_STYLES = `
    * Orchestrates the summarization process via the background script.
    */
   async function runSummarizer(text, title = 'Summary') {
+    if (!text || text.trim().length === 0) {
+      updateOverlay('Notice', 'No readable content found to summarize.', 'InfoBlend');
+      return;
+    }
+    
     try {
       sendMessage({ type: 'PERFORM_SUMMARIZATION', text }, (response) => {
         if (response && response.success) {

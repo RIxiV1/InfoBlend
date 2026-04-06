@@ -13,33 +13,48 @@ const decodeHTML = (text) => {
 export const extractYouTubeTranscript = async (url) => {
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error('YouTube unreachable. Check your connection.');
+    if (!response.ok) throw new Error('YouTube unreachable. Check connection.');
     const html = await response.text();
     
-    // Improved regex to find caption data in different script blocks
-    const captionsRegex = /"captionTracks":\s*\[(.*?)\]/;
-    const match = html.match(captionsRegex);
+    let playerResponse = null;
     
-    if (!match) {
-      // Fallback: Check for innertrack or other common locations
-      const fallbackRegex = /ytInitialPlayerResponse\s*=\s*({.*?});/s;
-      const fbMatch = html.match(fallbackRegex);
-      if (fbMatch) {
-         try {
-           const data = JSON.parse(fbMatch[1]);
-           const tracks = data.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-           if (tracks) return await fetchAndProcessTrack(tracks);
-         } catch (e) { /* ignore JSON parse error */ }
+    // 1. Primary Strategy: Parse ytInitialPlayerResponse directly
+    const playerResponseRegex = /ytInitialPlayerResponse\s*=\s*({.+?});\s*(?:var|<\/script)/s;
+    const playerMatch = html.match(playerResponseRegex);
+    
+    if (playerMatch) {
+      try {
+        playerResponse = JSON.parse(playerMatch[1]);
+      } catch (e) {
+        console.warn('[InfoBlend] Failed to parse ytInitialPlayerResponse JSON.');
       }
-      throw new Error('Captions are disabled or unavailable for this video.');
     }
     
-    const tracks = JSON.parse(`[${match[1]}]`);
+    // 2. Secondary Strategy: Extract just the captions array if the full object parse failed
+    if (!playerResponse) {
+      const captionsRegex = /"captionTracks":\s*\[(.*?)\]/;
+      const capMatch = html.match(captionsRegex);
+      if (capMatch) {
+        try {
+          const tracks = JSON.parse(`[${capMatch[1]}]`);
+          return await fetchAndProcessTrack(tracks);
+        } catch (e) { /* fallback to error below */ }
+      }
+    }
+
+    const tracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    
+    if (!tracks || tracks.length === 0) {
+      throw new Error('This video has no transcript available.');
+    }
+    
     return await fetchAndProcessTrack(tracks);
 
   } catch (error) {
-    console.warn('[InfoBlend] YouTube Insight Error:', error.message);
-    throw new Error(`YouTube Insight: ${error.message}`);
+    if (error.message.includes('Unexpected token')) {
+      throw new Error('YouTube format changed. Please contact developers.');
+    }
+    throw error;
   }
 };
 
@@ -54,15 +69,15 @@ async function fetchAndProcessTrack(tracks) {
   const xmlResponse = await fetch(enTrack.baseUrl);
   const xml = await xmlResponse.text();
   
-  const textMatches = xml.match(/<text.*?>(.*?)<\/text>/gi);
-  if (!textMatches) throw new Error('Transcript is empty.');
-  
-  return textMatches
-    .map(tag => {
-      const content = tag.match(/<text.*?>(.*?)<\/text>/i)?.[1] || '';
-      return decodeHTML(content);
-    })
-    .join(' ')
+  // Robust XML cleaning and extraction
+  const content = xml
+    .replace(/<text[^>]*>/g, ' ') // Replace tags with space to preserve word separation
+    .replace(/<\/text>/g, '')     // Remove closing tags
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+  
+  if (!content) throw new Error('Transcript data is empty.');
+  return content;
 }

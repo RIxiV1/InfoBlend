@@ -11,7 +11,10 @@ const ERROR_MAP = {
   'API Error: 429': 'Rate limit exceeded. Try again in a few minutes.',
   'Fetch failed': 'Network error. Please check your internet connection.',
   'No readable article': 'Could not find enough text on this page to summarize.',
-  'No entry found': 'Word not found in standard dictionary. Try AI for complex terms.'
+  'No entry found': 'Word not found in standard dictionary. Try AI for complex terms.',
+  'no transcript available': 'Transcripts are disabled or unavailable for this video.',
+  'YouTube format changed': 'YouTube layout has evolved. An update is required for transcripts.',
+  'Transcript data is empty': 'The transcript exists but contains no text content.'
 };
 
 /**
