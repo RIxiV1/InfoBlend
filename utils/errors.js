@@ -23,11 +23,12 @@ const ERROR_MAP = {
  * @returns {string}
  */
 export function translateError(error) {
-  if (!error) return 'An unexpected error occurred.';
-  const message = typeof error === 'string' ? error : error.message;
+  const message = typeof error === 'string' ? error : (error?.message || '');
   
+  if (!message) return 'An unexpected error occurred.';
+
   for (const [key, value] of Object.entries(ERROR_MAP)) {
-    if (message.includes(key)) return value;
+    if (message.toLowerCase().includes(key.toLowerCase())) return value;
   }
   
   return message || 'An unexpected error occurred. Please try again.';

@@ -38,7 +38,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["utils/*.js", "overlay/*.css"],
+      "resources": ["utils/*.js"],
       "matches": ["<all_urls>"]
     }
   ],
