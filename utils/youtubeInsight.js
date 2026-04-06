@@ -1,6 +1,7 @@
 /**
  * YouTube Insight Engine
  * Extracts and processes YouTube transcripts using native endpoints.
+ * Robust implementation covering both standard and SPA-based page loads.
  */
 
 const decodeHTML = (text) => {
@@ -19,31 +20,33 @@ export const parseTranscriptFromHTML = async (html) => {
   let playerResponse = null;
   
   // 1. Primary Strategy: Parse ytInitialPlayerResponse directly
-  const playerResponseRegex = /ytInitialPlayerResponse\s*=\s*({.+?});\s*(?:var|<\/script)/s;
+  // Robust regex handles 'var', 'const', or direct assignment, even without trailing semicolon.
+  const playerResponseRegex = /(?:var|const|window\[['"])\s*ytInitialPlayerResponse['"]?\]?\s*=\s*({.+?})(?:\s*;|\s*<\/script|$)/s;
   const playerMatch = html.match(playerResponseRegex);
   
   if (playerMatch) {
     try {
       playerResponse = JSON.parse(playerMatch[1]);
     } catch (e) {
-      console.warn('[InfoBlend] Failed to parse ytInitialPlayerResponse JSON.');
+      console.warn('[InfoBlend] Failed to parse full ytInitialPlayerResponse JSON. Trying partial match.');
     }
   }
   
-  // 2. Secondary Strategy: Extract just the captions array if the full object parse failed
-  if (!playerResponse) {
-    const captionsRegex = /"captionTracks":\s*\[(.*?)\]/;
+  // 2. Secondary Strategy: If full parse failed, extract ONLY the captions array directly from the string
+  let tracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  
+  if (!tracks) {
+    const captionsRegex = /"playerCaptionsTracklistRenderer":\s*\{\s*"captionTracks":\s*(\[.+?\])/s;
     const capMatch = html.match(captionsRegex);
     if (capMatch) {
       try {
-        const tracks = JSON.parse(`[${capMatch[1]}]`);
-        return await fetchAndProcessTrack(tracks);
-      } catch (e) { /* fallback to error below */ }
+        tracks = JSON.parse(capMatch[1]);
+      } catch (e) {
+        console.warn('[InfoBlend] Failed to parse partial captions array.');
+      }
     }
   }
 
-  const tracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-  
   if (!tracks || tracks.length === 0) {
     throw new Error('This video has no transcript available.');
   }
@@ -78,7 +81,7 @@ export async function fetchAndProcessTrack(tracks) {
   
   // Robust XML cleaning and extraction
   const content = xml
-    .replace(/<text[^>]*>/g, ' ') // Replace tags with space to preserve word separation
+    .replace(/<text[^>]*>/g, ' ') // Replace tags with space for word separation
     .replace(/<\/text>/g, '')     // Remove closing tags
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"').replace(/&#39;/g, "'")

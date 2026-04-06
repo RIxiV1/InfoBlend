@@ -359,25 +359,48 @@ const SHADOW_STYLES = `
     return prose.length > 5 ? prose.join('\n\n').substring(0, 8000) : null;
   }
 
-  function handleYouTubeSummarization() {
-    const scriptTag = Array.from(document.scripts).find(s => s.textContent.includes('ytInitialPlayerResponse'));
-    const match = scriptTag?.textContent.match(/ytInitialPlayerResponse\s*=\s*({.+?});/);
-    if (match) {
+  async function handleYouTubeSummarization() {
+    const findData = () => {
+      const scripts = Array.from(document.scripts);
+      const re = /(?:var|const|window\[['"])\s*ytInitialPlayerResponse['"]?\]?\s*=\s*({.+?})(?:\s*;|\s*<\/script|$)/s;
+      for (const s of scripts) {
+        const match = s.textContent.match(re);
+        if (match) return match[1];
+      }
+      return null;
+    };
+
+    const rawData = findData();
+    if (rawData) {
       try {
-        const data = JSON.parse(match[1]);
-        const tracks = data.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+        const data = JSON.parse(rawData);
+        const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
         if (tracks?.length) {
-          sendMessage({ type: 'PROCESS_YOUTUBE_TRACKS', tracks }, (resp) => {
-            if (resp?.success) runSummarizer(resp.transcript, 'Video Summary');
-            else updateOverlay('Notice', resp?.error || 'Failed to process transcript.', 'YouTube');
+          showLoadingOverlay();
+          sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', tracks, baseUrl: tracks[0].baseUrl }, (resp) => {
+            if (resp?.success) {
+              const summary = generateIntelligentSummary(resp.data);
+              updateOverlay('YouTube Insight', summary, 'Source: AI Summary');
+            } else {
+              updateOverlay('Notice', resp?.error || 'Transcription failed.', 'YouTube Insights');
+            }
           });
           return;
         }
-      } catch (e) { console.warn('[InfoBlend] Local parse failed.'); }
+      } catch (e) {
+        console.warn('[InfoBlend] Local JSON parse failed. Falling back to background.');
+      }
     }
+
+    // Fallback: Background fetch if local DOM is not ready or failed
+    showLoadingOverlay();
     sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', url: window.location.href }, (resp) => {
-      if (resp?.success) runSummarizer(resp.transcript, 'Video Summary');
-      else updateOverlay('Notice', resp?.error || 'Could not find transcripts.', 'YouTube');
+      if (resp?.success) {
+        const summary = generateIntelligentSummary(resp.data);
+        updateOverlay('YouTube Insight', summary, 'Source: AI Summary');
+      } else {
+        updateOverlay('Notice', resp?.error || 'Could not extract video transcript.', 'YouTube Insights');
+      }
     });
   }
 
