@@ -8,17 +8,16 @@ const SHADOW_STYLES = `
   :host {
     all: initial;
     display: block;
-    color: #ffffff !important;
     color-scheme: only light;
-    --ib-mouse-x: -100px;
-    --ib-mouse-y: -100px;
+    --ib-bg: #ffffff;
+    --ib-text: #1a1a1a;
+    --ib-text-dim: #666666;
+    --ib-border: rgba(0,0,0,0.1);
+    --ib-card-bg: #f8f9fa;
+    --ib-skel-s: rgba(0,0,0,0.05);
+    --ib-skel-m: rgba(0,0,0,0.1);
     --ib-accent-color: #f5a623;
     --ib-accent-low: rgba(245, 166, 35, 0.15);
-    --ib-bg-glass: rgba(252, 250, 246, 0.9);
-    --ib-card-glass: rgba(0, 0, 0, 0.03);
-    --ib-border-line: rgba(0, 0, 0, 0.08);
-    --ib-text-bright: #1a1714;
-    --ib-text-dim: #666666;
     --ib-font-serif: 'Instrument Serif', serif;
     --ib-font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
   }
@@ -27,7 +26,7 @@ const SHADOW_STYLES = `
   .infoblend-content, 
   .ib-bento-grid, 
   .ib-bento-card {
-    color: var(--ib-text-bright) !important;
+    color: var(--ib-text) !important;
   }
 
   .infoblend-overlay * {
@@ -41,12 +40,12 @@ const SHADOW_STYLES = `
     top: 20px;
     right: 20px;
     width: 330px;
-    background: var(--ib-bg-glass) !important;
+    background: var(--ib-bg) !important;
     backdrop-filter: blur(12px) saturate(180%);
     -webkit-backdrop-filter: blur(12px) saturate(180%);
-    border: 1px solid var(--ib-border-line) !important;
+    border: 1px solid var(--ib-border) !important;
     border-radius: 20px;
-    box-shadow: 0 40px 100px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.05);
+    box-shadow: 0 40px 100px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255,255,255,0.05);
     z-index: ${Z_INDEX};
     font-family: var(--ib-font-mono) !important;
     overflow: hidden;
@@ -76,17 +75,17 @@ const SHADOW_STYLES = `
   
   .ib-bento-card {
     position: relative;
-    background: var(--ib-card-glass) !important;
+    background: var(--ib-card-bg) !important;
     padding: 16px;
     border-radius: 16px;
     font-size: 14.5px !important;
     font-weight: 400 !important;
     line-height: 1.6 !important;
-    border: 1px solid var(--ib-border-line) !important;
+    border: 1px solid var(--ib-border) !important;
     transition: background 0.2s ease;
   }
   
-  .ib-bento-card:hover { background: rgba(255,255,255,0.06) !important; }
+  .ib-bento-card:hover { background: rgba(0,0,0,0.03) !important; }
 
   .ib-highlight { 
     color: var(--ib-accent-color) !important; 
@@ -101,15 +100,15 @@ const SHADOW_STYLES = `
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    border-bottom: 1px solid var(--ib-border-line); 
-    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--ib-border); 
+    background: rgba(0,0,0,0.02);
   }
 
   .infoblend-title { 
     font-family: var(--ib-font-serif) !important; 
     font-size: 16px; 
     font-style: italic; 
-    color: var(--ib-text-bright) !important;
+    color: var(--ib-text) !important;
     letter-spacing: -0.01em;
   }
 
@@ -128,21 +127,22 @@ const SHADOW_STYLES = `
     justify-content: center;
   }
   
-  .infoblend-btn:hover { color: var(--ib-text-bright) !important; background: rgba(255,255,255,0.08) !important; }
+  .infoblend-btn:hover { color: var(--ib-text) !important; background: rgba(0,0,0,0.08) !important; }
   
   .infoblend-source { 
-    border-top: 1px solid var(--ib-border-line);
+    border-top: 1px solid var(--ib-border);
     font-weight: 500;
   }
 
   .infoblend-loading { padding: 30px; display: flex; flex-direction: column; gap: 12px; }
   .ib-skeleton { 
-    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%); 
-    background-size: 200% 100%; 
-    animation: ibSkeleton 1.5s infinite linear; 
-    border-radius: 8px; 
+    background: linear-gradient(90deg, var(--ib-skel-s) 25%, var(--ib-skel-m) 50%, var(--ib-skel-s) 75%); 
+    background-size: 200% 100%;
+    animation: ib-shimmer 1.5s infinite;
+    border-radius: 4px;
+    height: 16px;
   }
-  @keyframes ibSkeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  @keyframes ib-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   .ib-sk-title { height: 20px; width: 40%; }
   .ib-sk-line { height: 12px; width: 100%; }
   
@@ -609,6 +609,31 @@ const SHADOW_STYLES = `
    */
   function handleYouTubeSummarization() {
     showLoadingOverlay();
+    
+    // Attempt local DOM extraction first (more reliable on SPA navigation)
+    const scriptContent = Array.from(document.scripts).find(s => s.textContent.includes('ytInitialPlayerResponse'))?.textContent;
+    const playerResponseRegex = /ytInitialPlayerResponse\s*=\s*({.+?});\s*(?:var|<\/script)/s;
+    const match = scriptContent?.match(playerResponseRegex);
+    
+    if (match) {
+      try {
+        const data = JSON.parse(match[1]);
+        const tracks = data.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+        if (tracks && tracks.length > 0) {
+          console.log('[InfoBlend] Found local transcript data.');
+          // Process tracks (fetch actual XML via background to avoid CORS if needed)
+          sendMessage({ type: 'PROCESS_YOUTUBE_TRACKS', tracks }, (resp) => {
+            if (resp && resp.success) runSummarizer(resp.transcript, 'Video Summary');
+            else updateOverlay('Notice', resp?.error || 'Failed to process transcript.', 'YouTube Insights');
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn('[InfoBlend] Local JSON parse failed, falling back to background fetch.');
+      }
+    }
+
+    // Fallback to background fetch if DOM extraction fails
     sendMessage({ type: 'FETCH_YOUTUBE_TRANSCRIPT', url: window.location.href }, async (resp) => {
       if (resp && resp.success && resp.transcript) {
         runSummarizer(resp.transcript, 'Video Summary');

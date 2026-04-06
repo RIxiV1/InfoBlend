@@ -1,7 +1,7 @@
 import { fetchDefinition, fetchAIResponse } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
-import { extractYouTubeTranscript } from './utils/youtubeInsight.js';
+import { extractYouTubeTranscript, fetchAndProcessTrack } from './utils/youtubeInsight.js';
 import { translateError } from './utils/errors.js';
 
 /**
@@ -98,8 +98,13 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       break;
 
     case 'FETCH_YOUTUBE_TRANSCRIPT':
-      const transcript = await extractYouTubeTranscript(message.url);
-      sendResponse({ success: true, transcript });
+      const fullTranscript = await extractYouTubeTranscript(message.url);
+      sendResponse({ success: true, transcript: fullTranscript });
+      break;
+
+    case 'PROCESS_YOUTUBE_TRACKS':
+      const processedTranscript = await fetchAndProcessTrack(message.tracks);
+      sendResponse({ success: true, transcript: processedTranscript });
       break;
       
     case 'OPEN_POPUP':
