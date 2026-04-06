@@ -18,11 +18,12 @@ const ERROR_MAP = {
 };
 
 /**
- * Translates a technical error into a user-friendly strings.
+ * Translates a technical error into a user-friendly string.
  * @param {string|Error} error - The error to translate.
  * @returns {string}
  */
-export const translateError = (error) => {
+export function translateError(error) {
+  if (!error) return 'An unexpected error occurred.';
   const message = typeof error === 'string' ? error : error.message;
   
   for (const [key, value] of Object.entries(ERROR_MAP)) {
@@ -30,4 +31,4 @@ export const translateError = (error) => {
   }
   
   return message || 'An unexpected error occurred. Please try again.';
-};
+}
