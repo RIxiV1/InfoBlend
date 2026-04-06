@@ -2,6 +2,7 @@ import { fetchDefinition, fetchAIResponse } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
 import { extractYouTubeTranscript } from './utils/youtubeInsight.js';
+import { translateError } from './utils/errors.js';
 
 /**
  * Background Service Worker for InfoBlend AI.
