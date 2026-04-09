@@ -52,22 +52,17 @@
 
     const pinBtn = document.createElement('button');
     pinBtn.className = 'infoblend-btn infoblend-pin';
-    pinBtn.textContent = '\u{1F4CC}';
     pinBtn.title = 'Pin Overlay';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'infoblend-btn infoblend-cancel';
-    cancelBtn.innerHTML = '\u2715';
-    cancelBtn.title = 'Cancel Task';
-    cancelBtn.onclick = () => { if (overlayHost) overlayHost.remove(); overlayHost = null; };
+    pinBtn.setAttribute('aria-label', 'Pin Overlay');
+    pinBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 2h6l-1.5 6.5L18 12H6l4.5-3.5z"/></svg>`;
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'infoblend-btn infoblend-close';
-    closeBtn.textContent = '\u00D7';
+    closeBtn.title = 'Close';
     closeBtn.setAttribute('aria-label', 'Close Overlay');
+    closeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
     controls.appendChild(pinBtn);
-    controls.appendChild(cancelBtn);
     controls.appendChild(closeBtn);
     header.appendChild(titleSpan);
     header.appendChild(controls);
@@ -122,13 +117,28 @@
     const contentDiv = document.createElement('div');
     contentDiv.className = 'infoblend-content';
 
-    try {
-      ib.BentoRenderer.render(content, contentDiv);
-    } catch (e) {
-      const fallback = document.createElement('div');
-      fallback.className = 'ib-bento-card';
-      fallback.appendChild(ib.smartHighlight(content));
-      contentDiv.appendChild(fallback);
+    const isNotice = title === 'Notice' || title === 'Error';
+    if (isNotice) {
+      // Styled empty/error state instead of dumping text in a card
+      const emptyState = document.createElement('div');
+      emptyState.className = 'ib-empty-state';
+      emptyState.innerHTML = title === 'Error'
+        ? `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+        : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`;
+      const msg = document.createElement('div');
+      msg.className = 'ib-empty-state-text';
+      msg.textContent = content;
+      emptyState.appendChild(msg);
+      contentDiv.appendChild(emptyState);
+    } else {
+      try {
+        ib.BentoRenderer.render(content, contentDiv);
+      } catch (e) {
+        const fallback = document.createElement('div');
+        fallback.className = 'ib-bento-card';
+        fallback.appendChild(ib.smartHighlight(content));
+        contentDiv.appendChild(fallback);
+      }
     }
 
     // Source line — safe DOM construction (no innerHTML)
@@ -153,16 +163,20 @@
 
     // Copy button (deduplicated)
     const controls = container.querySelector('.infoblend-controls');
+    const copyIconSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const checkIconSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     if (!controls.querySelector('.infoblend-copy')) {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'infoblend-btn infoblend-copy';
-      copyBtn.textContent = '\u{1F4CB}';
-      copyBtn.title = 'Copy';
+      copyBtn.title = 'Copy to clipboard';
+      copyBtn.setAttribute('aria-label', 'Copy to clipboard');
+      copyBtn.innerHTML = copyIconSVG;
       copyBtn.onclick = (e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(content);
-        copyBtn.textContent = '\u2705';
-        setTimeout(() => copyBtn.textContent = '\u{1F4CB}', 2000);
+        copyBtn.innerHTML = checkIconSVG;
+        copyBtn.classList.add('ib-copied');
+        setTimeout(() => { copyBtn.innerHTML = copyIconSVG; copyBtn.classList.remove('ib-copied'); }, 2000);
       };
       controls.insertBefore(copyBtn, controls.lastChild);
     }

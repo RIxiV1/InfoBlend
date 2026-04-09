@@ -39,21 +39,20 @@ async function loadSettings() {
   
   // 1. Render History
   if (DOM.historyContainer()) {
+    DOM.historyContainer().innerHTML = '';
     if (settings.summaryHistory?.length > 0) {
-      DOM.historyContainer().innerHTML = '';
       settings.summaryHistory.slice(-4).reverse().forEach(item => {
-        const a = document.createElement('a');
-        a.className = 'ib-history-item';
-        a.href = '#';
-        a.title = item.title;
-        
+        const card = document.createElement('div');
+        card.className = 'ib-history-item';
+        card.title = item.content || '';
+
         const titleSpan = document.createElement('span');
         titleSpan.className = 'ib-history-title';
-        titleSpan.textContent = item.title;
-        
+        titleSpan.textContent = item.title || 'Untitled';
+
         const timeSpan = document.createElement('span');
         timeSpan.className = 'ib-history-time';
-        
+
         let timeStr = 'Recent';
         if (item.timestamp) {
           const diff = Math.floor((Date.now() - item.timestamp) / 60000);
@@ -63,14 +62,13 @@ async function loadSettings() {
           else timeStr = `${Math.floor(diff/1440)}d ago`;
         }
         timeSpan.textContent = timeStr;
-        
-        a.append(titleSpan, timeSpan);
-        DOM.historyContainer().appendChild(a);
+
+        card.append(titleSpan, timeSpan);
+        DOM.historyContainer().appendChild(card);
       });
     } else {
-      DOM.historyContainer().innerHTML = '';
       const emptySpan = document.createElement('span');
-      emptySpan.className = 'ib-history-empty';
+      emptySpan.className = 'history-empty';
       emptySpan.textContent = 'No recent blends';
       DOM.historyContainer().appendChild(emptySpan);
     }
@@ -119,12 +117,12 @@ async function saveSettings() {
   });
 
   const originalText = btn.textContent;
-  btn.textContent = 'Saved ✓';
+  btn.textContent = 'Saved';
   btn.classList.add('saved');
   setTimeout(() => {
     btn.textContent = originalText;
     btn.classList.remove('saved');
-  }, 1500);
+  }, 2000);
 }
 
 // Initialization and Event Listeners

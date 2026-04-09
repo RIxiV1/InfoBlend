@@ -1,81 +1,88 @@
 /**
- * InfoBlend AI Palette & UI Overrides.
- * Premium, Isolated styles for Command Palette components.
+ * InfoBlend AI — Command Palette Styles
+ * Consistent with content overlay design tokens.
  */
 
 :host {
-  /* Default: Dark Mode (Premium Obsidian) */
-  --palette-bg: #121212;
-  --palette-border: rgba(255, 255, 255, 0.1);
+  --palette-bg: #161616;
+  --palette-border: rgba(255, 255, 255, 0.08);
   --palette-shadow: 0 40px 100px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  --item-hover: rgba(255, 255, 255, 0.05);
-  --item-selected: rgba(245, 166, 35, 0.2);
+  --item-hover: rgba(255, 255, 255, 0.06);
+  --item-selected-bg: rgba(245, 166, 35, 0.1);
+  --item-selected-border: rgba(245, 166, 35, 0.3);
   --text-main: #e0e0e0;
-  --text-dim: #a0a0a0;
+  --text-dim: #888888;
+  --text-faint: rgba(255, 255, 255, 0.3);
   --accent-color: #f5a623;
+  --backdrop-bg: rgba(0, 0, 0, 0.4);
+  --hint-bg: rgba(255, 255, 255, 0.08);
   --font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
 }
 
-/* Light Mode Support */
+/* ─── Light Mode ─── */
 .ib-palette-overlay.ib-light-theme {
   --palette-bg: #ffffff;
-  --palette-border: rgba(0, 0, 0, 0.1);
-  --palette-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --palette-border: rgba(0, 0, 0, 0.08);
+  --palette-shadow: 0 24px 48px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
   --item-hover: rgba(0, 0, 0, 0.04);
-  --item-selected: rgba(245, 166, 35, 0.12);
+  --item-selected-bg: rgba(245, 166, 35, 0.08);
+  --item-selected-border: rgba(245, 166, 35, 0.25);
   --text-main: #1a1714;
-  --text-dim: #666666;
+  --text-dim: #777777;
+  --text-faint: rgba(0, 0, 0, 0.2);
+  --backdrop-bg: rgba(0, 0, 0, 0.15);
+  --hint-bg: rgba(0, 0, 0, 0.06);
 }
 
+/* ─── Backdrop ─── */
 .ib-palette-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.05); /* Extremely subtle for a floating feel */
-  backdrop-filter: blur(2px);
+  background: var(--backdrop-bg);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
   z-index: 2147483647;
   display: flex;
   justify-content: center;
-  align-items: flex-start; /* Prevent stretching */
-  padding-top: 12vh;
+  align-items: flex-start;
+  padding-top: 18vh;
   pointer-events: auto;
   animation: ibOverlayFade 0.2s ease-out;
 }
 
 @keyframes ibOverlayFade {
-  from { opacity: 0; backdrop-filter: blur(0); }
-  to { opacity: 1; backdrop-filter: blur(4px); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
+/* ─── Palette Container ─── */
 .ib-palette {
   width: 100%;
-  max-width: 600px;
+  max-width: 560px;
   background: var(--palette-bg);
   border: 1px solid var(--palette-border);
-  border-radius: 20px; /* More rounded for a modern feel */
-  box-shadow: 
-    0 30px 60px -12px rgba(0, 0, 0, 0.25), 
-    0 18px 36px -18px rgba(0, 0, 0, 0.3), 
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: var(--palette-shadow);
   color: var(--text-main);
   font-family: var(--font-mono);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: auto; /* Shrink to content */
-  max-height: calc(100vh - 20vh);
-  animation: ibPaletteFloatingIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: calc(100vh - 24vh);
+  animation: ibPaletteIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes ibPaletteFloatingIn {
-  from { transform: scale(0.9) translateY(-20px); opacity: 0; }
-  to { transform: scale(1) translateY(0); opacity: 1; }
+@keyframes ibPaletteIn {
+  from { transform: scale(0.95) translateY(-8px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 
+/* ─── Search Bar ─── */
 .ib-palette-search {
-  padding: 18px 24px;
+  padding: 16px 20px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   border-bottom: 1px solid var(--palette-border);
   color: var(--text-dim);
 }
@@ -86,35 +93,37 @@
   border: none !important;
   outline: none !important;
   font-family: inherit !important;
-  font-size: 18px !important;
+  font-size: 16px !important;
   color: var(--text-main) !important;
   padding: 0;
+  caret-color: var(--accent-color);
 }
 
 .ib-palette-input::placeholder {
-  color: var(--text-dim);
+  color: var(--text-faint);
+  font-size: 14px !important;
 }
 
+/* ─── Results ─── */
 .ib-palette-results {
-  max-height: 380px;
+  max-height: 320px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 6px;
   scrollbar-width: none;
 }
 
-.ib-palette-results::-webkit-scrollbar {
-  display: none;
-}
+.ib-palette-results::-webkit-scrollbar { display: none; }
 
 .ib-palette-item {
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-radius: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  transition: 0.15s ease;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
   margin-bottom: 2px;
+  border: 1px solid transparent;
 }
 
 .ib-palette-item:hover {
@@ -122,36 +131,39 @@
 }
 
 .ib-palette-item.selected {
-  background: var(--item-selected);
-  box-shadow: inset 0 0 0 1px var(--accent-color);
+  background: var(--item-selected-bg);
+  border-color: var(--item-selected-border);
 }
 
 .ib-palette-item.selected .ib-palette-label {
   color: var(--text-main);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .ib-palette-label {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--text-main);
 }
 
+/* ─── Hint Badges ─── */
 .ib-palette-hint {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
-  background: rgba(0, 0, 0, 0.05);
-  padding: 2px 6px;
-  border-radius: 4px;
+  background: var(--hint-bg);
+  padding: 3px 8px;
+  border-radius: 5px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  font-weight: 500;
 }
 
+/* ─── Footer ─── */
 .ib-palette-footer {
-  padding: 12px 24px;
-  background: rgba(0, 0, 0, 0.015);
+  padding: 10px 20px;
   border-top: 1px solid var(--palette-border);
   display: flex;
-  gap: 20px;
+  gap: 16px;
+  background: transparent;
 }
 
 .ib-key-hint {
@@ -159,23 +171,31 @@
   color: var(--text-dim);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  white-space: nowrap;
 }
 
 .ib-key-box {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.12);
-  padding: 1px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  background: var(--hint-bg);
+  border: 1px solid var(--palette-border);
+  border-bottom-width: 2px;
+  padding: 1px 5px;
   border-radius: 4px;
   color: var(--text-dim);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
+  font-family: inherit;
 }
 
-.ib-light-theme .ib-key-box {
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-bottom: 2px solid #ccc;
-  color: #333;
+/* ─── Empty State ─── */
+.ib-palette-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  font-style: italic;
 }
