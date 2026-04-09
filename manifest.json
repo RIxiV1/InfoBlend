@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "InfoBlend AI",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Smart Web Augmentation: Instant definitions, page summaries, ad blocking, and form auto-fill.",
   "permissions": [
     "storage",
     "declarativeNetRequest",
     "activeTab",
-    "contextMenus"
+    "contextMenus",
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -37,7 +38,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["utils/*.js"],
+      "resources": [
+        "utils/*.js",
+        "modules/*.js",
+        "styles/*.css",
+        "overlay/*.css"
+      ],
       "matches": ["<all_urls>"]
     }
   ],
