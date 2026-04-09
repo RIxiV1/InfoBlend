@@ -108,7 +108,13 @@ export const fetchAIResponse = async (text, template, key, keyHeader, provider =
   }
   
   const headers = { 'Content-Type': 'application/json' };
-  if (key) {
+
+  // Gemini uses query-param auth, not header-based
+  let endpoint = template;
+  if (provider === 'gemini' && key) {
+    const sep = endpoint.includes('?') ? '&' : '?';
+    endpoint = `${endpoint}${sep}key=${encodeURIComponent(key)}`;
+  } else if (key) {
     if (keyHeader) headers[keyHeader] = key;
     else headers['Authorization'] = `Bearer ${key}`;
   }
@@ -121,16 +127,16 @@ export const fetchAIResponse = async (text, template, key, keyHeader, provider =
   const bodyMap = {
     gemini: { contents: [{ parts: [{ text: promptText }] }] },
     openai: {
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: promptText }],
       max_tokens: promptType === 'summarize' ? 300 : 100
     },
     generic: { prompt: promptText, max_tokens: promptType === 'summarize' ? 300 : 100 }
   };
 
-  const resp = await fetch(template, { 
-    method: 'POST', 
-    headers, 
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers,
     body: JSON.stringify(bodyMap[provider] || bodyMap.generic),
     signal: AbortSignal.timeout(15000)
   });

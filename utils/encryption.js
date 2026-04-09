@@ -4,7 +4,7 @@
  */
 
 const SALT_KEY = 'infoblend_salt';
-const ITERATIONS = 10000;
+const ITERATIONS = 600000;
 
 /**
  * Derives a CryptoKey from a secret (like chrome.runtime.id) and a salt.
@@ -38,12 +38,12 @@ async function getDerivedKey(salt) {
  * Gets or creates a persistent salt for the installation.
  */
 async function getSalt() {
-  const result = await new Promise(res => chrome.storage.local.get([SALT_KEY], res));
+  const result = await chrome.storage.local.get([SALT_KEY]);
   if (result[SALT_KEY]) {
     return new Uint8Array(result[SALT_KEY]);
   }
   const newSalt = crypto.getRandomValues(new Uint8Array(16));
-  await new Promise(res => chrome.storage.local.set({ [SALT_KEY]: Array.from(newSalt) }, res));
+  await chrome.storage.local.set({ [SALT_KEY]: Array.from(newSalt) });
   return newSalt;
 }
 
@@ -75,8 +75,8 @@ export const encrypt = async (text) => {
     }
     return btoa(binary);
   } catch (err) {
-    console.error('Encryption failed:', err);
-    return text; // Fallback to plaintext if encryption fails (shouldn't happen)
+    console.error('[InfoBlend] Encryption failed:', err);
+    throw new Error('Encryption failed. Sensitive data was not stored.');
   }
 };
 

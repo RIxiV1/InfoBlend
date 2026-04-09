@@ -10,7 +10,6 @@
     "contextMenus"
   ],
   "host_permissions": [
-    "https://api.dictionaryapi.dev/api/v2/entries/en/*",
     "<all_urls>"
   ],
   "background": {
