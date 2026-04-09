@@ -1,74 +1,52 @@
 /**
  * Storage utility for Chrome Storage API.
+ * Uses modern Promise-based chrome.storage APIs (MV3+).
  */
 import { encrypt, decrypt } from './encryption.js';
 
 const SENSITIVE_KEYS = ['userData', 'aiKey'];
 
-export const getStorageData = (keys) => {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.get(keys, async (result) => {
-      if (chrome.runtime.lastError) {
-        return reject(chrome.runtime.lastError);
+export const getStorageData = async (keys) => {
+  const result = await chrome.storage.local.get(keys);
+
+  // Decrypt sensitive fields
+  for (const key of SENSITIVE_KEYS) {
+    if (result[key]) {
+      if (key === 'userData' && typeof result[key] === 'object') {
+        // Legacy unencrypted object — skip decryption
+        continue;
       }
-      
-      // Decrypt sensitive fields
-      for (const key of SENSITIVE_KEYS) {
-        if (result[key]) {
-          if (key === 'userData' && typeof result[key] === 'object') {
-            // Handle legacy object if not already encrypted
-            // If it's an object, it's definitely not encrypted string
-            continue; 
-          }
-          if (typeof result[key] === 'string') {
-            const decrypted = await decrypt(result[key]);
-            try {
-              result[key] = JSON.parse(decrypted);
-            } catch {
-              result[key] = decrypted;
-            }
-          }
+      if (typeof result[key] === 'string') {
+        const decrypted = await decrypt(result[key]);
+        try {
+          result[key] = JSON.parse(decrypted);
+        } catch {
+          result[key] = decrypted;
         }
       }
-      resolve(result);
-    });
-  });
+    }
+  }
+  return result;
 };
 
-export const setStorageData = (data) => {
-  return new Promise((resolve, reject) => {
-    (async () => {
-      const encryptedData = { ...data };
-      
-      // Encrypt sensitive fields
-      for (const key of SENSITIVE_KEYS) {
-        if (encryptedData[key]) {
-          const valueToEncrypt = typeof encryptedData[key] === 'object' 
-            ? JSON.stringify(encryptedData[key]) 
-            : encryptedData[key];
-          encryptedData[key] = await encrypt(valueToEncrypt);
-        }
-      }
+export const setStorageData = async (data) => {
+  const encryptedData = { ...data };
 
-      chrome.storage.local.set(encryptedData, () => {
-        if (chrome.runtime.lastError) {
-          return reject(chrome.runtime.lastError);
-        }
-        resolve();
-      });
-    })();
-  });
+  // Encrypt sensitive fields
+  for (const key of SENSITIVE_KEYS) {
+    if (encryptedData[key] != null && encryptedData[key] !== '') {
+      const valueToEncrypt = typeof encryptedData[key] === 'object'
+        ? JSON.stringify(encryptedData[key])
+        : String(encryptedData[key]);
+      encryptedData[key] = await encrypt(valueToEncrypt);
+    }
+  }
+
+  await chrome.storage.local.set(encryptedData);
 };
 
-export const clearStorageData = () => {
-  return new Promise((resolve, reject) => {
-    chrome.storage.local.clear(() => {
-      if (chrome.runtime.lastError) {
-        return reject(chrome.runtime.lastError);
-      }
-      resolve();
-    });
-  });
+export const clearStorageData = async () => {
+  await chrome.storage.local.clear();
 };
 
 export const onStorageChange = (callback) => {

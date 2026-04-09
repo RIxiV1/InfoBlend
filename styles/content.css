@@ -1,0 +1,162 @@
+/**
+ * InfoBlend AI — Content Overlay Styles
+ * Extracted from contentScript.js for proper caching, linting, and maintainability.
+ */
+
+:host {
+  all: initial;
+  display: block;
+  --ib-bg: #121212;
+  --ib-text: #e0e0e0;
+  --ib-text-dim: #a0a0a0;
+  --ib-border: rgba(255,255,255,0.1);
+  --ib-card-bg: #1e1e1e;
+  --ib-skel-s: rgba(255,255,255,0.05);
+  --ib-skel-m: rgba(255,255,255,0.1);
+  --ib-accent-color: #f5a623;
+  --ib-accent-low: rgba(245, 166, 35, 0.15);
+  --ib-font-serif: 'Instrument Serif', serif;
+  --ib-font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
+}
+
+/* Light Theme Override */
+.infoblend-overlay.ib-light-theme {
+  --ib-bg: #ffffff;
+  --ib-text: #1a1a1a;
+  --ib-text-dim: #666666;
+  --ib-border: rgba(0,0,0,0.1);
+  --ib-card-bg: #f8f9fa;
+  --ib-skel-s: rgba(0,0,0,0.05);
+  --ib-skel-m: rgba(0,0,0,0.1);
+}
+
+.infoblend-overlay,
+.infoblend-content,
+.ib-bento-grid,
+.ib-bento-card {
+  color: var(--ib-text) !important;
+}
+
+.infoblend-overlay * {
+  color: inherit !important;
+  font-family: inherit !important;
+  box-sizing: border-box;
+}
+
+.infoblend-overlay {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 330px;
+  background: var(--ib-bg) !important;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--ib-border) !important;
+  border-radius: 20px;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.05);
+  z-index: 2147483647;
+  font-family: var(--ib-font-mono) !important;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 0fr;
+  transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: ibSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ibSlideIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.infoblend-overlay.open { grid-template-rows: auto 1fr; }
+.infoblend-overlay.ib-fade-out { opacity: 0; transform: scale(0.95); pointer-events: none; }
+
+.infoblend-content {
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 70vh;
+  scrollbar-width: none;
+}
+.infoblend-content::-webkit-scrollbar { display: none; }
+
+.ib-bento-grid { display: flex; flex-direction: column; gap: 10px; padding: 4px; }
+
+.ib-bento-card {
+  position: relative;
+  background: var(--ib-card-bg) !important;
+  padding: 16px;
+  border-radius: 16px;
+  font-size: 14.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.6 !important;
+  border: 1px solid var(--ib-border) !important;
+  transition: background 0.2s ease;
+}
+
+.ib-bento-card:hover { background: rgba(0,0,0,0.03) !important; }
+
+.ib-highlight {
+  color: var(--ib-accent-color) !important;
+  font-weight: 600 !important;
+  background: var(--ib-accent-low);
+  border-radius: 6px;
+  padding: 1px 4px;
+}
+
+.infoblend-header {
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--ib-border);
+  background: rgba(0,0,0,0.02);
+}
+
+.infoblend-title {
+  font-family: var(--ib-font-serif) !important;
+  font-size: 16px;
+  font-style: italic;
+  color: var(--ib-text) !important;
+  letter-spacing: -0.01em;
+}
+
+.infoblend-controls { display: flex; gap: 8px; }
+
+.infoblend-btn {
+  background: transparent !important;
+  color: var(--ib-text-dim) !important;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: 0.2s;
+  font-size: 16px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.infoblend-btn:hover { color: var(--ib-text) !important; background: rgba(0,0,0,0.08) !important; }
+
+.infoblend-source {
+  border-top: 1px solid var(--ib-border);
+  font-weight: 500;
+  padding: 10px 0 4px;
+  margin-top: 8px;
+  font-size: 11px !important;
+}
+
+.infoblend-loading { padding: 30px; display: flex; flex-direction: column; gap: 12px; }
+.ib-skeleton {
+  background: linear-gradient(90deg, var(--ib-skel-s) 25%, var(--ib-skel-m) 50%, var(--ib-skel-s) 75%);
+  background-size: 200% 100%;
+  animation: ib-shimmer 1.5s infinite;
+  border-radius: 4px;
+  height: 16px;
+}
+@keyframes ib-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.ib-sk-title { height: 20px; width: 40%; }
+.ib-sk-line { height: 12px; width: 100%; }
+
+.infoblend-progress-container { height: 3px; width: 100%; background: rgba(255,255,255,0.05); }
+.infoblend-progress-bar { height: 100%; width: 0; background: var(--ib-accent-color); transition: width 0.1s linear; }

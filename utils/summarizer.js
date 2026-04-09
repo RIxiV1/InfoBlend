@@ -31,12 +31,18 @@ export function generateIntelligentSummary(text, manualText = null, maxSentences
 
   if (sentences.length <= maxSentences) return sentences.join(' ');
 
-  // Expanded Stop Words list to improve frequency accuracy
+  // Comprehensive stop words list for accurate frequency scoring
   const stopWords = new Set([
-     'the', 'and', 'for', 'was', 'with', 'that', 'this', 'but', 'from', 'have', 'were', 
-     'not', 'will', 'your', 'their', 'when', 'which', 'than', 'more', 'about', 'some', 
+     'the', 'and', 'for', 'was', 'with', 'that', 'this', 'but', 'from', 'have', 'were',
+     'not', 'will', 'your', 'their', 'when', 'which', 'than', 'more', 'about', 'some',
      'could', 'should', 'would', 'into', 'these', 'those', 'also', 'only', 'very',
-     'are', 'has', 'its', 'all', 'one', 'can', 'who', 'how', 'they', 'our', 'out', 'she'
+     'are', 'has', 'its', 'all', 'one', 'can', 'who', 'how', 'they', 'our', 'out', 'she',
+     'been', 'being', 'had', 'does', 'did', 'doing', 'each', 'other', 'such', 'what',
+     'where', 'there', 'here', 'just', 'over', 'under', 'again', 'then', 'once', 'both',
+     'same', 'own', 'most', 'many', 'much', 'any', 'few', 'get', 'got', 'made', 'make',
+     'may', 'might', 'must', 'need', 'like', 'even', 'still', 'way', 'well', 'back',
+     'his', 'her', 'him', 'them', 'you', 'said', 'say', 'says', 'new', 'use', 'used',
+     'first', 'two', 'now', 'come', 'take', 'know', 'see', 'time', 'year', 'people'
   ]);
 
   // Score sentences based on word frequency (minimum word length 3)
@@ -49,15 +55,17 @@ export function generateIntelligentSummary(text, manualText = null, maxSentences
   const scores = sentences.map((s, idx) => {
     const sWords = s.toLowerCase().match(/\b\w{3,}\b/g) || [];
     let wordScore = sWords.reduce((acc, w) => acc + (freq[w] || 0), 0);
-    
-    // Position-based boosting: Mild U-curve (boost first and last sentences)
-    // The first and last sections are typically most relevant in structured documents.
-    const startBoost = (sentences.length - idx) / sentences.length * 1.2;
-    const endBoost = (idx + 1) / sentences.length * 0.5;
-    
-    // Normalize by length using sqrt to avoid over-weighting extremely long sentences
-    // (sWords.length || 1) guard ensures we don't divide by zero for punctuation-only strings.
-    return (wordScore / (Math.sqrt(sWords.length) || 1)) + startBoost + endBoost;
+
+    // U-curve position boost: reward sentences near the beginning and end
+    // Normalized position 0..1, U-curve = high at edges, low in middle
+    const pos = idx / (sentences.length - 1 || 1);
+    const positionBoost = 1.5 * (Math.pow(pos - 0.5, 2) * 4); // peaks at 0 and 1
+
+    // Penalize very short sentences (likely headings, labels, or fragments)
+    const lengthPenalty = sWords.length < 4 ? 0.5 : 1;
+
+    // Normalize by sqrt(length) to avoid over-weighting extremely long sentences
+    return (wordScore / (Math.sqrt(sWords.length) || 1)) * lengthPenalty + positionBoost;
   });
 
   // Pick top sentences and sort them by original appearance order
