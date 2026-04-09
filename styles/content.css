@@ -1,35 +1,45 @@
 /**
  * InfoBlend AI — Content Overlay Styles
- * Extracted from contentScript.js for proper caching, linting, and maintainability.
+ * Obsidian dark + warm light theme. SVG icons. Accessible.
  */
 
 :host {
   all: initial;
   display: block;
   --ib-bg: #121212;
+  --ib-bg-raised: #1a1a1a;
   --ib-text: #e0e0e0;
-  --ib-text-dim: #a0a0a0;
-  --ib-border: rgba(255,255,255,0.1);
+  --ib-text-dim: #888888;
+  --ib-border: rgba(255,255,255,0.08);
   --ib-card-bg: #1e1e1e;
-  --ib-skel-s: rgba(255,255,255,0.05);
-  --ib-skel-m: rgba(255,255,255,0.1);
+  --ib-card-hover: rgba(255,255,255,0.04);
+  --ib-skel-s: rgba(255,255,255,0.04);
+  --ib-skel-m: rgba(255,255,255,0.09);
   --ib-accent-color: #f5a623;
-  --ib-accent-low: rgba(245, 166, 35, 0.15);
-  --ib-font-serif: 'Instrument Serif', serif;
+  --ib-accent-low: rgba(245, 166, 35, 0.12);
+  --ib-progress-track: rgba(255,255,255,0.06);
+  --ib-btn-hover: rgba(255,255,255,0.08);
+  --ib-focus-ring: rgba(245, 166, 35, 0.5);
+  --ib-font-serif: 'Instrument Serif', Georgia, serif;
   --ib-font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
 }
 
-/* Light Theme Override */
+/* ─── Light Theme ─── */
 .infoblend-overlay.ib-light-theme {
   --ib-bg: #ffffff;
+  --ib-bg-raised: #f7f7f5;
   --ib-text: #1a1a1a;
-  --ib-text-dim: #666666;
-  --ib-border: rgba(0,0,0,0.1);
-  --ib-card-bg: #f8f9fa;
-  --ib-skel-s: rgba(0,0,0,0.05);
-  --ib-skel-m: rgba(0,0,0,0.1);
+  --ib-text-dim: #777777;
+  --ib-border: rgba(0,0,0,0.08);
+  --ib-card-bg: #f5f5f3;
+  --ib-card-hover: rgba(0,0,0,0.03);
+  --ib-skel-s: rgba(0,0,0,0.04);
+  --ib-skel-m: rgba(0,0,0,0.08);
+  --ib-progress-track: rgba(0,0,0,0.06);
+  --ib-btn-hover: rgba(0,0,0,0.06);
 }
 
+/* ─── Base ─── */
 .infoblend-overlay,
 .infoblend-content,
 .ib-bento-grid,
@@ -43,84 +53,69 @@
   box-sizing: border-box;
 }
 
+/* ─── Container ─── */
 .infoblend-overlay {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 330px;
+  top: 16px;
+  right: 16px;
+  width: 340px;
   background: var(--ib-bg) !important;
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--ib-border) !important;
-  border-radius: 20px;
-  box-shadow: 0 40px 100px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.05);
+  border-radius: 16px;
+  box-shadow:
+    0 24px 80px rgba(0,0,0,0.35),
+    0 8px 24px rgba(0,0,0,0.2),
+    inset 0 0 0 1px rgba(255,255,255,0.04);
   z-index: 2147483647;
   font-family: var(--ib-font-mono) !important;
   overflow: hidden;
   display: grid;
   grid-template-rows: auto 0fr;
-  transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  animation: ibSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: grid-template-rows 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: ibSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes ibSlideIn {
-  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .infoblend-overlay.open { grid-template-rows: auto 1fr; }
-.infoblend-overlay.ib-fade-out { opacity: 0; transform: scale(0.95); pointer-events: none; }
 
-.infoblend-content {
-  padding: 12px;
-  overflow-y: auto;
-  max-height: 70vh;
-  scrollbar-width: none;
-}
-.infoblend-content::-webkit-scrollbar { display: none; }
-
-.ib-bento-grid { display: flex; flex-direction: column; gap: 10px; padding: 4px; }
-
-.ib-bento-card {
-  position: relative;
-  background: var(--ib-card-bg) !important;
-  padding: 16px;
-  border-radius: 16px;
-  font-size: 14.5px !important;
-  font-weight: 400 !important;
-  line-height: 1.6 !important;
-  border: 1px solid var(--ib-border) !important;
-  transition: background 0.2s ease;
+.infoblend-overlay.ib-fade-out {
+  opacity: 0;
+  transform: scale(0.96) translateY(4px);
+  pointer-events: none;
+  transition: 0.3s cubic-bezier(0.4, 0, 1, 1);
 }
 
-.ib-bento-card:hover { background: rgba(0,0,0,0.03) !important; }
-
-.ib-highlight {
-  color: var(--ib-accent-color) !important;
-  font-weight: 600 !important;
-  background: var(--ib-accent-low);
-  border-radius: 6px;
-  padding: 1px 4px;
-}
-
+/* ─── Header ─── */
 .infoblend-header {
-  padding: 14px 18px;
+  padding: 12px 14px 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--ib-border);
-  background: rgba(0,0,0,0.02);
+  background: var(--ib-bg-raised);
+  min-height: 44px;
 }
 
 .infoblend-title {
   font-family: var(--ib-font-serif) !important;
-  font-size: 16px;
+  font-size: 15px;
   font-style: italic;
   color: var(--ib-text) !important;
   letter-spacing: -0.01em;
+  line-height: 1;
 }
 
-.infoblend-controls { display: flex; gap: 8px; }
+/* ─── Controls ─── */
+.infoblend-controls {
+  display: flex;
+  gap: 2px;
+}
 
 .infoblend-btn {
   background: transparent !important;
@@ -128,35 +123,168 @@
   cursor: pointer;
   padding: 6px;
   border-radius: 8px;
-  transition: 0.2s;
-  font-size: 16px !important;
+  transition: color 0.15s, background 0.15s;
+  font-size: 14px !important;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
+  line-height: 1;
 }
 
-.infoblend-btn:hover { color: var(--ib-text) !important; background: rgba(0,0,0,0.08) !important; }
+.infoblend-btn:hover {
+  color: var(--ib-text) !important;
+  background: var(--ib-btn-hover) !important;
+}
 
+.infoblend-btn:focus-visible {
+  outline: 2px solid var(--ib-focus-ring);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.infoblend-btn svg {
+  color: inherit !important;
+  flex-shrink: 0;
+}
+
+/* Pin active state */
+.infoblend-pin.active {
+  color: var(--ib-accent-color) !important;
+  background: var(--ib-accent-low) !important;
+}
+
+.infoblend-pin.active svg {
+  fill: var(--ib-accent-color);
+}
+
+/* Copy success flash */
+.infoblend-copy.ib-copied {
+  background: var(--ib-accent-low) !important;
+}
+
+/* ─── Content Area ─── */
+.infoblend-content {
+  padding: 10px 12px;
+  overflow-y: auto;
+  max-height: 70vh;
+  scrollbar-width: none;
+  animation: ibContentFadeIn 0.25s ease-out;
+}
+
+.infoblend-content::-webkit-scrollbar { display: none; }
+
+@keyframes ibContentFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Bento Grid ─── */
+.ib-bento-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px;
+}
+
+.ib-bento-card {
+  position: relative;
+  background: var(--ib-card-bg) !important;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+  line-height: 1.65 !important;
+  border: 1px solid var(--ib-border) !important;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ib-bento-card:hover {
+  background: var(--ib-card-hover) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+.ib-light-theme .ib-bento-card:hover {
+  border-color: rgba(0,0,0,0.12) !important;
+}
+
+/* ─── Highlights ─── */
+.ib-highlight {
+  color: var(--ib-accent-color) !important;
+  font-weight: 600 !important;
+  background: var(--ib-accent-low);
+  border-radius: 4px;
+  padding: 0px 3px;
+}
+
+/* ─── Source Footer ─── */
 .infoblend-source {
   border-top: 1px solid var(--ib-border);
-  font-weight: 500;
-  padding: 10px 0 4px;
-  margin-top: 8px;
+  font-weight: 400;
   font-size: 11px !important;
+  color: var(--ib-text-dim) !important;
+  padding: 10px 4px 4px;
+  margin-top: 6px;
+  letter-spacing: 0.01em;
 }
 
-.infoblend-loading { padding: 30px; display: flex; flex-direction: column; gap: 12px; }
+/* ─── Loading Skeleton ─── */
+.infoblend-loading {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .ib-skeleton {
   background: linear-gradient(90deg, var(--ib-skel-s) 25%, var(--ib-skel-m) 50%, var(--ib-skel-s) 75%);
   background-size: 200% 100%;
-  animation: ib-shimmer 1.5s infinite;
-  border-radius: 4px;
-  height: 16px;
+  animation: ib-shimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+  height: 14px;
 }
-@keyframes ib-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.ib-sk-title { height: 20px; width: 40%; }
-.ib-sk-line { height: 12px; width: 100%; }
 
-.infoblend-progress-container { height: 3px; width: 100%; background: rgba(255,255,255,0.05); }
-.infoblend-progress-bar { height: 100%; width: 0; background: var(--ib-accent-color); transition: width 0.1s linear; }
+@keyframes ib-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.ib-sk-title { height: 18px; width: 45%; border-radius: 6px; }
+.ib-sk-line  { height: 12px; width: 100%; }
+.ib-sk-line-short { height: 12px; width: 65%; }
+
+/* ─── Progress Bar ─── */
+.infoblend-progress-container {
+  height: 2px;
+  width: 100%;
+  background: var(--ib-progress-track);
+}
+
+.infoblend-progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--ib-accent-color);
+  transition: width 0.08s linear;
+  border-radius: 0 1px 1px 0;
+}
+
+/* ─── Error / Empty State ─── */
+.ib-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.ib-empty-state svg {
+  color: var(--ib-text-dim) !important;
+  opacity: 0.5;
+}
+
+.ib-empty-state-text {
+  font-size: 12px !important;
+  color: var(--ib-text-dim) !important;
+  line-height: 1.5;
+}
