@@ -1,15 +1,25 @@
 import { fetchDefinition, fetchAIResponse } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
-import { generateIntelligentSummary } from './utils/summarizer.js';
 import { extractYouTubeTranscript, fetchAndProcessTrack } from './utils/youtubeInsight.js';
 import { translateError } from './utils/errors.js';
 
 /**
  * Background Service Worker for InfoBlend AI.
- * Orchestrates API requests, context menus, and content script coordination.
+ * Orchestrates API requests, context menus, module injection, and content script coordination.
+ * The summarizer is lazy-loaded to reduce startup cost.
  */
 
-// 1. Extension Lifecycle & Context Menus
+// --- Lazy-loaded Summarizer ---
+let _summarizer = null;
+async function getSummarizer() {
+  if (!_summarizer) {
+    const mod = await import('./utils/summarizer.js');
+    _summarizer = mod.generateIntelligentSummary;
+  }
+  return _summarizer;
+}
+
+// --- Extension Lifecycle & Context Menus ---
 const setupContextMenus = () => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'define-ib', title: 'Define with InfoBlend', contexts: ['selection'] });
@@ -20,16 +30,13 @@ const setupContextMenus = () => {
 chrome.runtime.onInstalled.addListener(setupContextMenus);
 chrome.runtime.onStartup.addListener(setupContextMenus);
 
-// 2. Messaging Helpers
+// --- Messaging Helpers ---
 const safeSendMessage = async (tabId, msg) => {
-  try { await chrome.tabs.sendMessage(tabId, msg); } catch (e) { /* Silently fail */ }
+  try { await chrome.tabs.sendMessage(tabId, msg); } catch { /* tab may not have content script */ }
 };
 
 const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
 
-/**
- * Global response wrapper to handle async errors and maintain channel integrity.
- */
 const wrapAsync = (callback) => (message, sender, sendResponse) => {
   callback(message, sender, sendResponse).catch(err => {
     try {
@@ -38,14 +45,13 @@ const wrapAsync = (callback) => (message, sender, sendResponse) => {
       sendResponse({ success: false, error: friendlyError });
     } catch (criticalErr) {
       console.error('[InfoBlend Critical Failure]', criticalErr.message);
-      // Failsafe: send something to keep the channel closed cleanly
       sendResponse({ success: false, error: 'Internal background error.' });
     }
   });
-  return true; // Keep channel open
+  return true; // Keep channel open for async sendResponse
 };
 
-// 3. Core Request Handlers
+// --- Core Request Handlers ---
 const handleDefinition = async (word) => {
   const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
   if (aiKey && aiEndpoint) {
@@ -60,10 +66,14 @@ const handleSummarization = async (text) => {
   if (aiKey && aiEndpoint) {
     return await fetchAIResponse(text, aiEndpoint, aiKey, null, aiProvider, 'summarize');
   }
-  return generateIntelligentSummary(text);
+  const summarize = await getSummarizer();
+  return summarize(text);
 };
 
-// 4. Listeners
+// --- Tracked injection state per tab ---
+const injectedTabs = new Set();
+
+// --- Context Menu Listener ---
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!info.selectionText) return;
   safeSendMessage(tab.id, { type: 'SHOW_LOADING' });
@@ -74,9 +84,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       safeSendMessage(tab.id, { type: 'SHOW_DEFINITION', data });
     } else if (info.menuItemId === 'summarize-ib') {
       const summary = await handleSummarization(info.selectionText);
-      safeSendMessage(tab.id, { 
-        type: 'SHOW_DEFINITION', 
-        data: { title: 'Selection Summary', content: summary, source: 'AI/Local Hybrid' } 
+      safeSendMessage(tab.id, {
+        type: 'SHOW_DEFINITION',
+        data: { title: 'Selection Summary', content: summary, source: 'AI/Local Hybrid' }
       });
     }
   } catch (error) {
@@ -84,40 +94,61 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
+// --- Main Message Handler ---
 chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendResponse) => {
   switch (message.type) {
-    case 'FETCH_DEFINITION':
+    case 'INJECT_MODULES': {
+      const tabId = sender.tab?.id;
+      if (!tabId) { sendResponse({ success: false }); break; }
+
+      if (!injectedTabs.has(tabId)) {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['modules/core.js', 'modules/overlay.js', 'modules/palette.js', 'modules/autofill.js']
+        });
+        injectedTabs.add(tabId);
+      }
+      sendResponse({ success: true });
+      break;
+    }
+
+    case 'FETCH_DEFINITION': {
       const data = await handleDefinition(message.word);
       sendResponse({ success: true, data });
       break;
+    }
 
-    case 'PERFORM_SUMMARIZATION':
-      // Background decides AI vs Local based on keys
+    case 'PERFORM_SUMMARIZATION': {
       const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
       if (aiKey && aiEndpoint) {
         try {
           const aiSummary = await handleSummarization(message.text);
           sendResponse({ success: true, summary: aiSummary, method: `AI (${aiProvider})` });
-        } catch (e) {
-          const localSummary = generateIntelligentSummary(message.text);
+        } catch {
+          const summarize = await getSummarizer();
+          const localSummary = summarize(message.text);
           sendResponse({ success: true, summary: localSummary, method: 'InfoBlend Local (Fallback)' });
         }
       } else {
-        const localSummary = generateIntelligentSummary(message.text);
+        const summarize = await getSummarizer();
+        const localSummary = summarize(message.text);
         sendResponse({ success: true, summary: localSummary, method: 'InfoBlend Local' });
       }
       break;
+    }
 
-    case 'FETCH_YOUTUBE_TRANSCRIPT':
+    case 'FETCH_YOUTUBE_TRANSCRIPT': {
       const fullTranscript = await extractYouTubeTranscript(message.url);
       sendResponse({ success: true, transcript: fullTranscript });
       break;
+    }
 
-    case 'PROCESS_YOUTUBE_TRACKS':
+    case 'PROCESS_YOUTUBE_TRACKS': {
       const processedTranscript = await fetchAndProcessTrack(message.tracks);
       sendResponse({ success: true, transcript: processedTranscript });
       break;
-      
+    }
+
     case 'OPEN_POPUP':
       chrome.action.openPopup?.();
       break;
@@ -128,3 +159,5 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
   }
 }));
 
+// Clean up injection tracking when tabs close
+chrome.tabs.onRemoved.addListener((tabId) => injectedTabs.delete(tabId));
