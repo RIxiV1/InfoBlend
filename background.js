@@ -10,10 +10,15 @@ import { translateError } from './utils/errors.js';
  */
 
 // 1. Extension Lifecycle & Context Menus
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({ id: 'define-ib', title: 'Define with InfoBlend', contexts: ['selection'] });
-  chrome.contextMenus.create({ id: 'summarize-ib', title: 'Summarize Selection', contexts: ['selection'] });
-});
+const setupContextMenus = () => {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: 'define-ib', title: 'Define with InfoBlend', contexts: ['selection'] });
+    chrome.contextMenus.create({ id: 'summarize-ib', title: 'Summarize Selection', contexts: ['selection'] });
+  });
+};
+
+chrome.runtime.onInstalled.addListener(setupContextMenus);
+chrome.runtime.onStartup.addListener(setupContextMenus);
 
 // 2. Messaging Helpers
 const safeSendMessage = async (tabId, msg) => {
@@ -114,7 +119,11 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       break;
       
     case 'OPEN_POPUP':
-      // Placeholder for future palette interactions
+      chrome.action.openPopup?.();
+      break;
+
+    case 'PING':
+      sendResponse({ success: true });
       break;
   }
 }));

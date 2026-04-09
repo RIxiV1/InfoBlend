@@ -5,9 +5,15 @@
 
 const decodeHTML = (text) => {
   const entities = {
-    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'", '&#x2F;': '/'
+    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"',
+    '&#39;': "'", '&apos;': "'", '&#x2F;': '/', '&nbsp;': ' ',
+    '&#x27;': "'", '&#x60;': '`', '&hellip;': '...', '&mdash;': '—',
+    '&ndash;': '–', '&laquo;': '«', '&raquo;': '»'
   };
-  return text.replace(/&[#\w]+;/g, (match) => entities[match] || match);
+  return text
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&[a-zA-Z]+;/g, (match) => entities[match] || match);
 };
 
 /**
@@ -76,14 +82,12 @@ export async function fetchAndProcessTrack(tracks) {
   const xmlResponse = await fetch(enTrack.baseUrl);
   const xml = await xmlResponse.text();
   
-  // Robust XML cleaning and extraction
-  const content = xml
-    .replace(/<text[^>]*>/g, ' ') // Replace tags with space to preserve word separation
-    .replace(/<\/text>/g, '')     // Remove closing tags
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
+  // Robust XML cleaning and extraction via decodeHTML
+  const content = decodeHTML(
+    xml
+      .replace(/<text[^>]*>/g, ' ')  // Replace tags with space to preserve word separation
+      .replace(/<\/text>/g, '')      // Remove closing tags
+  ).replace(/\s+/g, ' ').trim();
   
   if (!content) throw new Error('Transcript data is empty.');
   return content;
