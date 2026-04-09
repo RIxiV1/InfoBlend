@@ -7,475 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg:       #141210;
-      --bg-raise: #1c1916;
-      --bg-high:  #242018;
-      --line:     rgba(255,255,255,0.07);
-      --line-dim: rgba(255,255,255,0.04);
-
-      --amber:    #f5a623;
-      --amber-lo: rgba(245,166,35,0.1);
-      --amber-xs: rgba(245,166,35,0.05);
-
-      --ink:      #f0ece6;
-      --ink-2:    rgba(240,236,230,0.5);
-      --ink-3:    rgba(240,236,230,0.25);
-      --ink-4:    rgba(240,236,230,0.1);
-
-      --green:    #6fcf97;
-
-      --serif: 'Instrument Serif', Georgia, serif;
-      --mono:  'Geist Mono', ui-monospace, monospace;
-      --ease:  cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      width: 340px;
-      background: var(--bg);
-      color: var(--ink);
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 400;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-    }
-
-    body::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 999;
-      opacity: 0.035;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-    }
-
-    /* HEADER */
-    header {
-      padding: 18px 20px 14px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--line-dim);
-    }
-
-    .wordmark-top {
-      font-family: var(--serif);
-      font-size: 22px;
-      line-height: 1;
-      letter-spacing: -0.01em;
-    }
-
-    .wordmark-top em { font-style: italic; color: var(--amber); }
-
-    .wordmark-sub {
-      font-size: 9px;
-      font-weight: 300;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--ink-3);
-      margin-top: 3px;
-    }
-
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      background: var(--bg-raise);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 4px 9px 4px 7px;
-      margin-bottom: 2px;
-    }
-
-    .status-dot {
-      width: 5px;
-      height: 5px;
-      background: var(--green);
-      border-radius: 50%;
-      box-shadow: 0 0 5px var(--green);
-      animation: breathe 2.5s ease-in-out infinite;
-    }
-
-    @keyframes breathe {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    .status-label {
-      font-size: 9px;
-      font-weight: 500;
-      letter-spacing: 0.08em;
-      color: var(--ink-3);
-      text-transform: uppercase;
-    }
-
-    /* MAIN & BENTO GRID */
-    main { padding: 0 20px 20px; }
-
-    .bento-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .bento-card {
-      background: var(--bg-raise);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      position: relative;
-      overflow: hidden;
-      transition: border-color 0.3s;
-    }
-
-    .bento-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 10;
-      opacity: 0;
-      transition: opacity 0.5s;
-      background: radial-gradient(
-        800px circle at var(--mouse-x) var(--mouse-y),
-        rgba(255, 255, 255, 0.06),
-        transparent 40%
-      );
-    }
-
-    .bento-card:hover::before { opacity: 1; }
-    .bento-card:hover { border-color: rgba(255,255,255,0.12); }
-
-
-    .col-span-2 { grid-column: span 2; }
-
-    .block-label {
-      font-size: 9px;
-      font-weight: 500;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--ink-3);
-      margin-bottom: 4px;
-    }
-
-    /* TOGGLES */
-    .toggle-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 4px 0;
-      cursor: pointer;
-    }
-
-    .toggle-name {
-      flex: 1;
-      font-size: 12px;
-      color: var(--ink-2);
-      transition: color 0.15s;
-    }
-
-    .toggle-item:has(input:checked) .toggle-name { color: var(--ink); }
-
-    .toggle-hint { font-size: 10px; color: var(--ink-4); font-weight: 300; }
-
-    .pill {
-      position: relative;
-      width: 32px;
-      height: 17px;
-      flex-shrink: 0;
-    }
-    .pill input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .pill-track {
-      position: absolute;
-      inset: 0;
-      border-radius: 17px;
-      background: var(--ink-4);
-      border: 1px solid var(--line);
-      cursor: pointer;
-      transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
-    }
-    .pill-track::after {
-      content: '';
-      position: absolute;
-      width: 11px; height: 11px;
-      top: 2px; left: 2px;
-      background: var(--ink-3);
-      border-radius: 50%;
-      transition: transform 0.2s var(--ease), background 0.2s var(--ease);
-    }
-    .pill input:checked ~ .pill-track {
-      background: var(--amber-lo);
-      border-color: rgba(245,166,35,0.3);
-    }
-    .pill input:checked ~ .pill-track::after {
-      transform: translateX(15px);
-      background: var(--amber);
-    }
-
-    /* SUMMARIZE */
-    .summarize {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: var(--bg-raise);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background 0.2s, border-color 0.2s, transform 0.15s;
-      margin-top: 10px;
-    }
-
-    .summarize:hover {
-      background: var(--bg-high);
-      border-color: rgba(245,166,35,0.25);
-      transform: translateY(-1px);
-    }
-
-    .summarize:active { transform: translateY(0); }
-
-    .sum-left { display: flex; align-items: center; gap: 10px; }
-
-    .sum-icon {
-      width: 26px; height: 26px;
-      border-radius: 7px;
-      background: var(--amber-lo);
-      display: grid; place-items: center;
-      color: var(--amber);
-    }
-
-    .sum-title {
-      font-family: var(--serif);
-      font-size: 14px;
-      color: var(--ink);
-      line-height: 1;
-    }
-
-    .sum-desc {
-      font-size: 9px;
-      color: var(--ink-3);
-      font-weight: 300;
-      letter-spacing: 0.04em;
-      margin-top: 2px;
-    }
-
-    .sum-arrow {
-      color: var(--ink-4);
-      font-size: 14px;
-      transition: color 0.2s, transform 0.2s;
-    }
-
-    .summarize:hover .sum-arrow { color: var(--amber); transform: translateX(2px); }
-
-    /* FIELDS */
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .field-key {
-      font-size: 9px;
-      font-weight: 500;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink-3);
-    }
-
-    .field input,
-    .field select {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: var(--ink-2);
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 300;
-      padding: 0;
-      transition: color 0.15s;
-    }
-
-    .field input::placeholder { color: var(--ink-4); }
-    .field input:focus, .field select:focus { color: var(--ink); }
-
-    .field select { appearance: none; -webkit-appearance: none; cursor: pointer; }
-
-    .select-wrap {
-      flex: 1; display: flex; align-items: center; position: relative;
-    }
-    .select-wrap select { flex: 1; padding-right: 14px; }
-    .select-wrap::after {
-      content: '↓';
-      position: absolute; right: 0;
-      font-size: 9px; color: var(--ink-4);
-      pointer-events: none;
-    }
-
-    .alpha {
-      font-size: 8px; font-weight: 500;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--amber);
-      border: 1px solid rgba(245,166,35,0.3);
-      border-radius: 3px; padding: 1px 4px;
-      vertical-align: middle; margin-left: 6px;
-      display: inline-block;
-    }
-
-    /* HISTORY GALLERY */
-    .ib-history-item {
-      display: flex;
-      flex-direction: column;
-      padding: 8px;
-      border: 1px solid var(--line-dim);
-      border-radius: 6px;
-      text-decoration: none;
-      color: var(--ink-2);
-      transition: all 0.2s;
-      gap: 4px;
-    }
-    
-    .ib-history-item:hover {
-      background: var(--bg-high);
-      border-color: var(--line);
-      color: var(--ink);
-    }
-
-    .ib-history-title {
-      font-size: 11px;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .ib-history-time {
-      font-size: 8px;
-      color: var(--ink-4);
-      text-transform: uppercase;
-    }
-
-    /* SAVE */
-    .save-btn {
-      width: 100%; padding: 11px;
-      background: transparent;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      color: var(--ink-3);
-      font-family: var(--mono);
-      font-size: 10px; font-weight: 500;
-      letter-spacing: 0.15em; text-transform: uppercase;
-      cursor: pointer;
-      transition: border-color 0.2s, color 0.2s, background 0.2s;
-      margin-top: 16px;
-    }
-
-    .save-btn:hover {
-      border-color: rgba(245,166,35,0.4);
-      color: var(--amber);
-      background: var(--amber-xs);
-    }
-
-    /* FOOTER */
-    footer {
-      padding: 10px 20px;
-      border-top: 1px solid var(--line-dim);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    footer span {
-      font-size: 9px; font-weight: 300;
-      color: var(--ink-4);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    /* MODAL */
-    .modal {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(10,9,8,0.92);
-      z-index: 500;
-      align-items: center; justify-content: center;
-      padding: 24px;
-      backdrop-filter: blur(6px);
-    }
-    .modal.open { display: flex; }
-
-    .modal-box {
-      background: var(--bg-raise);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 26px 24px;
-      width: 100%;
-      animation: fadeUp 0.3s var(--ease) both;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .modal-eyebrow {
-      font-size: 9px; letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--amber); margin-bottom: 8px;
-    }
-
-    .modal-heading {
-      font-family: var(--serif);
-      font-size: 24px; font-weight: 400;
-      color: var(--ink); line-height: 1.15;
-      letter-spacing: -0.01em; margin-bottom: 8px;
-    }
-
-    .modal-heading em { font-style: italic; color: var(--amber); }
-
-    .modal-body {
-      font-size: 11px; font-weight: 300;
-      color: var(--ink-2); line-height: 1.6;
-      margin-bottom: 16px;
-    }
-
-    .modal-tips {
-      list-style: none;
-      display: flex; flex-direction: column;
-      gap: 8px; margin-bottom: 22px;
-    }
-
-    .modal-tips li {
-      display: grid;
-      grid-template-columns: 14px 1fr;
-      gap: 8px;
-      font-size: 11px; font-weight: 300;
-      color: var(--ink-2); line-height: 1.5;
-    }
-
-    .modal-tips li::before { content: '→'; color: var(--amber); }
-
-    .modal-cta {
-      width: 100%; padding: 12px;
-      background: var(--amber);
-      border: none; border-radius: 8px;
-      font-family: var(--serif);
-      font-size: 15px; font-style: italic;
-      color: var(--bg); cursor: pointer;
-      transition: opacity 0.2s;
-    }
-
-    .modal-cta:hover { opacity: 0.88; }
-  </style>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
 
@@ -492,10 +24,10 @@
 
   <main>
     <div class="bento-grid">
-      
-      <!-- Summarize Button inside Bento -->
+
+      <!-- Summarize -->
       <div class="bento-card col-span-2">
-        <button id="summarizeBtn" class="summarize" style="margin-top: 0; padding: 8px 12px; border: none; background: transparent;">
+        <button id="summarizeBtn" class="summarize">
           <div class="sum-left">
             <div class="sum-icon">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -507,32 +39,41 @@
             </div>
             <div>
               <div class="sum-title">Summarize Context</div>
-              <div class="sum-desc">Cmd/Ctrl + K</div>
+              <div class="sum-desc">Cmd/Ctrl + K for palette</div>
             </div>
           </div>
-          <span class="sum-arrow">→</span>
+          <span class="sum-arrow">&rarr;</span>
         </button>
       </div>
 
-      <!-- Features (Autofill, etc.) -->
+      <!-- Features -->
       <div class="bento-card">
         <div class="block-label">Features</div>
         <label class="toggle-item">
-          <span class="toggle-name">Insight Cards</span>
+          <div class="toggle-info">
+            <span class="toggle-name">Definitions</span>
+            <span class="toggle-desc">Auto-define selected words</span>
+          </div>
           <div class="pill">
             <input type="checkbox" id="definitionsEnabled" checked>
             <div class="pill-track"></div>
           </div>
         </label>
         <label class="toggle-item">
-          <span class="toggle-name">Forms</span>
+          <div class="toggle-info">
+            <span class="toggle-name">Auto-fill</span>
+            <span class="toggle-desc">Fill name, email, phone</span>
+          </div>
           <div class="pill">
             <input type="checkbox" id="autofillEnabled" checked>
             <div class="pill-track"></div>
           </div>
         </label>
         <label class="toggle-item">
-          <span class="toggle-name">Blocker</span>
+          <div class="toggle-info">
+            <span class="toggle-name">Ad Blocker</span>
+            <span class="toggle-desc">Block trackers &amp; ads</span>
+          </div>
           <div class="pill">
             <input type="checkbox" id="adBlockEnabled" checked>
             <div class="pill-track"></div>
@@ -543,32 +84,40 @@
       <!-- Profile -->
       <div class="bento-card">
         <div class="block-label">Profile</div>
-        <div class="field">
-          <input type="text" id="userName" placeholder="Full name" spellcheck="false" style="padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid var(--line-dim);">
-          <input type="email" id="userEmail" placeholder="you@email.com" spellcheck="false" style="padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid var(--line-dim);">
-          <input type="tel" id="userPhone" placeholder="Phone" spellcheck="false" style="padding: 4px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid var(--line-dim);">
+        <div class="field-stack">
+          <div class="field">
+            <label class="field-key" for="userName">Name</label>
+            <input type="text" id="userName" placeholder="Full name" spellcheck="false" autocomplete="name">
+          </div>
+          <div class="field">
+            <label class="field-key" for="userEmail">Email</label>
+            <input type="email" id="userEmail" placeholder="you@email.com" spellcheck="false" autocomplete="email">
+          </div>
+          <div class="field">
+            <label class="field-key" for="userPhone">Phone</label>
+            <input type="tel" id="userPhone" placeholder="+1 234 567 8900" spellcheck="false" autocomplete="tel">
+          </div>
         </div>
       </div>
 
-      <!-- Blend Gallery (History) -->
+      <!-- History Gallery -->
       <div class="bento-card col-span-2">
         <div class="block-label">Blend Gallery</div>
-        <div id="historyContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-           <span style="font-size: 10px; color: var(--ink-4); font-style: italic;">No recent blends</span>
+        <div id="historyContainer" class="history-grid">
+          <span class="history-empty">No recent blends</span>
         </div>
       </div>
 
-      <!-- Alpha / Theme -->
+      <!-- Engine Settings -->
       <div class="bento-card col-span-2">
-        <div class="block-label" style="display:flex; justify-content: space-between;">
-           <span>Engine Settings</span>
-           <span class="alpha">Alpha</span>
+        <div class="block-label">
+          <span>Engine Settings</span>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div class="engine-grid">
           <div class="field">
-            <span class="field-key">Provider</span>
+            <label class="field-key" for="aiProvider">Provider</label>
             <div class="select-wrap">
-              <select id="aiProvider" style="padding: 4px; border: 1px solid var(--line-dim); border-radius: 4px;">
+              <select id="aiProvider">
                 <option value="gemini">Google Gemini</option>
                 <option value="openai">OpenAI GPT</option>
                 <option value="generic">Generic AI</option>
@@ -576,12 +125,22 @@
             </div>
           </div>
           <div class="field">
-            <span class="field-key">API Key</span>
-            <input type="password" id="aiKey" placeholder="sk-••••" spellcheck="false" style="padding: 4px; border: 1px solid var(--line-dim); border-radius: 4px;">
+            <label class="field-key" for="aiKey">API Key</label>
+            <input type="password" id="aiKey" placeholder="sk-..." spellcheck="false">
           </div>
-          <div class="field col-span-2" style="margin-top: 4px;">
-            <span class="field-key">Endpoint URL</span>
-            <input type="text" id="aiEndpoint" placeholder="https://api.provider.com/v1/..." spellcheck="false" style="padding: 4px; border: 1px solid var(--line-dim); border-radius: 4px; width: 100%;">
+          <div class="field field-full">
+            <label class="field-key" for="aiEndpoint">Endpoint URL</label>
+            <input type="text" id="aiEndpoint" placeholder="https://api.provider.com/v1/..." spellcheck="false">
+          </div>
+          <div class="field">
+            <label class="field-key" for="theme">Theme</label>
+            <div class="select-wrap">
+              <select id="theme">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="system">System</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -593,7 +152,7 @@
 
   <footer>
     <span>InfoBlend AI</span>
-    <span>v2.0.1</span>
+    <span>v2.1.0</span>
   </footer>
 
   <div id="onboardingModal" class="modal">
@@ -602,9 +161,9 @@
       <div class="modal-heading">Meet <em>InfoBlend</em></div>
       <p class="modal-body">Your browsing, augmented. Here's how to get started.</p>
       <ul class="modal-tips">
-        <li>Select 1–2 words anywhere for instant definitions.</li>
-        <li>Hit Summarize to distil any page to its essence.</li>
-        <li>Pin the overlay to keep it open while you read.</li>
+        <li>Select 1-2 words anywhere for instant definitions.</li>
+        <li>Press <strong>Ctrl+K</strong> to open the command palette.</li>
+        <li>Pin the overlay to keep results while you read.</li>
       </ul>
       <button id="closeOnboarding" class="modal-cta">Let's go</button>
     </div>
