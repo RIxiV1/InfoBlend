@@ -1,23 +1,13 @@
 import { fetchDefinition, fetchAIResponse } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
+import { generateIntelligentSummary } from './utils/summarizer.js';
 import { extractYouTubeTranscript, fetchAndProcessTrack } from './utils/youtubeInsight.js';
 import { translateError } from './utils/errors.js';
 
 /**
  * Background Service Worker for InfoBlend AI.
  * Orchestrates API requests, context menus, module injection, and content script coordination.
- * The summarizer is lazy-loaded to reduce startup cost.
  */
-
-// --- Lazy-loaded Summarizer ---
-let _summarizer = null;
-async function getSummarizer() {
-  if (!_summarizer) {
-    const mod = await import('./utils/summarizer.js');
-    _summarizer = mod.generateIntelligentSummary;
-  }
-  return _summarizer;
-}
 
 // --- Extension Lifecycle & Context Menus ---
 const setupContextMenus = () => {
@@ -66,8 +56,7 @@ const handleSummarization = async (text) => {
   if (aiKey && aiEndpoint) {
     return await fetchAIResponse(text, aiEndpoint, aiKey, null, aiProvider, 'summarize');
   }
-  const summarize = await getSummarizer();
-  return summarize(text);
+  return generateIntelligentSummary(text);
 };
 
 // --- Tracked injection state per tab ---
@@ -125,13 +114,11 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
           const aiSummary = await handleSummarization(message.text);
           sendResponse({ success: true, summary: aiSummary, method: `AI (${aiProvider})` });
         } catch {
-          const summarize = await getSummarizer();
-          const localSummary = summarize(message.text);
+          const localSummary = generateIntelligentSummary(message.text);
           sendResponse({ success: true, summary: localSummary, method: 'InfoBlend Local (Fallback)' });
         }
       } else {
-        const summarize = await getSummarizer();
-        const localSummary = summarize(message.text);
+        const localSummary = generateIntelligentSummary(message.text);
         sendResponse({ success: true, summary: localSummary, method: 'InfoBlend Local' });
       }
       break;

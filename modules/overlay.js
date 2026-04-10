@@ -1,6 +1,8 @@
 /**
  * InfoBlend AI — Overlay Module
- * Definition/summary overlay, page extraction, YouTube transcripts.
+ * Two modes:
+ *   tooltip — small card anchored near the selected word (definitions)
+ *   panel   — centered overlay for longer content (summaries)
  */
 (() => {
   if (window.__ib?._overlayLoaded) return;
@@ -9,19 +11,55 @@
   ib._overlayLoaded = true;
 
   let overlayHost = null;
+  let _anchor = null; // { x, y, mode: 'tooltip' | 'panel' }
 
-  // --- Theme (preloaded, applied synchronously) ---
+  // --- Theme ---
   let _theme = 'dark';
   ib.getStorage(['theme']).then(s => { _theme = s.theme || 'dark'; });
 
+  function isDarkMode() {
+    return _theme === 'dark' || (_theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+
   function applyTheme(container) {
-    const isDark = _theme === 'dark' || (_theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (!isDark) container.classList.add('ib-light-theme');
+    if (!isDarkMode()) container.classList.add('ib-light-theme');
+  }
+
+  // --- Position the overlay based on anchor ---
+  function positionOverlay(container) {
+    if (!_anchor || _anchor.mode === 'panel') {
+      // Centered panel for summaries
+      container.classList.add('ib-mode-panel');
+      container.style.cssText = '';
+      return;
+    }
+
+    // Tooltip mode: anchor near the selected word
+    container.classList.add('ib-mode-tooltip');
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const width = 320;
+
+    let left = Math.max(8, Math.min(_anchor.x - width / 2, vw - width - 8));
+    let top = _anchor.y;
+
+    // Flip above if too close to bottom
+    if (top + 200 > vh) {
+      top = _anchor.y - 56; // above the selection
+      container.classList.add('ib-flip-up');
+    }
+
+    container.style.position = 'fixed';
+    container.style.top = `${top}px`;
+    container.style.left = `${left}px`;
+    container.style.right = 'auto';
+    container.style.width = `${width}px`;
   }
 
   // --- Loading Overlay ---
-  function showLoadingOverlay() {
+  function showLoadingOverlay(anchor) {
     if (overlayHost) { overlayHost.remove(); overlayHost = null; }
+    _anchor = anchor || { mode: 'panel' };
 
     const { host, shadow } = ib.createShadowHost('infoblend-shadow-host');
     overlayHost = host;
@@ -29,7 +67,9 @@
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
     applyTheme(container);
+    positionOverlay(container);
 
+    // Header
     const header = document.createElement('div');
     header.className = 'infoblend-header';
 
@@ -42,7 +82,6 @@
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'infoblend-btn infoblend-close';
-    closeBtn.title = 'Close';
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
@@ -50,11 +89,12 @@
     header.appendChild(titleSpan);
     header.appendChild(controls);
 
+    // Skeleton
     const loading = document.createElement('div');
     loading.className = 'infoblend-loading';
     const skGroup = document.createElement('div');
     skGroup.className = 'ib-skeleton-group';
-    ['ib-sk-title', 'ib-sk-line', 'ib-sk-line', 'ib-sk-line-short'].forEach(cls => {
+    ['ib-sk-title', 'ib-sk-line', 'ib-sk-line'].forEach(cls => {
       const sk = document.createElement('div');
       sk.className = `ib-skeleton ${cls}`;
       skGroup.appendChild(sk);
@@ -66,17 +106,29 @@
     shadow.appendChild(container);
 
     closeBtn.onclick = (e) => { e.stopPropagation(); closeOverlay(host, container); };
-
     container.setAttribute('tabindex', '-1');
     container.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeOverlay(host, container);
     });
 
+    // Click outside to dismiss (for tooltip mode)
+    if (_anchor?.mode === 'tooltip') {
+      const dismissHandler = (e) => {
+        if (!container.contains(e.target) && !e.composedPath().some(el => el.id === 'infoblend-shadow-host')) {
+          closeOverlay(host, container);
+          document.removeEventListener('mousedown', dismissHandler, true);
+        }
+      };
+      // Delay to avoid the current mouseup from triggering it
+      setTimeout(() => document.addEventListener('mousedown', dismissHandler, true), 100);
+      host._dismissHandler = dismissHandler;
+    }
+
     setTimeout(() => { container.classList.add('open'); container.focus(); }, 10);
     return container;
   }
 
-  // --- Update Overlay Content ---
+  // --- Update Overlay ---
   function updateOverlay(title, content, source, extra = {}) {
     let container;
     if (!overlayHost?.shadowRoot) {
@@ -136,24 +188,23 @@
 
     container.appendChild(contentDiv);
 
-    // Copy button — always re-create so it captures current content
+    // Copy button (always fresh to capture current content)
     const controls = container.querySelector('.infoblend-controls');
     const oldCopy = controls.querySelector('.infoblend-copy');
     if (oldCopy) oldCopy.remove();
 
-    const copyIconSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-    const checkSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     const copyBtn = document.createElement('button');
     copyBtn.className = 'infoblend-btn infoblend-copy';
-    copyBtn.title = 'Copy';
-    copyBtn.setAttribute('aria-label', 'Copy to clipboard');
-    copyBtn.innerHTML = copyIconSVG;
+    copyBtn.setAttribute('aria-label', 'Copy');
+    copyBtn.innerHTML = copyIcon;
     copyBtn.onclick = (e) => {
       e.stopPropagation();
       navigator.clipboard.writeText(content);
-      copyBtn.innerHTML = checkSVG;
+      copyBtn.innerHTML = checkIcon;
       copyBtn.classList.add('ib-copied');
-      setTimeout(() => { copyBtn.innerHTML = copyIconSVG; copyBtn.classList.remove('ib-copied'); }, 2000);
+      setTimeout(() => { copyBtn.innerHTML = copyIcon; copyBtn.classList.remove('ib-copied'); }, 2000);
     };
     controls.insertBefore(copyBtn, controls.firstChild);
 
@@ -162,11 +213,15 @@
   }
 
   function closeOverlay(host, container) {
+    if (host._dismissHandler) {
+      document.removeEventListener('mousedown', host._dismissHandler, true);
+    }
     container.classList.add('ib-fade-out');
     setTimeout(() => {
       if (host.parentNode) host.remove();
       if (overlayHost === host) overlayHost = null;
-    }, 300);
+      _anchor = null;
+    }, 250);
   }
 
   // --- Page Content Extraction ---
@@ -192,7 +247,7 @@
 
   // --- Summarization ---
   function handlePageSummarization() {
-    showLoadingOverlay();
+    showLoadingOverlay({ mode: 'panel' });
     if (window.location.hostname.includes('youtube.com') && window.location.pathname.includes('/watch')) {
       return handleYouTubeSummarization();
     }
@@ -236,9 +291,9 @@
     switch (message.type) {
       case 'SHOW_DEFINITION': updateOverlay(message.data.title, message.data.content, message.data.source, message.data); break;
       case 'SHOW_ERROR': updateOverlay('Error', message.message, 'InfoBlend'); break;
-      case 'SHOW_LOADING': showLoadingOverlay(); break;
+      case 'SHOW_LOADING': showLoadingOverlay({ mode: 'panel' }); break;
       case 'SUMMARIZE_PAGE': handlePageSummarization(); break;
-      case 'SUMMARIZE_SELECTION': showLoadingOverlay(); runSummarizer(message.text, 'Selection Summary'); break;
+      case 'SUMMARIZE_SELECTION': showLoadingOverlay({ mode: 'panel' }); runSummarizer(message.text, 'Selection Summary'); break;
     }
   }
 
