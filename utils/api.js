@@ -26,13 +26,14 @@ export const fetchDefinition = async (word) => {
 
   // 2. Datamuse API (Technical/Slang)
   try {
-    const resp = await fetch(`https://api.datamuse.com/words?ml=${encodeURIComponent(term)}&md=d&max=1`);
+    const resp = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d&max=1`);
     if (resp.ok) {
       const data = await resp.json();
-      if (data?.[0]?.defs?.[0]) {
+      // qe=sp ensures the returned word matches the query exactly
+      if (data?.[0]?.word?.toLowerCase() === term.toLowerCase() && data[0].defs?.[0]) {
         return {
           title: term,
-          content: data[0].defs[0].replace(/^[a-z]+\t/, ''), // Remove part of speech prefix
+          content: data[0].defs[0].replace(/^[a-z]+\t/, ''),
           source: 'Datamuse'
         };
       }
