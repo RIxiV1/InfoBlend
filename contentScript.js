@@ -1,15 +1,9 @@
 /**
  * InfoBlend AI — Lightweight Bootstrap
- * ~80 lines. Only registers event listeners.
- * Heavy modules (UI, palette, autofill) are injected on first user interaction
- * via chrome.scripting.executeScript in the background service worker.
+ * Registers event listeners. Heavy modules injected on first interaction.
  */
 (() => {
-  // Shared namespace for dynamically injected modules
-  window.__ib = window.__ib || {
-    modulesLoaded: false,
-    _loadingPromise: null
-  };
+  window.__ib = window.__ib || { modulesLoaded: false, _loadingPromise: null };
 
   const isContextValid = () => {
     try { return !!(chrome.runtime && chrome.runtime.id); }
@@ -30,13 +24,8 @@
   const getStorage = async (keys) => (await chrome.storage.local.get(keys)) || {};
   const setStorage = async (data) => chrome.storage.local.set(data);
 
-  // Expose shared utilities to injected modules
   Object.assign(window.__ib, { isContextValid, sendMessage, getStorage, setStorage });
 
-  /**
-   * Lazily injects heavy modules on first user interaction.
-   * Subsequent calls resolve instantly. Concurrent calls share the same promise.
-   */
   function ensureModules() {
     const ib = window.__ib;
     if (ib.modulesLoaded) return Promise.resolve(true);
@@ -44,20 +33,14 @@
 
     ib._loadingPromise = new Promise((resolve) => {
       sendMessage({ type: 'INJECT_MODULES' }, (response) => {
-        if (response?.success) {
-          ib.modulesLoaded = true;
-          resolve(true);
-        } else {
-          console.error('[InfoBlend] Module injection failed.');
-          resolve(false);
-        }
+        ib.modulesLoaded = !!response?.success;
+        if (!ib.modulesLoaded) console.error('[InfoBlend] Module injection failed.');
         ib._loadingPromise = null;
+        resolve(ib.modulesLoaded);
       });
     });
     return ib._loadingPromise;
   }
-
-  // --- Event Listeners (the only code that runs on every page) ---
 
   // Ctrl+K / Cmd+K → Command Palette
   document.addEventListener('keydown', async (e) => {
@@ -67,7 +50,7 @@
     }
   });
 
-  // Text selection → Auto-definition (1-2 words only)
+  // Text selection → Auto-definition (1-2 words)
   document.addEventListener('mouseup', async (event) => {
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
 
@@ -91,18 +74,11 @@
     }
   });
 
-  // Messages from background script or popup
+  // Messages from background / popup
   chrome.runtime.onMessage.addListener(async (message) => {
-    const routableTypes = ['SHOW_DEFINITION', 'SHOW_ERROR', 'SHOW_LOADING', 'SUMMARIZE_PAGE', 'SUMMARIZE_SELECTION'];
-    if (routableTypes.includes(message.type)) {
+    const routable = ['SHOW_DEFINITION', 'SHOW_ERROR', 'SHOW_LOADING', 'SUMMARIZE_PAGE', 'SUMMARIZE_SELECTION'];
+    if (routable.includes(message.type)) {
       if (await ensureModules()) window.__ib.handleMessage(message);
-    }
-  });
-
-  // Lazy autofill — only inject modules if autofill is actually enabled
-  getStorage(['autofillEnabled']).then(async (settings) => {
-    if (settings.autofillEnabled) {
-      if (await ensureModules()) window.__ib.autofillForms?.();
     }
   });
 })();
