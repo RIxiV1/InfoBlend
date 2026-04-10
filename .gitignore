@@ -1,16 +1,27 @@
-# OS files
+# OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Chrome extension local data
+# Chrome extension
 *.pem
 *.crx
+*.zip
+_metadata/
 
-# Node/Environment
+# Environment
 node_modules/
 .env
+.env.*
 
-# Temp files
-/tmp/
-*.log
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude Code
 .claude/
+
+# Logs & temp
+*.log
+/tmp/
