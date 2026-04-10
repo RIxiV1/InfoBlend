@@ -21,7 +21,7 @@ const decodeHTML = (text) => {
  * @param {string} html - The raw HTML of a YouTube watch page.
  * @returns {Promise<string>} - The flattened transcript text.
  */
-export const parseTranscriptFromHTML = async (html) => {
+const parseTranscriptFromHTML = async (html) => {
   let playerResponse = null;
   
   // 1. Primary Strategy: Parse ytInitialPlayerResponse directly

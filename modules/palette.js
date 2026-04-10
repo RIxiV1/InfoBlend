@@ -1,9 +1,13 @@
 /**
- * InfoBlend AI — Command Palette Module
- * The Ctrl+K interface. Injected dynamically on first trigger.
+ * InfoBlend AI — Command Palette
+ * Ctrl+K interface. Injected dynamically on first trigger.
  */
 (() => {
+  if (window.__ib?._paletteLoaded) return;
+
   const ib = window.__ib;
+  ib._paletteLoaded = true;
+
   let paletteHost = null;
 
   function togglePalette() {
@@ -13,24 +17,17 @@
       return;
     }
 
-    const { host, shadow } = ib.createShadowHost('infoblend-palette-host');
+    const { host, shadow } = ib.createShadowHost('infoblend-palette-host', ['overlay/overlay.css']);
     paletteHost = host;
-
-    // Load palette-specific CSS
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = ib.safeGetURL('overlay/overlay.css');
-    shadow.appendChild(link);
 
     const overlayBg = document.createElement('div');
     overlayBg.className = 'ib-palette-overlay';
 
-    // Theme detection
+    // Theme (synchronous — reads cached value via matchMedia fallback)
     ib.getStorage(['theme']).then(settings => {
-      const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (settings.theme === 'light' || (settings.theme === 'system' && !isSystemDark)) {
-        overlayBg.classList.add('ib-light-theme');
-      }
+      const theme = settings.theme || 'dark';
+      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (!isDark) overlayBg.classList.add('ib-light-theme');
     });
 
     overlayBg.onclick = () => togglePalette();
@@ -66,7 +63,7 @@
 
     const input = document.createElement('input');
     input.className = 'ib-palette-input';
-    input.placeholder = 'Search commands or define something...';
+    input.placeholder = 'Search commands or define a word...';
     input.spellcheck = false;
     searchArea.appendChild(input);
 
@@ -74,9 +71,8 @@
     resultsArea.className = 'ib-palette-results';
 
     const commands = [
-      { id: 'summarize', label: 'Summarize Page', hint: 'Enter', icon: '\u{1F4DD}' },
-      { id: 'define', label: 'Define...', hint: 'Type word', icon: '\u{1F4D6}' },
-      { id: 'history', label: 'View History', hint: 'Gallery', icon: '\u231B' }
+      { id: 'summarize', label: 'Summarize Page', hint: 'Enter' },
+      { id: 'define', label: 'Define...', hint: 'Type word' }
     ];
 
     let selectedIndex = 0;
@@ -90,9 +86,9 @@
 
       if (filter.startsWith('define ')) {
         const word = filter.replace('define ', '').trim();
-        if (word) filtered.unshift({ id: 'define-word', label: `Define "${word}"`, hint: 'Enter', icon: '\u{1F50D}', word });
+        if (word) filtered.unshift({ id: 'define-word', label: `Define "${word}"`, hint: 'Enter', word });
       } else if (filter && !filtered.length) {
-        filtered.push({ id: 'define-word', label: `Define "${filter}"`, hint: 'Enter', icon: '\u{1F50D}', word: filter });
+        filtered.push({ id: 'define-word', label: `Define "${filter}"`, hint: 'Enter', word: filter });
       }
 
       if (!filtered.length) {
@@ -108,14 +104,10 @@
         item.className = `ib-palette-item ${i === selectedIndex ? 'selected' : ''}`;
 
         const left = document.createElement('div');
-        Object.assign(left.style, { display: 'flex', alignItems: 'center', gap: '10px' });
-        const iconSpan = document.createElement('span');
-        iconSpan.style.fontSize = '14px';
-        iconSpan.textContent = cmd.icon;
+        left.className = 'ib-palette-item-left';
         const labelSpan = document.createElement('span');
         labelSpan.className = 'ib-palette-label';
         labelSpan.textContent = cmd.label;
-        left.appendChild(iconSpan);
         left.appendChild(labelSpan);
 
         const hintSpan = document.createElement('span');
@@ -151,8 +143,6 @@
         ib.sendMessage({ type: 'FETCH_DEFINITION', word: cmd.word }, (response) => {
           if (response?.success) ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
         });
-      } else if (cmd.id === 'history') {
-        ib.sendMessage({ type: 'OPEN_POPUP' });
       }
     };
 
@@ -181,13 +171,12 @@
     paletteDiv.appendChild(searchArea);
     paletteDiv.appendChild(resultsArea);
 
-    // Footer with keyboard hints
     const footer = document.createElement('div');
     footer.className = 'ib-palette-footer';
     [
-      ['\u2191\u2193', 'to navigate'],
-      ['\u21B5', 'to select'],
-      ['esc', 'to close']
+      ['\u2191\u2193', 'navigate'],
+      ['\u21B5', 'select'],
+      ['esc', 'close']
     ].forEach(([key, desc]) => {
       const hint = document.createElement('div');
       hint.className = 'ib-key-hint';
