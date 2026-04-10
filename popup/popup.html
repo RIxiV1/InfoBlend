@@ -14,7 +14,7 @@
   <header>
     <div>
       <div class="wordmark-top">Info<em>Blend</em></div>
-      <div class="wordmark-sub">Intelligence augmented</div>
+      <div class="wordmark-sub">Select any word. Get answers.</div>
     </div>
     <div class="status-pill">
       <div class="status-dot"></div>
@@ -23,149 +23,102 @@
   </header>
 
   <main>
-    <div class="bento-grid">
 
-      <!-- Summarize -->
-      <div class="bento-card col-span-2">
-        <button id="summarizeBtn" class="summarize">
-          <div class="sum-left">
-            <div class="sum-icon">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-              </svg>
-            </div>
-            <div>
-              <div class="sum-title">Summarize Context</div>
-              <div class="sum-desc">Cmd/Ctrl + K for palette</div>
-            </div>
-          </div>
-          <span class="sum-arrow">&rarr;</span>
-        </button>
-      </div>
-
-      <!-- Features -->
-      <div class="bento-card">
-        <div class="block-label">Features</div>
-        <label class="toggle-item">
-          <div class="toggle-info">
-            <span class="toggle-name">Definitions</span>
-            <span class="toggle-desc">Auto-define selected words</span>
-          </div>
-          <div class="pill">
-            <input type="checkbox" id="definitionsEnabled" checked>
-            <div class="pill-track"></div>
-          </div>
-        </label>
-        <label class="toggle-item">
-          <div class="toggle-info">
-            <span class="toggle-name">Auto-fill</span>
-            <span class="toggle-desc">Fill name, email, phone</span>
-          </div>
-          <div class="pill">
-            <input type="checkbox" id="autofillEnabled" checked>
-            <div class="pill-track"></div>
-          </div>
-        </label>
-        <label class="toggle-item">
-          <div class="toggle-info">
-            <span class="toggle-name">Ad Blocker</span>
-            <span class="toggle-desc">Block trackers &amp; ads</span>
-          </div>
-          <div class="pill">
-            <input type="checkbox" id="adBlockEnabled" checked>
-            <div class="pill-track"></div>
-          </div>
-        </label>
-      </div>
-
-      <!-- Profile -->
-      <div class="bento-card">
-        <div class="block-label">Profile</div>
-        <div class="field-stack">
-          <div class="field">
-            <label class="field-key" for="userName">Name</label>
-            <input type="text" id="userName" placeholder="Full name" spellcheck="false" autocomplete="name">
-          </div>
-          <div class="field">
-            <label class="field-key" for="userEmail">Email</label>
-            <input type="email" id="userEmail" placeholder="you@email.com" spellcheck="false" autocomplete="email">
-          </div>
-          <div class="field">
-            <label class="field-key" for="userPhone">Phone</label>
-            <input type="tel" id="userPhone" placeholder="+1 234 567 8900" spellcheck="false" autocomplete="tel">
-          </div>
+    <!-- Summarize -->
+    <button id="summarizeBtn" class="summarize-btn">
+      <div class="sum-left">
+        <div class="sum-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </div>
+        <div>
+          <div class="sum-title">Summarize This Page</div>
+          <div class="sum-desc">Or press Ctrl+K for the command palette</div>
         </div>
       </div>
+      <span class="sum-arrow">&rarr;</span>
+    </button>
 
-      <!-- History Gallery -->
-      <div class="bento-card col-span-2">
-        <div class="block-label">Blend Gallery</div>
-        <div id="historyContainer" class="history-grid">
-          <span class="history-empty">No recent blends</span>
+    <div class="divider"></div>
+
+    <!-- Definitions Toggle -->
+    <label class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-name">Auto-Definitions</span>
+        <span class="toggle-desc">Show definitions when you select a word</span>
+      </div>
+      <div class="pill">
+        <input type="checkbox" id="definitionsEnabled" checked>
+        <div class="pill-track"></div>
+      </div>
+    </label>
+
+    <div class="divider"></div>
+
+    <!-- Engine Settings -->
+    <div class="section">
+      <div class="section-label">AI Engine <span class="optional-tag">optional</span></div>
+      <div class="engine-grid">
+        <div class="field">
+          <label class="field-key" for="aiProvider">Provider</label>
+          <div class="select-wrap">
+            <select id="aiProvider">
+              <option value="gemini">Google Gemini</option>
+              <option value="openai">OpenAI</option>
+              <option value="generic">Custom</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-key" for="aiKey">API Key</label>
+          <input type="password" id="aiKey" placeholder="sk-..." spellcheck="false">
+        </div>
+        <div class="field field-full">
+          <label class="field-key" for="aiEndpoint">Endpoint</label>
+          <input type="text" id="aiEndpoint" placeholder="https://api.provider.com/v1/..." spellcheck="false">
         </div>
       </div>
-
-      <!-- Engine Settings -->
-      <div class="bento-card col-span-2">
-        <div class="block-label">
-          <span>Engine Settings</span>
-        </div>
-        <div class="engine-grid">
-          <div class="field">
-            <label class="field-key" for="aiProvider">Provider</label>
-            <div class="select-wrap">
-              <select id="aiProvider">
-                <option value="gemini">Google Gemini</option>
-                <option value="openai">OpenAI GPT</option>
-                <option value="generic">Generic AI</option>
-              </select>
-            </div>
-          </div>
-          <div class="field">
-            <label class="field-key" for="aiKey">API Key</label>
-            <input type="password" id="aiKey" placeholder="sk-..." spellcheck="false">
-          </div>
-          <div class="field field-full">
-            <label class="field-key" for="aiEndpoint">Endpoint URL</label>
-            <input type="text" id="aiEndpoint" placeholder="https://api.provider.com/v1/..." spellcheck="false">
-          </div>
-          <div class="field">
-            <label class="field-key" for="theme">Theme</label>
-            <div class="select-wrap">
-              <select id="theme">
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-                <option value="system">System</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <p class="engine-note">Without an API key, summaries use a local extractive algorithm.</p>
     </div>
 
-    <button id="saveBtn" class="save-btn">Save Changes</button>
+    <div class="divider"></div>
+
+    <!-- Theme -->
+    <div class="theme-row">
+      <label class="field-key" for="theme">Theme</label>
+      <div class="select-wrap select-sm">
+        <select id="theme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="system">System</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="saveBtn" class="save-btn">Save</button>
+
   </main>
 
   <footer>
     <span>InfoBlend AI</span>
-    <span>v2.1.0</span>
+    <span>v3.0.0</span>
   </footer>
 
   <div id="onboardingModal" class="modal">
     <div class="modal-box">
       <div class="modal-eyebrow">Welcome</div>
       <div class="modal-heading">Meet <em>InfoBlend</em></div>
-      <p class="modal-body">Your browsing, augmented. Here's how to get started.</p>
+      <p class="modal-body">Your browsing, augmented.</p>
       <ul class="modal-tips">
-        <li>Select 1-2 words anywhere for instant definitions.</li>
-        <li>Press <strong>Ctrl+K</strong> to open the command palette.</li>
-        <li>Pin the overlay to keep results while you read.</li>
+        <li>Select any word for an instant definition.</li>
+        <li>Press <strong>Ctrl+K</strong> to summarize the page.</li>
+        <li>Add an AI key for smarter summaries.</li>
       </ul>
-      <button id="closeOnboarding" class="modal-cta">Let's go</button>
+      <button id="closeOnboarding" class="modal-cta">Get started</button>
     </div>
   </div>
 

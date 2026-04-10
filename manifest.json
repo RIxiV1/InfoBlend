@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
   "name": "InfoBlend AI",
-  "version": "2.1.0",
-  "description": "Smart Web Augmentation: Instant definitions, page summaries, ad blocking, and form auto-fill.",
+  "version": "3.0.0",
+  "description": "Select any word for instant definitions. Ctrl+K to summarize any page.",
   "permissions": [
     "storage",
-    "declarativeNetRequest",
     "activeTab",
     "contextMenus",
     "scripting"
@@ -26,15 +25,6 @@
   ],
   "action": {
     "default_popup": "popup/popup.html"
-  },
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "ruleset_1",
-        "enabled": true,
-        "path": "rules/adblockRules.json"
-      }
-    ]
   },
   "web_accessible_resources": [
     {
