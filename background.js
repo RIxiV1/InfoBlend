@@ -136,13 +136,6 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       break;
     }
 
-    case 'OPEN_POPUP':
-      chrome.action.openPopup?.();
-      break;
-
-    case 'PING':
-      sendResponse({ success: true });
-      break;
   }
 }));
 
