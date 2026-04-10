@@ -32,6 +32,12 @@
     document.body.appendChild(host);
     const shadow = host.attachShadow({ mode: 'open' });
 
+    // Load Google Fonts inside shadow DOM (fonts don't inherit through shadow boundary)
+    const fontLink = document.createElement('link');
+    fontLink.rel = 'stylesheet';
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500;600&display=swap';
+    shadow.appendChild(fontLink);
+
     // Load extracted CSS via <link> — local extension resources load instantly
     const link = document.createElement('link');
     link.rel = 'stylesheet';
@@ -41,46 +47,8 @@
     return { host, shadow };
   };
 
-  /**
-   * Extracts the site's brand accent color with luminance validation.
-   * @returns {string} CSS color value.
-   */
-  const getThemeColor = () => {
-    const getLuminance = (r, g, b) => (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    const adjustColor = (color) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = color;
-      const rgb = ctx.fillStyle.match(/\d+/g);
-      if (!rgb) return '#f5a623';
-      const [r, g, b] = rgb.map(Number);
-      if (getLuminance(r, g, b) < 0.6) return '#f5a623';
-      return color;
-    };
-
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta?.content) return adjustColor(meta.content);
-
-    const brandSelectors = ['header', 'nav', '.navbar', '[class*="brand"]', '[class*="logo"]'];
-    for (const selector of brandSelectors) {
-      const el = document.querySelector(selector);
-      if (el) {
-        const bg = window.getComputedStyle(el).backgroundColor;
-        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'rgb(255, 255, 255)' && bg !== 'rgb(0, 0, 0)') {
-          return adjustColor(bg);
-        }
-      }
-    }
-    return '#f5a623';
-  };
-
-  // --- Smart Highlighting ---
-  const _highlightPatterns = [
-    /\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\b/g,
-    /\b(?:AI|LLM|API|HTML|CSS|JS|URL|HTTP|JSON)\b/g,
-    /\b(?:algorithm|neural network|machine learning|automation|intelligence|optimization|minimalist|glassmorphism|gerund)\b/gi
-  ];
-  const _highlightCombinedPattern = new RegExp(_highlightPatterns.map(p => p.source).join('|'), 'gi');
+  // --- Smart Highlighting (conservative — only acronyms and technical terms) ---
+  const _highlightCombinedPattern = /\b(?:AI|LLM|API|HTML|CSS|GPU|CPU|URL|HTTP|HTTPS|JSON|XML|SQL|REST|SDK|CLI|DNS|TCP|UDP|SSH|SSL|TLS|OAuth|JWT|CORS|CRUD|DOM|IoT|SaaS|AWS|GCP|NLP|ML)\b/g;
 
   const smartHighlight = (text) => {
     if (!text) return document.createTextNode('');
@@ -154,5 +122,5 @@
   }
 
   // Expose to other modules
-  Object.assign(ib, { safeGetURL, createShadowHost, getThemeColor, smartHighlight, BentoRenderer });
+  Object.assign(ib, { safeGetURL, createShadowHost, smartHighlight, BentoRenderer });
 })();

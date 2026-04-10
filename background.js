@@ -104,7 +104,7 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       if (!injectedTabs.has(tabId)) {
         await chrome.scripting.executeScript({
           target: { tabId },
-          files: ['modules/core.js', 'modules/overlay.js', 'modules/palette.js', 'modules/autofill.js']
+          files: ['modules/core.js', 'modules/overlay.js', 'modules/palette.js']
         });
         injectedTabs.add(tabId);
       }

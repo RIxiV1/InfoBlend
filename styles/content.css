@@ -17,9 +17,14 @@
   --ib-skel-m: rgba(255,255,255,0.09);
   --ib-accent-color: #f5a623;
   --ib-accent-low: rgba(245, 166, 35, 0.12);
-  --ib-progress-track: rgba(255,255,255,0.06);
+
   --ib-btn-hover: rgba(255,255,255,0.08);
   --ib-focus-ring: rgba(245, 166, 35, 0.5);
+  --ib-overlay-shadow:
+    0 24px 80px rgba(0,0,0,0.4),
+    0 8px 24px rgba(0,0,0,0.25),
+    inset 0 0 0 1px rgba(255,255,255,0.04);
+  --ib-card-hover-border: rgba(255,255,255,0.1);
   --ib-font-serif: 'Instrument Serif', Georgia, serif;
   --ib-font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
 }
@@ -35,8 +40,13 @@
   --ib-card-hover: rgba(0,0,0,0.03);
   --ib-skel-s: rgba(0,0,0,0.04);
   --ib-skel-m: rgba(0,0,0,0.08);
-  --ib-progress-track: rgba(0,0,0,0.06);
+
   --ib-btn-hover: rgba(0,0,0,0.06);
+  --ib-overlay-shadow:
+    0 16px 48px rgba(0,0,0,0.1),
+    0 4px 16px rgba(0,0,0,0.06),
+    0 0 0 1px rgba(0,0,0,0.06);
+  --ib-card-hover-border: rgba(0,0,0,0.12);
 }
 
 /* ─── Base ─── */
@@ -64,10 +74,7 @@
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--ib-border) !important;
   border-radius: 16px;
-  box-shadow:
-    0 24px 80px rgba(0,0,0,0.35),
-    0 8px 24px rgba(0,0,0,0.2),
-    inset 0 0 0 1px rgba(255,255,255,0.04);
+  box-shadow: var(--ib-overlay-shadow);
   z-index: 2147483647;
   font-family: var(--ib-font-mono) !important;
   overflow: hidden;
@@ -148,16 +155,6 @@
   flex-shrink: 0;
 }
 
-/* Pin active state */
-.infoblend-pin.active {
-  color: var(--ib-accent-color) !important;
-  background: var(--ib-accent-low) !important;
-}
-
-.infoblend-pin.active svg {
-  fill: var(--ib-accent-color);
-}
-
 /* Copy success flash */
 .infoblend-copy.ib-copied {
   background: var(--ib-accent-low) !important;
@@ -201,11 +198,13 @@
 
 .ib-bento-card:hover {
   background: var(--ib-card-hover) !important;
-  border-color: rgba(255,255,255,0.12) !important;
+  border-color: var(--ib-card-hover-border) !important;
 }
 
-.ib-light-theme .ib-bento-card:hover {
-  border-color: rgba(0,0,0,0.12) !important;
+/* Compact card variant for short fragments */
+.ib-bento-card.compact {
+  padding: 10px 14px;
+  font-size: 12.5px !important;
 }
 
 /* ─── Highlights ─── */
@@ -228,9 +227,26 @@
   letter-spacing: 0.01em;
 }
 
+.infoblend-source a {
+  color: var(--ib-accent-color) !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  transition: opacity 0.15s;
+}
+
+.infoblend-source a:hover {
+  opacity: 0.8;
+}
+
 /* ─── Loading Skeleton ─── */
 .infoblend-loading {
   padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ib-skeleton-group {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -252,21 +268,6 @@
 .ib-sk-title { height: 18px; width: 45%; border-radius: 6px; }
 .ib-sk-line  { height: 12px; width: 100%; }
 .ib-sk-line-short { height: 12px; width: 65%; }
-
-/* ─── Progress Bar ─── */
-.infoblend-progress-container {
-  height: 2px;
-  width: 100%;
-  background: var(--ib-progress-track);
-}
-
-.infoblend-progress-bar {
-  height: 100%;
-  width: 0;
-  background: var(--ib-accent-color);
-  transition: width 0.08s linear;
-  border-radius: 0 1px 1px 0;
-}
 
 /* ─── Error / Empty State ─── */
 .ib-empty-state {

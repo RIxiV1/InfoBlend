@@ -95,6 +95,14 @@
         filtered.push({ id: 'define-word', label: `Define "${filter}"`, hint: 'Enter', icon: '\u{1F50D}', word: filter });
       }
 
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.className = 'ib-palette-empty';
+        empty.textContent = 'No matching commands';
+        resultsArea.appendChild(empty);
+        return filtered;
+      }
+
       filtered.forEach((cmd, i) => {
         const item = document.createElement('div');
         item.className = `ib-palette-item ${i === selectedIndex ? 'selected' : ''}`;
