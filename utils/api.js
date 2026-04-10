@@ -1,18 +1,6 @@
 /**
  * API utility for fetching definitions and summaries.
- * Support for standard Dictionary API and custom AI Adapters.
- */
-
-/**
- * Fetches a word definition from the Free Dictionary API.
- * @param {string} word - The term to define.
- * @returns {Promise<Object>} Title, content, and source.
- */
-/**
- * Fetches a word definition with a multi-stage fallback chain.
- * Priority: Free Dictionary -> Datamuse -> Wiktionary -> Wikipedia
- * @param {string} word - The term to define.
- * @returns {Promise<Object>} Title, content, source and optional link.
+ * Multi-stage fallback: Free Dictionary -> Datamuse -> Wiktionary -> Wikipedia.
  */
 export const fetchDefinition = async (word) => {
   const term = word.trim();
@@ -38,7 +26,7 @@ export const fetchDefinition = async (word) => {
 
   // 2. Datamuse API (Technical/Slang)
   try {
-    const resp = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&md=d&max=1`);
+    const resp = await fetch(`https://api.datamuse.com/words?ml=${encodeURIComponent(term)}&md=d&max=1`);
     if (resp.ok) {
       const data = await resp.json();
       if (data?.[0]?.defs?.[0]) {

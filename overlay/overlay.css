@@ -68,7 +68,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 24vh);
+  max-height: 76vh;
   animation: ibPaletteIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -138,6 +138,12 @@
 .ib-palette-item.selected .ib-palette-label {
   color: var(--text-main);
   font-weight: 500;
+}
+
+.ib-palette-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .ib-palette-label {
