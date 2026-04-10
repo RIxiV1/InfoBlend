@@ -1,18 +1,22 @@
 /**
  * InfoBlend AI — Overlay Module
- * Manages the definition/summary overlay, page extraction, and YouTube transcripts.
+ * Definition/summary overlay, page extraction, YouTube transcripts.
  */
 (() => {
+  if (window.__ib?._overlayLoaded) return;
+
   const ib = window.__ib;
+  ib._overlayLoaded = true;
+
   let overlayHost = null;
 
-  // --- Theme Application (simple — no brand color extraction) ---
+  // --- Theme (preloaded, applied synchronously) ---
+  let _theme = 'dark';
+  ib.getStorage(['theme']).then(s => { _theme = s.theme || 'dark'; });
+
   function applyTheme(container) {
-    ib.getStorage(['theme']).then(settings => {
-      const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const isLight = settings.theme === 'light' || (settings.theme === 'system' && !isSystemDark);
-      if (isLight) container.classList.add('ib-light-theme');
-    });
+    const isDark = _theme === 'dark' || (_theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (!isDark) container.classList.add('ib-light-theme');
   }
 
   // --- Loading Overlay ---
@@ -26,7 +30,6 @@
     container.className = 'infoblend-overlay';
     applyTheme(container);
 
-    // Header — just title + close. Nothing else.
     const header = document.createElement('div');
     header.className = 'infoblend-header';
 
@@ -47,17 +50,16 @@
     header.appendChild(titleSpan);
     header.appendChild(controls);
 
-    // Skeleton loading
     const loading = document.createElement('div');
     loading.className = 'infoblend-loading';
-    const skeletonGroup = document.createElement('div');
-    skeletonGroup.className = 'ib-skeleton-group';
+    const skGroup = document.createElement('div');
+    skGroup.className = 'ib-skeleton-group';
     ['ib-sk-title', 'ib-sk-line', 'ib-sk-line', 'ib-sk-line-short'].forEach(cls => {
       const sk = document.createElement('div');
       sk.className = `ib-skeleton ${cls}`;
-      skeletonGroup.appendChild(sk);
+      skGroup.appendChild(sk);
     });
-    loading.appendChild(skeletonGroup);
+    loading.appendChild(skGroup);
 
     container.appendChild(header);
     container.appendChild(loading);
@@ -65,7 +67,6 @@
 
     closeBtn.onclick = (e) => { e.stopPropagation(); closeOverlay(host, container); };
 
-    // Dismiss on Escape
     container.setAttribute('tabindex', '-1');
     container.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeOverlay(host, container);
@@ -85,7 +86,9 @@
       if (!container) container = showLoadingOverlay();
     }
 
-    setTimeout(() => container.classList.add('open'), 10);
+    if (!container.classList.contains('open')) {
+      setTimeout(() => container.classList.add('open'), 10);
+    }
 
     container.querySelector('.infoblend-title').textContent = title;
     container.querySelector('.infoblend-content')?.remove();
@@ -105,9 +108,8 @@
       emptyState.appendChild(msg);
       contentDiv.appendChild(emptyState);
     } else {
-      try {
-        ib.BentoRenderer.render(content, contentDiv);
-      } catch {
+      try { ib.BentoRenderer.render(content, contentDiv); }
+      catch {
         const fallback = document.createElement('div');
         fallback.className = 'ib-bento-card';
         fallback.appendChild(ib.smartHighlight(content));
@@ -115,7 +117,6 @@
       }
     }
 
-    // Source line
     if (!isNotice) {
       const sourceDiv = document.createElement('div');
       sourceDiv.className = 'infoblend-source';
@@ -135,27 +136,26 @@
 
     container.appendChild(contentDiv);
 
-    // Copy button
+    // Copy button — always re-create so it captures current content
     const controls = container.querySelector('.infoblend-controls');
-    const copyIconSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-    const checkIconSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-    if (!controls.querySelector('.infoblend-copy')) {
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'infoblend-btn infoblend-copy';
-      copyBtn.title = 'Copy';
-      copyBtn.setAttribute('aria-label', 'Copy to clipboard');
-      copyBtn.innerHTML = copyIconSVG;
-      copyBtn.onclick = (e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(content);
-        copyBtn.innerHTML = checkIconSVG;
-        copyBtn.classList.add('ib-copied');
-        setTimeout(() => { copyBtn.innerHTML = copyIconSVG; copyBtn.classList.remove('ib-copied'); }, 2000);
-      };
-      controls.insertBefore(copyBtn, controls.firstChild);
-    }
+    const oldCopy = controls.querySelector('.infoblend-copy');
+    if (oldCopy) oldCopy.remove();
 
-    if (title.toLowerCase().includes('summary')) saveToHistory(title, content);
+    const copyIconSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const checkSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'infoblend-btn infoblend-copy';
+    copyBtn.title = 'Copy';
+    copyBtn.setAttribute('aria-label', 'Copy to clipboard');
+    copyBtn.innerHTML = copyIconSVG;
+    copyBtn.onclick = (e) => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(content);
+      copyBtn.innerHTML = checkSVG;
+      copyBtn.classList.add('ib-copied');
+      setTimeout(() => { copyBtn.innerHTML = copyIconSVG; copyBtn.classList.remove('ib-copied'); }, 2000);
+    };
+    controls.insertBefore(copyBtn, controls.firstChild);
 
     container.setAttribute('tabindex', '-1');
     container.focus();
@@ -163,7 +163,6 @@
 
   function closeOverlay(host, container) {
     container.classList.add('ib-fade-out');
-    window.getSelection().removeAllRanges();
     setTimeout(() => {
       if (host.parentNode) host.remove();
       if (overlayHost === host) overlayHost = null;
@@ -231,14 +230,6 @@
       if (r?.success) updateOverlay(title, r.summary, r.method || 'InfoBlend AI');
       else updateOverlay('Notice', r?.error || 'Summarization failed.', 'InfoBlend');
     });
-  }
-
-  async function saveToHistory(title, content) {
-    const data = await ib.getStorage(['summaryHistory']);
-    const history = data.summaryHistory || [];
-    history.push({ title: document.title, content: content.substring(0, 100) + '...', timestamp: Date.now() });
-    if (history.length > 10) history.shift();
-    ib.setStorage({ summaryHistory: history });
   }
 
   function handleMessage(message) {

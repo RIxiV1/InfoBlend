@@ -3,8 +3,8 @@
  * Offloaded to the background script to bypass Content Security Policy constraints.
  */
 
-export function generateIntelligentSummary(text, manualText = null, maxSentences = 4) {
-  const raw = manualText || text || '';
+export function generateIntelligentSummary(text, maxSentences = 4) {
+  const raw = text || '';
   
   // Truncate at the last sentence boundary within the 20,000 char safety limit
   let truncated = raw.length > 20000 ? raw.substring(0, 20000) : raw;

@@ -47,7 +47,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   $('summarizeBtn')?.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.url?.startsWith('chrome://') || tab?.url?.startsWith('about:')) return;
+    const url = tab?.url || '';
+    if (/^(chrome|edge|brave|about|chrome-extension):/.test(url)) return;
     try {
       await chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' });
       window.close();
