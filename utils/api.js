@@ -1,151 +1,139 @@
 /**
  * API utility for fetching definitions and summaries.
- * Multi-stage fallback: Free Dictionary -> Datamuse -> Wiktionary -> Wikipedia.
+ * Fallback chain: Free Dictionary -> Datamuse -> Wiktionary -> Wikipedia.
  */
 export const fetchDefinition = async (word) => {
   const term = word.trim();
-  const wordCount = term.split(/\s+/).length;
-  if (wordCount > 5) {
+  if (term.split(/\s+/).length > 5) {
     throw new Error('Selection too long for definition. Try summarizing instead.');
   }
 
-  // 1. Free Dictionary API (Primary)
+  // 1. Free Dictionary API — returns rich structured data
   try {
     const resp = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term)}`);
     if (resp.ok) {
       const data = await resp.json();
-      if (data?.[0]?.meanings?.[0]?.definitions?.[0]?.definition) {
+      const entry = data?.[0];
+      if (entry?.meanings?.length) {
+        const phonetic = entry.phonetic
+          || entry.phonetics?.find(p => p.text)?.text
+          || '';
+
+        // Up to 2 meanings, 3 definitions each
+        const meanings = entry.meanings.slice(0, 2).map(m => ({
+          partOfSpeech: m.partOfSpeech,
+          definitions: m.definitions.slice(0, 3).map(d => ({
+            text: d.definition,
+            example: d.example || null
+          }))
+        }));
+
         return {
-          title: data[0].word,
-          content: data[0].meanings[0].definitions[0].definition,
-          source: 'Dictionary API'
+          title: entry.word,
+          phonetic,
+          meanings,
+          source: 'Dictionary API',
+          isRich: true
         };
       }
     }
-  } catch (e) { console.warn('[InfoBlend] Dictionary API failed, trying Datamuse...'); }
+  } catch { /* fall through */ }
 
-  // 2. Datamuse API (Technical/Slang)
+  // 2. Datamuse — exact spelling match with definition
   try {
     const resp = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d&max=1`);
     if (resp.ok) {
       const data = await resp.json();
-      // qe=sp ensures the returned word matches the query exactly
-      if (data?.[0]?.word?.toLowerCase() === term.toLowerCase() && data[0].defs?.[0]) {
-        return {
-          title: term,
-          content: data[0].defs[0].replace(/^[a-z]+\t/, ''),
-          source: 'Datamuse'
-        };
+      if (data?.[0]?.word?.toLowerCase() === term.toLowerCase() && data[0].defs?.length) {
+        const meanings = data[0].defs.slice(0, 3).map(d => {
+          const [pos, ...rest] = d.split('\t');
+          return { partOfSpeech: pos, definitions: [{ text: rest.join('\t') }] };
+        });
+        return { title: term, meanings, source: 'Datamuse', isRich: true };
       }
     }
-  } catch (e) { console.warn('[InfoBlend] Datamuse failed, trying Wiktionary...'); }
+  } catch { /* fall through */ }
 
-  // 3. Wiktionary API (Restful Summary)
+  // 3. Wiktionary
   try {
     const resp = await fetch(`https://en.wiktionary.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
     if (resp.ok) {
       const data = await resp.json();
       if (data.extract) {
-        return {
-          title: term,
-          content: data.extract,
-          source: 'Wiktionary'
-        };
+        return { title: term, content: data.extract, source: 'Wiktionary' };
       }
     }
-  } catch (e) { console.warn('[InfoBlend] Wiktionary failed, trying Wikipedia...'); }
+  } catch { /* fall through */ }
 
-  // 4. Wikipedia (Last Resort - First Sentence Only)
+  // 4. Wikipedia — first sentence
   try {
     const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
     if (resp.ok) {
       const data = await resp.json();
       if (data.extract) {
-        const firstSentence = data.extract.split(/[.!?]\s/)[0].trim() + '.';
         return {
           title: term,
-          content: firstSentence,
+          content: data.extract.split(/[.!?]\s/)[0].trim() + '.',
           source: 'Wikipedia'
         };
       }
     }
-  } catch (e) { console.warn('[InfoBlend] Wikipedia failed.'); }
+  } catch { /* fall through */ }
 
-  // 5. Absolute Failure - Merriam-Webster Link
+  // 5. Not found
   return {
-    title: 'Definition Not Found',
-    content: `We couldn't find a local definition for "${term}".`,
-    source: 'Search Merriam-Webster',
+    title: 'Not Found',
+    content: `No definition found for "${term}".`,
+    source: 'Merriam-Webster',
     isNotFound: true,
     url: `https://www.merriam-webster.com/dictionary/${encodeURIComponent(term)}`
   };
 };
 
-
 /**
- * Orchestrates AI requests with multi-provider adapter support.
- * @param {string} text - Input text.
- * @param {string} template - API Endpoint URL.
- * @param {string} key - API Key.
- * @param {string} keyHeader - Optional custom header for the key.
- * @param {string} provider - 'gemini', 'openai', or 'generic'.
- * @param {string} promptType - 'define' or 'summarize'.
+ * AI request adapter. Supports Gemini, OpenAI, and generic endpoints.
  */
-export const fetchAIResponse = async (text, template, key, keyHeader, provider = 'gemini', promptType = 'define') => {
-  if (!template || !template.startsWith('http')) {
+export const fetchAIResponse = async (text, endpoint, key, keyHeader, provider = 'gemini', promptType = 'define') => {
+  if (!endpoint?.startsWith('http')) {
     throw new Error('Invalid API Endpoint. Please check your settings.');
   }
-  
-  const headers = { 'Content-Type': 'application/json' };
 
-  // Gemini uses query-param auth, not header-based
-  let endpoint = template;
+  const headers = { 'Content-Type': 'application/json' };
+  let url = endpoint;
+
   if (provider === 'gemini' && key) {
-    const sep = endpoint.includes('?') ? '&' : '?';
-    endpoint = `${endpoint}${sep}key=${encodeURIComponent(key)}`;
+    url += `${url.includes('?') ? '&' : '?'}key=${encodeURIComponent(key)}`;
   } else if (key) {
-    if (keyHeader) headers[keyHeader] = key;
-    else headers['Authorization'] = `Bearer ${key}`;
+    headers[keyHeader || 'Authorization'] = keyHeader ? key : `Bearer ${key}`;
   }
 
-  // Optimized Prompt Engineering
-  const promptText = promptType === 'summarize'
-    ? `Summarize the following text in 3-4 professional bullet points. Focus on key insights: "${text.substring(0, 8000)}"`
-    : `Define "${text}" in one concise, insightful sentence. Use simple language.`;
+  const prompt = promptType === 'summarize'
+    ? `Summarize the following text in 3-4 concise bullet points:\n\n${text.substring(0, 8000)}`
+    : `Define "${text}" in one clear sentence.`;
 
-  const bodyMap = {
-    gemini: { contents: [{ parts: [{ text: promptText }] }] },
-    openai: {
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: promptText }],
-      max_tokens: promptType === 'summarize' ? 300 : 100
-    },
-    generic: { prompt: promptText, max_tokens: promptType === 'summarize' ? 300 : 100 }
+  const body = {
+    gemini: { contents: [{ parts: [{ text: prompt }] }] },
+    openai: { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: promptType === 'summarize' ? 300 : 100 },
+    generic: { prompt, max_tokens: promptType === 'summarize' ? 300 : 100 }
   };
 
-  const resp = await fetch(endpoint, {
+  const resp = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify(bodyMap[provider] || bodyMap.generic),
+    body: JSON.stringify(body[provider] || body.generic),
     signal: AbortSignal.timeout(15000)
   });
 
   if (!resp.ok) {
-    const errorData = await resp.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `API Error: ${resp.status}`);
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API Error: ${resp.status}`);
   }
 
   const json = await resp.json();
-  
-  // Unified Adapter Response Extraction
-  let result;
-  switch (provider) {
-    case 'gemini': result = json.candidates?.[0]?.content?.parts?.[0]?.text; break;
-    case 'openai': result = json.choices?.[0]?.message?.content; break;
-    default: result = json.text || json.response || json.choices?.[0]?.text; break;
-  }
-  
-  if (!result) throw new Error('Could not parse AI response. Check Provider settings.');
+  const result = provider === 'gemini' ? json.candidates?.[0]?.content?.parts?.[0]?.text
+    : provider === 'openai' ? json.choices?.[0]?.message?.content
+    : json.text || json.response || json.choices?.[0]?.text;
+
+  if (!result) throw new Error('Could not parse AI response.');
   return result.trim();
 };
-
