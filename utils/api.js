@@ -93,7 +93,7 @@ export const fetchDefinition = async (word) => {
 /**
  * AI request adapter. Supports Gemini, OpenAI, and generic endpoints.
  */
-export const fetchAIResponse = async (text, endpoint, key, keyHeader, provider = 'gemini', promptType = 'define') => {
+export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', promptType = 'define') => {
   if (!endpoint?.startsWith('http')) {
     throw new Error('Invalid API Endpoint. Please check your settings.');
   }
@@ -104,7 +104,7 @@ export const fetchAIResponse = async (text, endpoint, key, keyHeader, provider =
   if (provider === 'gemini' && key) {
     url += `${url.includes('?') ? '&' : '?'}key=${encodeURIComponent(key)}`;
   } else if (key) {
-    headers[keyHeader || 'Authorization'] = keyHeader ? key : `Bearer ${key}`;
+    headers['Authorization'] = `Bearer ${key}`;
   }
 
   const prompt = promptType === 'summarize'
