@@ -332,5 +332,5 @@
     }
   }
 
-  Object.assign(ib, { showLoadingOverlay, updateOverlay, closeOverlay, handlePageSummarization, handleMessage });
+  Object.assign(ib, { showLoadingOverlay, updateOverlay, handlePageSummarization, handleMessage });
 })();

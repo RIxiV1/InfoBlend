@@ -6,14 +6,9 @@
 (() => {
   window.__ib = window.__ib || { modulesLoaded: false, _loadingPromise: null };
 
-  const isContextValid = () => {
-    try { return !!(chrome.runtime && chrome.runtime.id); }
-    catch { return false; }
-  };
-
   const sendMessage = async (msg, cb) => {
     try {
-      if (!isContextValid()) { cb?.({ success: false, error: 'Context invalidated' }); return; }
+      if (!chrome.runtime?.id) { cb?.({ success: false, error: 'Context invalidated' }); return; }
       const response = await chrome.runtime.sendMessage(msg);
       cb?.(response);
     } catch (e) {
@@ -22,9 +17,8 @@
   };
 
   const getStorage = async (keys) => (await chrome.storage.local.get(keys)) || {};
-  const setStorage = async (data) => chrome.storage.local.set(data);
 
-  Object.assign(window.__ib, { isContextValid, sendMessage, getStorage, setStorage });
+  Object.assign(window.__ib, { sendMessage, getStorage });
 
   function ensureModules() {
     const ib = window.__ib;
@@ -48,21 +42,18 @@
     }
   });
 
-  // Double-click a word → definition tooltip
+  // Double-click → definition tooltip
   document.addEventListener('dblclick', async (event) => {
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
 
     const sel = window.getSelection();
     const text = sel.toString().trim();
-
-    // Double-click selects exactly one word — validate it's a real word
     if (!text || text.length > 40 || text.includes(' ')) return;
 
     const settings = await getStorage(['definitionsEnabled']);
     if (settings.definitionsEnabled === false) return;
 
-    const range = sel.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
     const anchor = { x: rect.left + rect.width / 2, y: rect.bottom + 8, mode: 'tooltip' };
 
     if (await ensureModules()) {

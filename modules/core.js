@@ -8,15 +8,8 @@
   const ib = window.__ib;
   ib._coreLoaded = true;
 
-  const safeGetURL = (path) => {
-    try { return chrome.runtime.getURL(path); }
-    catch { return ''; }
-  };
-
   /**
-   * Creates an isolated Shadow DOM host with specified stylesheets.
-   * @param {string} id - Host element ID.
-   * @param {string[]} cssFiles - Extension-relative CSS paths to load.
+   * Creates an isolated Shadow DOM host with stylesheets.
    */
   const createShadowHost = (id, cssFiles = ['styles/content.css']) => {
     const host = document.createElement('div');
@@ -28,17 +21,17 @@
     document.body.appendChild(host);
     const shadow = host.attachShadow({ mode: 'open' });
 
-    cssFiles.forEach(file => {
+    for (const file of cssFiles) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
-      link.href = safeGetURL(file);
+      link.href = chrome.runtime.getURL(file);
       shadow.appendChild(link);
-    });
+    }
 
     return { host, shadow };
   };
 
-  // --- Smart Highlighting ---
+  // --- Smart Highlighting (technical acronyms) ---
   const _highlightPattern = /\b(?:AI|ML|LLM|API|HTML|CSS|GPU|CPU|URL|HTTP|HTTPS|JSON|XML|SQL|REST|SDK|CLI|DNS|TCP|UDP|SSH|SSL|TLS|OAuth|JWT|CORS|CRUD|DOM|IoT|SaaS|AWS|GCP|NLP)\b/g;
 
   const smartHighlight = (text) => {
@@ -67,48 +60,27 @@
     return fragment;
   };
 
-  // --- Bento Grid Renderer ---
+  // --- Bento Grid Renderer (for summaries) ---
   class BentoRenderer {
-    static fragment(text) {
-      if (!text) return [];
-      const fragments = text.split(/\n\n|(?=\n[ \t]*[-*•]|\n[ \t]*\d+\.)/);
-      const refined = [];
-      for (const frag of fragments) {
-        const trimmed = frag.trim();
-        if (!trimmed) continue;
-        if (trimmed.length > 400 && !trimmed.includes('\n')) {
-          const sentences = trimmed.match(/[^.!?]+[.!?]+/g) || [trimmed];
-          for (let i = 0; i < sentences.length; i += 2) {
-            refined.push(sentences.slice(i, i + 2).join(' ').trim());
-          }
-        } else {
-          refined.push(trimmed);
-        }
-      }
-      return refined.filter(r => r.length > 5);
-    }
-
     static render(content, container) {
       const grid = document.createElement('div');
       grid.className = 'ib-bento-grid';
 
-      const fragments = this.fragment(content);
-      for (const frag of fragments) {
+      const fragments = content
+        .split(/\n\n+|(?=\n[ \t]*[-*•]|\n[ \t]*\d+\.)/)
+        .map(f => f.trim())
+        .filter(f => f.length > 5);
+
+      const items = fragments.length ? fragments : [content];
+      for (const frag of items) {
         const card = document.createElement('div');
         card.className = 'ib-bento-card';
         card.appendChild(smartHighlight(frag));
         grid.appendChild(card);
       }
-
-      if (!grid.children.length) {
-        const fallback = document.createElement('div');
-        fallback.className = 'ib-bento-card';
-        fallback.appendChild(smartHighlight(content));
-        grid.appendChild(fallback);
-      }
       container.appendChild(grid);
     }
   }
 
-  Object.assign(ib, { safeGetURL, createShadowHost, smartHighlight, BentoRenderer });
+  Object.assign(ib, { createShadowHost, smartHighlight, BentoRenderer });
 })();
