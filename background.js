@@ -1,7 +1,6 @@
 import { fetchDefinition, fetchAIResponse } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
-import { extractYouTubeTranscript, fetchAndProcessTrack } from './utils/youtubeInsight.js';
 import { translateError } from './utils/errors.js';
 
 /**
@@ -111,12 +110,5 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       return;
     }
 
-    case 'FETCH_YOUTUBE_TRANSCRIPT':
-      sendResponse({ success: true, transcript: await extractYouTubeTranscript(message.url) });
-      return;
-
-    case 'PROCESS_YOUTUBE_TRACKS':
-      sendResponse({ success: true, transcript: await fetchAndProcessTrack(message.tracks) });
-      return;
   }
 }));

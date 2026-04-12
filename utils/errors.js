@@ -8,10 +8,7 @@ const ERROR_MAP = {
   'API Error: 401': 'Invalid API key. Check your settings.',
   'API Error: 429': 'Rate limit exceeded. Try again in a few minutes.',
   'Invalid API Endpoint': 'Invalid API endpoint. Check your settings.',
-  'Selection too long': 'Selection too long for definition. Try summarizing instead.',
-  'YouTube format changed': 'YouTube layout changed. Update required.',
-  'no transcript available': 'This video has no transcript available.',
-  'Transcript data is empty': 'The transcript is empty.'
+  'Selection too long': 'Selection too long for definition. Try summarizing instead.'
 };
 
 export function translateError(error) {
