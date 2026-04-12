@@ -45,10 +45,8 @@ header {
 
 .logo {
   width: 34px; height: 34px;
-  border-radius: 10px;
-  background: var(--accent-lo);
-  display: grid; place-items: center;
-  color: var(--accent);
+  border-radius: 8px;
+  object-fit: contain;
 }
 
 .wordmark {
@@ -362,12 +360,11 @@ footer span { font-size: 10px; color: var(--text-4); }
 }
 
 .modal-icon {
-  width: 48px; height: 48px;
-  border-radius: 14px;
-  background: var(--accent-lo);
-  display: grid; place-items: center;
-  color: var(--accent);
+  width: 56px; height: 56px;
+  border-radius: 12px;
+  object-fit: contain;
   margin: 0 auto 16px;
+  display: block;
 }
 
 .modal-title {

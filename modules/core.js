@@ -1,5 +1,5 @@
 /**
- * InfoBlend AI — Core Module
+ * InfoBlend — Core Module
  * Shared utilities. Loaded once via chrome.scripting.executeScript.
  */
 (() => {

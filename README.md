@@ -1,7 +1,7 @@
-# InfoBlend AI
+# InfoBlend
 
 <div align="center">
-  <img src="icons/icon128.png" width="80" height="80" alt="InfoBlend AI">
+  <img src="icons/icon128.png" width="80" height="80" alt="InfoBlend">
 
   **Double-click any word. Get the definition instantly.**
 

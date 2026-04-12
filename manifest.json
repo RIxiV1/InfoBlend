@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "InfoBlend AI",
+  "name": "InfoBlend",
   "version": "3.0.0",
   "description": "Select any word for instant definitions. Ctrl+K to summarize any page.",
   "permissions": [

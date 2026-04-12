@@ -1,5 +1,5 @@
 /**
- * InfoBlend AI — Overlay Module
+ * InfoBlend — Overlay Module
  * tooltip mode: definitions near the word
  * panel mode: summaries in side panel
  */
@@ -351,7 +351,7 @@
   function runSummarizer(text, title = 'Summary') {
     if (!text?.trim()) return updateOverlay('Notice', 'No readable content found.', 'InfoBlend');
     ib.sendMessage({ type: 'PERFORM_SUMMARIZATION', text }, (r) => {
-      if (r?.success) updateOverlay(title, r.summary, r.method || 'InfoBlend AI');
+      if (r?.success) updateOverlay(title, r.summary, r.method || 'InfoBlend');
       else updateOverlay('Notice', r?.error || 'Summarization failed.', 'InfoBlend');
     });
   }

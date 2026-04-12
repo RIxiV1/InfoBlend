@@ -1,5 +1,5 @@
 /**
- * InfoBlend AI — Bootstrap
+ * InfoBlend — Bootstrap
  * Double-click → single word definition.
  * Select 2-3 words → compound term definition (debounced, cancelled by dblclick).
  * Ctrl+K → command palette.
