@@ -3,7 +3,9 @@
  * Shared utilities. Loaded once via chrome.scripting.executeScript.
  */
 (() => {
-  if (window.__ib?._coreLoaded) return;
+  // Re-injection guard: only skip if functions are actually present
+  // (after extension reload, flags survive but functions don't)
+  if (window.__ib?._coreLoaded && typeof window.__ib.createShadowHost === 'function') return;
 
   const ib = window.__ib;
   ib._coreLoaded = true;

@@ -196,6 +196,4 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
   return result.trim();
 };
 
-// Exported for testing
-function _resetCache() { _memCache = null; }
-export { getCachedDefinition, cacheDefinition, _resetCache, tryDictionary, tryDatamuse, tryWiktionary, tryWikipedia };
+// End of file

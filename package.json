@@ -3,8 +3,5 @@
   "type": "module",
   "name": "infoblend-ai",
   "version": "3.0.0",
-  "description": "Chrome extension for instant definitions and page summaries.",
-  "scripts": {
-    "test": "node --test tests/*.test.js"
-  }
+  "description": "Chrome extension for instant definitions and page summaries."
 }

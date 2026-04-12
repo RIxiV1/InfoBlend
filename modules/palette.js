@@ -3,7 +3,7 @@
  * Ctrl+K interface. Injected dynamically on first trigger.
  */
 (() => {
-  if (window.__ib?._paletteLoaded) return;
+  if (window.__ib?._paletteLoaded && typeof window.__ib.togglePalette === 'function') return;
 
   const ib = window.__ib;
   ib._paletteLoaded = true;
