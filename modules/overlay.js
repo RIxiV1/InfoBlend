@@ -4,7 +4,7 @@
  * panel mode: summaries in side panel
  */
 (() => {
-  if (window.__ib?._overlayLoaded) return;
+  if (window.__ib?._overlayLoaded && typeof window.__ib.showLoadingOverlay === 'function') return;
 
   const ib = window.__ib;
   ib._overlayLoaded = true;

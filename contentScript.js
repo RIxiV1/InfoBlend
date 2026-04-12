@@ -5,6 +5,11 @@
  * Ctrl+K → command palette.
  */
 (() => {
+  // After extension reload, old __ib may have stale flags but no functions
+  if (window.__ib && typeof window.__ib.showLoadingOverlay !== 'function') {
+    window.__ib.modulesLoaded = false;
+    window.__ib._loadingPromise = null;
+  }
   window.__ib = window.__ib || { modulesLoaded: false, _loadingPromise: null };
 
   const sendMessage = async (msg, cb) => {
