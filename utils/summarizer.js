@@ -3,53 +3,49 @@
  * Offloaded to the background script to bypass Content Security Policy constraints.
  */
 
+const STOP_WORDS = new Set([
+  'the', 'and', 'for', 'was', 'with', 'that', 'this', 'but', 'from', 'have', 'were',
+  'not', 'will', 'your', 'their', 'when', 'which', 'than', 'more', 'about', 'some',
+  'could', 'should', 'would', 'into', 'these', 'those', 'also', 'only', 'very',
+  'are', 'has', 'its', 'all', 'one', 'can', 'who', 'how', 'they', 'our', 'out', 'she',
+  'been', 'being', 'had', 'does', 'did', 'doing', 'each', 'other', 'such', 'what',
+  'where', 'there', 'here', 'just', 'over', 'under', 'again', 'then', 'once', 'both',
+  'same', 'own', 'most', 'many', 'much', 'any', 'few', 'get', 'got', 'made', 'make',
+  'may', 'might', 'must', 'need', 'like', 'even', 'still', 'way', 'well', 'back',
+  'his', 'her', 'him', 'them', 'you', 'said', 'say', 'says', 'new', 'use', 'used',
+  'first', 'two', 'now', 'come', 'take', 'know', 'see', 'time', 'year', 'people'
+]);
+
 export function generateIntelligentSummary(text, maxSentences = 4) {
   const raw = text || '';
-  
-  // Truncate at the last sentence boundary within the 20,000 char safety limit
+
   let truncated = raw.length > 20000 ? raw.substring(0, 20000) : raw;
   if (raw.length > 20000 && /[.!?]/.test(truncated)) {
     truncated = truncated.replace(/[^.!?]*$/, '');
   }
-    
+
   if (!truncated.trim()) return '';
 
-  // Use Intl.Segmenter for robust, locale-aware sentence segmentation
   let sentences = [];
   try {
     const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
     sentences = Array.from(segmenter.segment(truncated))
       .map(s => s.segment.trim())
       .filter(s => s.length > 0);
-  } catch (e) {
-    // Fallback if Intl.Segmenter is not available
+  } catch {
     const abbrs = /\b(Mr|Mrs|Ms|Dr|St|Prof|Jr|Sr|vs|min|max|etc|eg|ie|U\.S|U\.K|U\.N)\./gi;
-    const preProcessed = truncated.replace(abbrs, (match) => match.replace('.', '[[DOT]]'));
-    const sentencesRaw = preProcessed.match(/[^.!?]+[.!?]+/g) || [preProcessed];
-    sentences = sentencesRaw.map(s => s.replace(/\[\[DOT\]\]/g, '.').trim());
+    const preProcessed = truncated.replace(abbrs, (m) => m.replace('.', '[[DOT]]'));
+    const raw = preProcessed.match(/[^.!?]+[.!?]+/g) || [preProcessed];
+    sentences = raw.map(s => s.replace(/\[\[DOT\]\]/g, '.').trim());
   }
 
   if (sentences.length <= maxSentences) return sentences.join(' ');
-
-  // Comprehensive stop words list for accurate frequency scoring
-  const stopWords = new Set([
-     'the', 'and', 'for', 'was', 'with', 'that', 'this', 'but', 'from', 'have', 'were',
-     'not', 'will', 'your', 'their', 'when', 'which', 'than', 'more', 'about', 'some',
-     'could', 'should', 'would', 'into', 'these', 'those', 'also', 'only', 'very',
-     'are', 'has', 'its', 'all', 'one', 'can', 'who', 'how', 'they', 'our', 'out', 'she',
-     'been', 'being', 'had', 'does', 'did', 'doing', 'each', 'other', 'such', 'what',
-     'where', 'there', 'here', 'just', 'over', 'under', 'again', 'then', 'once', 'both',
-     'same', 'own', 'most', 'many', 'much', 'any', 'few', 'get', 'got', 'made', 'make',
-     'may', 'might', 'must', 'need', 'like', 'even', 'still', 'way', 'well', 'back',
-     'his', 'her', 'him', 'them', 'you', 'said', 'say', 'says', 'new', 'use', 'used',
-     'first', 'two', 'now', 'come', 'take', 'know', 'see', 'time', 'year', 'people'
-  ]);
 
   // Score sentences based on word frequency (minimum word length 3)
   const rawWords = truncated.toLowerCase().match(/\b\w{3,}\b/g) || [];
   const freq = {};
   rawWords.forEach(w => {
-    if (!stopWords.has(w)) freq[w] = (freq[w] || 0) + 1;
+    if (!STOP_WORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
   });
 
   const scores = sentences.map((s, idx) => {
