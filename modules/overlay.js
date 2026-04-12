@@ -14,12 +14,20 @@
   let _dismissHandler = null;
   let _activeAudio = null;
 
-  // --- Theme (preloaded) ---
-  let _theme = 'dark';
-  ib.getStorage(['theme']).then(s => { _theme = s.theme || 'dark'; });
+  // --- Theme ---
+  // Tooltip mode: auto-detect from page background (anchor.pageTheme)
+  // Panel mode: use stored setting (fallback to system preference)
+  let _storedTheme = 'dark';
+  ib.getStorage(['theme']).then(s => { _storedTheme = s.theme || 'dark'; });
 
-  function isDark() {
-    return _theme === 'dark' || (_theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  function resolveTheme() {
+    // Tooltip mode — use detected page theme
+    if (_anchor?.pageTheme) return _anchor.pageTheme;
+    // Panel mode — use stored setting
+    if (_storedTheme === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return _storedTheme;
   }
 
   // --- Global Escape dismiss ---
@@ -69,7 +77,7 @@
 
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
-    if (!isDark()) container.classList.add('ib-light-theme');
+    if (resolveTheme() === 'light') container.classList.add('ib-light-theme');
     positionOverlay(container);
 
     // Header
