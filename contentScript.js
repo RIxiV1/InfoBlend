@@ -1,7 +1,7 @@
 /**
  * InfoBlend AI — Bootstrap
  * Double-click → single word definition.
- * Select 2-3 words → compound term definition.
+ * Select 2-3 words → compound term definition (debounced, cancelled by dblclick).
  * Ctrl+K → command palette.
  */
 (() => {
@@ -60,34 +60,37 @@
     }
   });
 
-  // Double-click → single word definition
-  let dblClickHandled = false;
+  // --- Selection handling: dblclick for single words, debounced mouseup for compound terms ---
+  // Mouseup is debounced by 300ms. If a dblclick fires within that window, the mouseup is cancelled.
+  let mouseupTimer = null;
+
   document.addEventListener('dblclick', async (event) => {
+    // Cancel any pending compound-term lookup
+    clearTimeout(mouseupTimer);
+
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
     const sel = window.getSelection();
     const text = sel.toString().trim();
     if (!text || text.length > 40 || text.includes(' ')) return;
 
-    dblClickHandled = true;
     triggerDefinition(text, sel.getRangeAt(0).getBoundingClientRect());
   });
 
-  // Mouseup → compound term definition (2-3 words only)
-  document.addEventListener('mouseup', async (event) => {
-    // Skip if dblclick just fired (dblclick also triggers mouseup)
-    if (dblClickHandled) { dblClickHandled = false; return; }
+  document.addEventListener('mouseup', (event) => {
+    clearTimeout(mouseupTimer);
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
 
-    const sel = window.getSelection();
-    const text = sel.toString().trim();
-    if (!text) return;
+    // Delay to let dblclick fire and cancel if needed
+    mouseupTimer = setTimeout(() => {
+      const sel = window.getSelection();
+      const text = sel.toString().trim();
+      if (!text) return;
 
-    const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-    // Only trigger for 2-3 word compound terms, not single words (dblclick handles those)
-    // and not 4+ words (too long for a definition)
-    if (wordCount < 2 || wordCount > 3 || text.length > 60) return;
+      const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+      if (wordCount < 2 || wordCount > 3 || text.length > 60) return;
 
-    triggerDefinition(text, sel.getRangeAt(0).getBoundingClientRect());
+      triggerDefinition(text, sel.getRangeAt(0).getBoundingClientRect());
+    }, 300);
   });
 
   // Messages from background / popup

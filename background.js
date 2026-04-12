@@ -95,7 +95,9 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
 
     case 'PERFORM_SUMMARIZATION': {
       const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
+      let aiAttempted = false;
       if (aiKey && aiEndpoint) {
+        aiAttempted = true;
         try {
           const summary = await fetchAIResponse(message.text, aiEndpoint, aiKey, aiProvider, 'summarize');
           return sendResponse({ success: true, summary, method: `AI (${aiProvider})` });
@@ -104,7 +106,7 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       sendResponse({
         success: true,
         summary: generateIntelligentSummary(message.text),
-        method: aiKey ? 'InfoBlend Local (Fallback)' : 'InfoBlend Local'
+        method: aiAttempted ? 'InfoBlend Local (Fallback)' : 'InfoBlend Local'
       });
       return;
     }

@@ -4,11 +4,11 @@
  */
 
 const decodeHTML = (text) => {
+  // Named entities not covered by numeric replacements
   const entities = {
     '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"',
-    '&#39;': "'", '&apos;': "'", '&#x2F;': '/', '&nbsp;': ' ',
-    '&#x27;': "'", '&#x60;': '`', '&hellip;': '...', '&mdash;': '—',
-    '&ndash;': '–', '&laquo;': '«', '&raquo;': '»'
+    '&apos;': "'", '&nbsp;': ' ', '&hellip;': '...', '&mdash;': '\u2014',
+    '&ndash;': '\u2013', '&laquo;': '\u00AB', '&raquo;': '\u00BB'
   };
   return text
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))

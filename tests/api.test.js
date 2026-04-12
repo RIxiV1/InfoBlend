@@ -32,12 +32,14 @@ const mockFetch = (responses) => {
 
 if (!AbortSignal.timeout) AbortSignal.timeout = () => AbortSignal.abort();
 
-const { fetchDefinition, fetchAIResponse, getCachedDefinition, cacheDefinition } = await import('../utils/api.js');
+const api = await import('../utils/api.js');
+const { fetchDefinition, fetchAIResponse, getCachedDefinition, cacheDefinition, _resetCache } = api;
 
 describe('fetchDefinition — single word', () => {
   beforeEach(() => {
     fetchMock = { calls: [] };
     delete storageData.ib_def_cache;
+    _resetCache();
   });
 
   it('throws on selections longer than 5 words', async () => {
@@ -139,6 +141,7 @@ describe('fetchDefinition — compound terms (2-3 words)', () => {
   beforeEach(() => {
     fetchMock = { calls: [] };
     delete storageData.ib_def_cache;
+    _resetCache();
   });
 
   it('routes compound terms through Wikipedia first', async () => {
@@ -185,6 +188,7 @@ describe('fetchDefinition — compound terms (2-3 words)', () => {
 describe('LRU definition cache', () => {
   beforeEach(() => {
     delete storageData.ib_def_cache;
+    _resetCache();
   });
 
   it('caches and retrieves a definition', async () => {
@@ -226,6 +230,7 @@ describe('LRU definition cache', () => {
       term: `word${i}`, data: { title: `word${i}` }, ts: Date.now() - i
     }));
     storageData.ib_def_cache = cache;
+    _resetCache(); // force reload from storage
 
     await cacheDefinition('newword', { title: 'newword' });
     const updated = storageData.ib_def_cache;
@@ -241,6 +246,7 @@ describe('LRU definition cache', () => {
       { term: 'second', data: { title: 'second' }, ts: Date.now() - 1000 },
       { term: 'third', data: { title: 'third' }, ts: Date.now() - 2000 }
     ];
+    _resetCache(); // force reload from storage
 
     await getCachedDefinition('third');
     const updated = storageData.ib_def_cache;
