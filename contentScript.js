@@ -5,8 +5,12 @@
  * Ctrl+K → command palette.
  */
 (() => {
-  // After extension reload, old __ib may have stale flags but no functions
-  if (window.__ib && typeof window.__ib.showLoadingOverlay !== 'function') {
+  // After extension reload, old __ib may have stale flags but missing functions
+  if (window.__ib && (
+    typeof window.__ib.showLoadingOverlay !== 'function' ||
+    typeof window.__ib.togglePalette !== 'function' ||
+    typeof window.__ib.handleMessage !== 'function'
+  )) {
     window.__ib.modulesLoaded = false;
     window.__ib._loadingPromise = null;
   }

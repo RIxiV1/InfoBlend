@@ -126,19 +126,6 @@
   border-bottom: 1px solid var(--ib-border);
 }
 
-.infoblend-brand {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.infoblend-logo {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  object-fit: contain;
-}
-
 .infoblend-title {
   font-size: 13px !important;
   font-weight: 600 !important;
