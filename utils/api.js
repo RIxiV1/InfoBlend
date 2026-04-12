@@ -4,40 +4,49 @@
  * Compound terms (2+ words): Wikipedia → Wiktionary → Dictionary → Datamuse
  */
 
-// --- LRU Definition Cache ---
+// --- LRU Definition Cache (in-memory + storage persistence) ---
 const CACHE_KEY = 'ib_def_cache';
 const CACHE_MAX = 200;
+let _memCache = null; // loaded lazily from storage on first access
 
-async function getCachedDefinition(term) {
+async function loadCache() {
+  if (_memCache) return _memCache;
   try {
     const result = await chrome.storage.local.get([CACHE_KEY]);
-    const cache = result[CACHE_KEY] || [];
-    const entry = cache.find(e => e.term === term.toLowerCase());
-    if (entry) {
-      // Move to front (most recently used)
-      const idx = cache.indexOf(entry);
-      cache.splice(idx, 1);
-      cache.unshift(entry);
-      await chrome.storage.local.set({ [CACHE_KEY]: cache });
-      return entry.data;
-    }
-  } catch { /* storage unavailable */ }
-  return null;
+    _memCache = result[CACHE_KEY] || [];
+  } catch {
+    _memCache = [];
+  }
+  return _memCache;
+}
+
+async function flushCache() {
+  try { await chrome.storage.local.set({ [CACHE_KEY]: _memCache }); }
+  catch { /* storage unavailable */ }
+}
+
+async function getCachedDefinition(term) {
+  const cache = await loadCache();
+  const key = term.toLowerCase();
+  const idx = cache.findIndex(e => e.term === key);
+  if (idx < 0) return null;
+
+  // Move to front (most recently used)
+  const [entry] = cache.splice(idx, 1);
+  cache.unshift(entry);
+  // Flush async — don't block the return
+  flushCache();
+  return entry.data;
 }
 
 async function cacheDefinition(term, data) {
-  try {
-    const result = await chrome.storage.local.get([CACHE_KEY]);
-    const cache = result[CACHE_KEY] || [];
-    // Remove existing entry for this term
-    const idx = cache.findIndex(e => e.term === term.toLowerCase());
-    if (idx >= 0) cache.splice(idx, 1);
-    // Add to front
-    cache.unshift({ term: term.toLowerCase(), data, ts: Date.now() });
-    // Evict oldest if over limit
-    if (cache.length > CACHE_MAX) cache.length = CACHE_MAX;
-    await chrome.storage.local.set({ [CACHE_KEY]: cache });
-  } catch { /* storage unavailable */ }
+  const cache = await loadCache();
+  const key = term.toLowerCase();
+  const idx = cache.findIndex(e => e.term === key);
+  if (idx >= 0) cache.splice(idx, 1);
+  cache.unshift({ term: key, data, ts: Date.now() });
+  if (cache.length > CACHE_MAX) cache.length = CACHE_MAX;
+  await flushCache();
 }
 
 // --- Individual API fetchers ---
@@ -188,4 +197,5 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
 };
 
 // Exported for testing
-export { getCachedDefinition, cacheDefinition, tryDictionary, tryDatamuse, tryWiktionary, tryWikipedia };
+function _resetCache() { _memCache = null; }
+export { getCachedDefinition, cacheDefinition, _resetCache, tryDictionary, tryDatamuse, tryWiktionary, tryWikipedia };
