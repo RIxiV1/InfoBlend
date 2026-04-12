@@ -1,6 +1,7 @@
 /**
  * InfoBlend AI — Bootstrap
- * Double-click a word → definition tooltip.
+ * Double-click → single word definition.
+ * Select 2-3 words → compound term definition.
  * Ctrl+K → command palette.
  */
 (() => {
@@ -34,28 +35,11 @@
     return ib._loadingPromise;
   }
 
-  // Ctrl+K → Command Palette
-  document.addEventListener('keydown', async (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      if (await ensureModules()) window.__ib.togglePalette();
-    }
-  });
-
-  // Double-click → definition tooltip
-  document.addEventListener('dblclick', async (event) => {
-    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
-
-    const sel = window.getSelection();
-    const text = sel.toString().trim();
-    if (!text || text.length > 40 || text.includes(' ')) return;
-
+  async function triggerDefinition(text, rect) {
     const settings = await getStorage(['definitionsEnabled']);
     if (settings.definitionsEnabled === false) return;
 
-    const rect = sel.getRangeAt(0).getBoundingClientRect();
     const anchor = { x: rect.left + rect.width / 2, y: rect.bottom + 8, mode: 'tooltip' };
-
     if (await ensureModules()) {
       window.__ib.showLoadingOverlay(anchor);
       sendMessage({ type: 'FETCH_DEFINITION', word: text }, (response) => {
@@ -66,6 +50,44 @@
         }
       });
     }
+  }
+
+  // Ctrl+K → Command Palette
+  document.addEventListener('keydown', async (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      if (await ensureModules()) window.__ib.togglePalette();
+    }
+  });
+
+  // Double-click → single word definition
+  let dblClickHandled = false;
+  document.addEventListener('dblclick', async (event) => {
+    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
+    const sel = window.getSelection();
+    const text = sel.toString().trim();
+    if (!text || text.length > 40 || text.includes(' ')) return;
+
+    dblClickHandled = true;
+    triggerDefinition(text, sel.getRangeAt(0).getBoundingClientRect());
+  });
+
+  // Mouseup → compound term definition (2-3 words only)
+  document.addEventListener('mouseup', async (event) => {
+    // Skip if dblclick just fired (dblclick also triggers mouseup)
+    if (dblClickHandled) { dblClickHandled = false; return; }
+    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
+
+    const sel = window.getSelection();
+    const text = sel.toString().trim();
+    if (!text) return;
+
+    const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+    // Only trigger for 2-3 word compound terms, not single words (dblclick handles those)
+    // and not 4+ words (too long for a definition)
+    if (wordCount < 2 || wordCount > 3 || text.length > 60) return;
+
+    triggerDefinition(text, sel.getRangeAt(0).getBoundingClientRect());
   });
 
   // Messages from background / popup
