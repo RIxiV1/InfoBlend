@@ -5,7 +5,7 @@ import { extractYouTubeTranscript, fetchAndProcessTrack } from './utils/youtubeI
 import { translateError } from './utils/errors.js';
 
 /**
- * Background Service Worker for InfoBlend AI.
+ * Background Service Worker for InfoBlend.
  */
 
 // --- Context Menu (selection summarization only; double-click handles definitions) ---
