@@ -143,6 +143,20 @@ Extensions can't run on `chrome://`, `edge://`, `about:`, or browser store pages
 **Definitions are wrong or weird?**
 The primary Dictionary API may not have the word. It falls back through 4 other sources.
 
+## Tests
+
+```
+npm test
+```
+
+64 tests covering:
+- **Summarizer** — edge cases, scoring behavior, truncation, stop words, sentence ordering
+- **API** — fallback chain, response parsing for all 3 providers, error handling, input validation
+- **YouTube** — track selection priority, XML parsing, HTML entity decoding, edge cases
+- **Errors** — every ERROR_MAP entry, case insensitivity, partial matching, null/undefined handling
+
+No dependencies. Uses Node.js built-in test runner (`node:test`).
+
 ## License
 
 MIT
