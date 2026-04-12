@@ -35,11 +35,32 @@
     return ib._loadingPromise;
   }
 
+  // Detect if the page area around the selection is light or dark
+  function detectPageTheme(x, y) {
+    let el = document.elementFromPoint(x, y);
+    while (el && el !== document.documentElement) {
+      const bg = window.getComputedStyle(el).backgroundColor;
+      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+        const match = bg.match(/\d+/g);
+        if (match) {
+          const [r, g, b] = match.map(Number);
+          // Perceived luminance: 0 = black, 1 = white
+          return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? 'light' : 'dark';
+        }
+      }
+      el = el.parentElement;
+    }
+    // Fallback to system preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
   async function triggerDefinition(text, rect) {
     const settings = await getStorage(['definitionsEnabled']);
     if (settings.definitionsEnabled === false) return;
 
-    const anchor = { x: rect.left + rect.width / 2, y: rect.bottom + 8, mode: 'tooltip' };
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const anchor = { x: cx, y: rect.bottom + 8, mode: 'tooltip', pageTheme: detectPageTheme(cx, cy) };
     if (await ensureModules()) {
       window.__ib.showLoadingOverlay(anchor);
       sendMessage({ type: 'FETCH_DEFINITION', word: text }, (response) => {
