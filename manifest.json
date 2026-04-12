@@ -32,7 +32,8 @@
         "utils/*.js",
         "modules/*.js",
         "styles/*.css",
-        "overlay/*.css"
+        "overlay/*.css",
+        "icons/*.png"
       ],
       "matches": ["<all_urls>"]
     }
