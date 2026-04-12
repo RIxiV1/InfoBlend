@@ -122,12 +122,36 @@
     const def = document.createElement('div');
     def.className = 'ib-definition';
 
-    // Word + phonetic
-    if (data.phonetic) {
-      const phonetic = document.createElement('div');
-      phonetic.className = 'ib-def-phonetic';
-      phonetic.textContent = data.phonetic;
-      def.appendChild(phonetic);
+    // Phonetic + audio
+    if (data.phonetic || data.audioUrl) {
+      const row = document.createElement('div');
+      row.className = 'ib-def-phonetic-row';
+
+      if (data.phonetic) {
+        const phonetic = document.createElement('span');
+        phonetic.className = 'ib-def-phonetic';
+        phonetic.textContent = data.phonetic;
+        row.appendChild(phonetic);
+      }
+
+      if (data.audioUrl) {
+        const audioBtn = document.createElement('button');
+        audioBtn.className = 'infoblend-btn ib-def-audio';
+        audioBtn.setAttribute('aria-label', 'Play pronunciation');
+        audioBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+        let audio = null;
+        audioBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (!audio) audio = new Audio(data.audioUrl);
+          audio.currentTime = 0;
+          audio.play().catch(() => {});
+          audioBtn.classList.add('ib-audio-playing');
+          audio.onended = () => audioBtn.classList.remove('ib-audio-playing');
+        };
+        row.appendChild(audioBtn);
+      }
+
+      def.appendChild(row);
     }
 
     // Meanings
@@ -216,7 +240,7 @@
         link.textContent = `${source} \u2197`;
         src.appendChild(link);
       } else {
-        src.textContent = source;
+        src.textContent = extra.fromCache ? `${source} · cached` : source;
       }
       contentDiv.appendChild(src);
     }

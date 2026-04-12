@@ -283,11 +283,34 @@
   padding: 2px;
 }
 
+.ib-def-phonetic-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .ib-def-phonetic {
   font-size: 12px !important;
   color: var(--ib-text-dim) !important;
   font-style: italic;
   letter-spacing: 0.02em;
+}
+
+.ib-def-audio {
+  color: var(--ib-text-dim) !important;
+  padding: 3px !important;
+  border-radius: 50% !important;
+  transition: color 0.12s, background 0.12s !important;
+}
+
+.ib-def-audio:hover {
+  color: var(--ib-accent-color) !important;
+  background: var(--ib-accent-low) !important;
+}
+
+.ib-def-audio.ib-audio-playing {
+  color: var(--ib-accent-color) !important;
+  background: var(--ib-accent-low) !important;
 }
 
 .ib-def-meaning {
