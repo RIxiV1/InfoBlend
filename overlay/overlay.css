@@ -1,90 +1,82 @@
 /**
- * InfoBlend AI — Command Palette Styles
- * Consistent with content overlay design tokens.
+ * InfoBlend AI — Command Palette
  */
 
 :host {
-  --palette-bg: #161616;
-  --palette-border: rgba(255, 255, 255, 0.08);
-  --palette-shadow: 0 40px 100px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  --item-hover: rgba(255, 255, 255, 0.06);
-  --item-selected-bg: rgba(245, 166, 35, 0.1);
-  --item-selected-border: rgba(245, 166, 35, 0.3);
-  --text-main: #e0e0e0;
-  --text-dim: #888888;
-  --text-faint: rgba(255, 255, 255, 0.3);
-  --accent-color: #f5a623;
-  --backdrop-bg: rgba(0, 0, 0, 0.4);
-  --hint-bg: rgba(255, 255, 255, 0.08);
-  --font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
+  --bg: #1c1c1e;
+  --border: rgba(255,255,255,0.08);
+  --shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+  --hover: rgba(255,255,255,0.06);
+  --selected-bg: rgba(94,156,255,0.1);
+  --selected-border: rgba(94,156,255,0.3);
+  --text: #f0f0f0;
+  --text-2: #a1a1a6;
+  --text-3: #636366;
+  --accent: #5e9cff;
+  --backdrop: rgba(0,0,0,0.4);
+  --hint-bg: rgba(255,255,255,0.07);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
-/* ─── Light Mode ─── */
 .ib-palette-overlay.ib-light-theme {
-  --palette-bg: #ffffff;
-  --palette-border: rgba(0, 0, 0, 0.08);
-  --palette-shadow: 0 24px 48px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
-  --item-hover: rgba(0, 0, 0, 0.04);
-  --item-selected-bg: rgba(245, 166, 35, 0.08);
-  --item-selected-border: rgba(245, 166, 35, 0.25);
-  --text-main: #1a1714;
-  --text-dim: #777777;
-  --text-faint: rgba(0, 0, 0, 0.2);
-  --backdrop-bg: rgba(0, 0, 0, 0.15);
-  --hint-bg: rgba(0, 0, 0, 0.06);
+  --bg: #ffffff;
+  --border: rgba(0,0,0,0.08);
+  --shadow: 0 16px 40px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.06);
+  --hover: rgba(0,0,0,0.04);
+  --selected-bg: rgba(0,113,227,0.06);
+  --selected-border: rgba(0,113,227,0.25);
+  --text: #1d1d1f;
+  --text-2: #86868b;
+  --text-3: #aeaeb2;
+  --accent: #0071e3;
+  --backdrop: rgba(0,0,0,0.15);
+  --hint-bg: rgba(0,0,0,0.05);
 }
 
-/* ─── Backdrop ─── */
 .ib-palette-overlay {
   position: fixed;
   inset: 0;
-  background: var(--backdrop-bg);
-  backdrop-filter: blur(8px) saturate(120%);
-  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  background: var(--backdrop);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 2147483647;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 18vh;
-  pointer-events: auto;
-  animation: ibOverlayFade 0.2s ease-out;
+  padding-top: 20vh;
+  animation: fadeIn 0.15s ease;
 }
 
-@keyframes ibOverlayFade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* ─── Palette Container ─── */
 .ib-palette {
   width: 100%;
-  max-width: 560px;
-  background: var(--palette-bg);
-  border: 1px solid var(--palette-border);
-  border-radius: 16px;
-  box-shadow: var(--palette-shadow);
-  color: var(--text-main);
-  font-family: var(--font-mono);
+  max-width: 520px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-family: var(--font);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: 76vh;
-  animation: ibPaletteIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 70vh;
+  animation: paletteIn 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
-@keyframes ibPaletteIn {
-  from { transform: scale(0.95) translateY(-8px); opacity: 0; }
+@keyframes paletteIn {
+  from { transform: scale(0.97) translateY(-6px); opacity: 0; }
   to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 
-/* ─── Search Bar ─── */
 .ib-palette-search {
-  padding: 16px 20px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  border-bottom: 1px solid var(--palette-border);
-  color: var(--text-dim);
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
 }
 
 .ib-palette-input {
@@ -93,115 +85,96 @@
   border: none !important;
   outline: none !important;
   font-family: inherit !important;
-  font-size: 16px !important;
-  color: var(--text-main) !important;
+  font-size: 15px !important;
+  color: var(--text) !important;
   padding: 0;
-  caret-color: var(--accent-color);
+  caret-color: var(--accent);
 }
 
 .ib-palette-input::placeholder {
-  color: var(--text-faint);
+  color: var(--text-3);
   font-size: 14px !important;
 }
 
-/* ─── Results ─── */
 .ib-palette-results {
-  max-height: 320px;
+  max-height: 280px;
   overflow-y: auto;
   padding: 6px;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
-.ib-palette-results::-webkit-scrollbar { display: none; }
+.ib-palette-results::-webkit-scrollbar { width: 4px; }
+.ib-palette-results::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 .ib-palette-item {
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  transition: background 0.12s ease, box-shadow 0.12s ease;
+  transition: background 0.1s;
   margin-bottom: 2px;
   border: 1px solid transparent;
 }
 
-.ib-palette-item:hover {
-  background: var(--item-hover);
-}
+.ib-palette-item:hover { background: var(--hover); }
 
 .ib-palette-item.selected {
-  background: var(--item-selected-bg);
-  border-color: var(--item-selected-border);
+  background: var(--selected-bg);
+  border-color: var(--selected-border);
 }
 
-.ib-palette-item.selected .ib-palette-label {
-  color: var(--text-main);
-  font-weight: 500;
-}
+.ib-palette-item.selected .ib-palette-label { font-weight: 500; }
 
-.ib-palette-item-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+.ib-palette-item-left { display: flex; align-items: center; gap: 10px; }
+.ib-palette-label { font-size: 14px; color: var(--text); }
 
-.ib-palette-label {
-  font-size: 13.5px;
-  color: var(--text-main);
-}
-
-/* ─── Hint Badges ─── */
 .ib-palette-hint {
   font-size: 10px;
-  color: var(--text-dim);
+  font-weight: 500;
+  color: var(--text-3);
   background: var(--hint-bg);
   padding: 3px 8px;
-  border-radius: 5px;
+  border-radius: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
-/* ─── Footer ─── */
 .ib-palette-footer {
-  padding: 10px 20px;
-  border-top: 1px solid var(--palette-border);
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
   display: flex;
-  gap: 16px;
-  background: transparent;
+  gap: 14px;
 }
 
 .ib-key-hint {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--text-3);
   display: flex;
   align-items: center;
   gap: 5px;
-  white-space: nowrap;
 }
 
 .ib-key-box {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
+  min-width: 18px;
   background: var(--hint-bg);
-  border: 1px solid var(--palette-border);
+  border: 1px solid var(--border);
   border-bottom-width: 2px;
-  padding: 1px 5px;
+  padding: 2px 5px;
   border-radius: 4px;
-  color: var(--text-dim);
+  color: var(--text-3);
   font-size: 10px;
   font-weight: 600;
-  font-family: inherit;
 }
 
-/* ─── Empty State ─── */
 .ib-palette-empty {
-  padding: 24px 16px;
+  padding: 20px;
   text-align: center;
-  color: var(--text-faint);
+  color: var(--text-3);
   font-size: 13px;
-  font-style: italic;
 }
