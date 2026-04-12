@@ -1,5 +1,5 @@
 /**
- * Popup logic for InfoBlend AI.
+ * Popup logic for InfoBlend.
  * Settings: definitions toggle, AI engine config, theme.
  */
 import { getStorageData, setStorageData } from '../utils/storage.js';

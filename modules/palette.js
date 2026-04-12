@@ -1,5 +1,5 @@
 /**
- * InfoBlend AI — Command Palette
+ * InfoBlend — Command Palette
  * Ctrl+K interface. Injected dynamically on first trigger.
  */
 (() => {
