@@ -9,84 +9,84 @@
 <body>
 
   <header>
-    <div>
-      <div class="wordmark-top">Info<em>Blend</em></div>
-      <div class="wordmark-sub">Select any word. Get answers.</div>
+    <div class="header-left">
+      <div class="logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="wordmark">Info<em>Blend</em></div>
+        <div class="tagline">Double-click any word</div>
+      </div>
     </div>
-    <div class="status-pill">
-      <div class="status-dot"></div>
-      <span class="status-label">Active</span>
+    <div class="status">
+      <span class="status-dot"></span>
     </div>
   </header>
 
+  <!-- Hero action -->
+  <button id="summarizeBtn" class="hero-btn">
+    <div class="hero-content">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+      <span>Summarize this page</span>
+    </div>
+    <kbd>Ctrl+K</kbd>
+  </button>
+
   <main>
-
-    <!-- Summarize -->
-    <button id="summarizeBtn" class="summarize-btn">
-      <div class="sum-left">
-        <div class="sum-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-          </svg>
-        </div>
-        <div>
-          <div class="sum-title">Summarize This Page</div>
-          <div class="sum-desc">Or press Ctrl+K for the command palette</div>
-        </div>
+    <!-- Toggle -->
+    <label class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">Auto-definitions</span>
+        <span class="setting-hint">Double-click a word to see its meaning</span>
       </div>
-      <span class="sum-arrow">&rarr;</span>
-    </button>
-
-    <div class="divider"></div>
-
-    <!-- Definitions Toggle -->
-    <label class="toggle-row">
-      <div class="toggle-info">
-        <span class="toggle-name">Auto-Definitions</span>
-        <span class="toggle-desc">Show definitions when you select a word</span>
-      </div>
-      <div class="pill">
+      <div class="toggle">
         <input type="checkbox" id="definitionsEnabled" checked>
-        <div class="pill-track"></div>
+        <span class="toggle-track"></span>
       </div>
     </label>
 
-    <div class="divider"></div>
-
-    <!-- Engine Settings -->
-    <div class="section">
-      <div class="section-label">AI Engine <span class="optional-tag">optional</span></div>
-      <div class="engine-grid">
-        <div class="field">
-          <label class="field-key" for="aiProvider">Provider</label>
-          <div class="select-wrap">
-            <select id="aiProvider">
-              <option value="gemini">Google Gemini</option>
-              <option value="openai">OpenAI</option>
-              <option value="generic">Custom</option>
-            </select>
+    <!-- AI Config (collapsible) -->
+    <details class="config-panel">
+      <summary class="config-header">
+        <span>AI Engine</span>
+        <span class="config-badge">optional</span>
+      </summary>
+      <div class="config-body">
+        <div class="config-grid">
+          <div class="input-group">
+            <label for="aiProvider">Provider</label>
+            <div class="select-wrap">
+              <select id="aiProvider">
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+                <option value="generic">Custom</option>
+              </select>
+            </div>
+          </div>
+          <div class="input-group">
+            <label for="aiKey">API Key</label>
+            <input type="password" id="aiKey" placeholder="sk-..." spellcheck="false">
+          </div>
+          <div class="input-group full">
+            <label for="aiEndpoint">Endpoint URL</label>
+            <input type="text" id="aiEndpoint" placeholder="https://api.provider.com/v1/..." spellcheck="false">
           </div>
         </div>
-        <div class="field">
-          <label class="field-key" for="aiKey">API Key</label>
-          <input type="password" id="aiKey" placeholder="sk-..." spellcheck="false">
-        </div>
-        <div class="field field-full">
-          <label class="field-key" for="aiEndpoint">Endpoint</label>
-          <input type="text" id="aiEndpoint" placeholder="https://api.provider.com/v1/..." spellcheck="false">
-        </div>
+        <p class="config-note">Without a key, summaries use local extraction.</p>
       </div>
-      <p class="engine-note">Without an API key, summaries use a local extractive algorithm.</p>
-    </div>
+    </details>
 
-    <div class="divider"></div>
-
-    <!-- Theme (applies to summary panel; definitions auto-match the page) -->
-    <div class="theme-row">
-      <label class="field-key" for="theme">Summary theme</label>
+    <!-- Theme -->
+    <label class="setting-row">
+      <span class="setting-label">Summary theme</span>
       <div class="select-wrap select-sm">
         <select id="theme">
           <option value="system" selected>Auto</option>
@@ -94,10 +94,9 @@
           <option value="light">Light</option>
         </select>
       </div>
-    </div>
+    </label>
 
-    <button id="saveBtn" class="save-btn">Save</button>
-
+    <button id="saveBtn" class="save-btn">Save settings</button>
   </main>
 
   <footer>
@@ -107,13 +106,18 @@
 
   <div id="onboardingModal" class="modal">
     <div class="modal-box">
-      <div class="modal-eyebrow">Welcome</div>
-      <div class="modal-heading">Meet <em>InfoBlend</em></div>
-      <p class="modal-body">Your browsing, augmented.</p>
-      <ul class="modal-tips">
-        <li>Select any word for an instant definition.</li>
-        <li>Press <strong>Ctrl+K</strong> to summarize the page.</li>
-        <li>Add an AI key for smarter summaries.</li>
+      <div class="modal-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </div>
+      <h2 class="modal-title">Welcome to <em>InfoBlend</em></h2>
+      <p class="modal-desc">Your browsing, augmented.</p>
+      <ul class="modal-list">
+        <li>Double-click any word for an instant definition</li>
+        <li>Press <strong>Ctrl+K</strong> to summarize any page</li>
+        <li>Add an AI key for smarter results</li>
       </ul>
       <button id="closeOnboarding" class="modal-cta">Get started</button>
     </div>
