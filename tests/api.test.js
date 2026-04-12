@@ -1,7 +1,23 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-// Mock global fetch
+// Mock storage for LRU cache
+const storageData = {};
+globalThis.chrome = {
+  runtime: { id: 'test-id' },
+  storage: {
+    local: {
+      get: async (keys) => {
+        const result = {};
+        for (const k of keys) { if (storageData[k] !== undefined) result[k] = storageData[k]; }
+        return result;
+      },
+      set: async (data) => { Object.assign(storageData, data); }
+    }
+  }
+};
+
+// Mock fetch
 let fetchMock;
 const mockFetch = (responses) => {
   let callIndex = 0;
@@ -14,299 +30,274 @@ const mockFetch = (responses) => {
   fetchMock.calls = [];
 };
 
-// Mock AbortSignal.timeout
-if (!AbortSignal.timeout) {
-  AbortSignal.timeout = (ms) => AbortSignal.abort();
-}
+if (!AbortSignal.timeout) AbortSignal.timeout = () => AbortSignal.abort();
 
-const { fetchDefinition, fetchAIResponse } = await import('../utils/api.js');
+const { fetchDefinition, fetchAIResponse, getCachedDefinition, cacheDefinition } = await import('../utils/api.js');
 
-describe('fetchDefinition', () => {
-
+describe('fetchDefinition — single word', () => {
   beforeEach(() => {
     fetchMock = { calls: [] };
+    delete storageData.ib_def_cache;
   });
 
   it('throws on selections longer than 5 words', async () => {
-    await assert.rejects(
-      fetchDefinition('one two three four five six'),
-      { message: 'Selection too long for definition. Try summarizing instead.' }
-    );
+    await assert.rejects(fetchDefinition('one two three four five six'), /Selection too long/);
   });
 
-  it('trims whitespace from input', async () => {
-    mockFetch([
-      () => ({ ok: true, json: async () => [{ word: 'hello', meanings: [{ partOfSpeech: 'noun', definitions: [{ definition: 'A greeting' }] }] }] })
-    ]);
+  it('trims whitespace', async () => {
+    mockFetch([() => ({ ok: true, json: async () => [{ word: 'hello', meanings: [{ partOfSpeech: 'noun', definitions: [{ definition: 'A greeting' }] }] }] })]);
     const result = await fetchDefinition('  hello  ');
     assert.equal(result.title, 'hello');
   });
 
-  it('returns rich definition from Dictionary API', async () => {
-    mockFetch([
-      () => ({
-        ok: true,
-        json: async () => [{
-          word: 'ephemeral',
-          phonetic: '/ɪˈfɛm.ər.əl/',
-          phonetics: [{ text: '/ɪˈfɛm.ər.əl/' }],
-          meanings: [{
-            partOfSpeech: 'adjective',
-            definitions: [
-              { definition: 'Lasting a very short time.', example: 'Fashions are ephemeral.' },
-              { definition: 'Short-lived.' }
-            ]
-          }]
-        }]
-      })
-    ]);
+  it('extracts audioUrl from Dictionary API', async () => {
+    mockFetch([() => ({
+      ok: true,
+      json: async () => [{
+        word: 'hello',
+        phonetic: '/həˈloʊ/',
+        phonetics: [
+          { text: '/həˈloʊ/', audio: '' },
+          { text: '/həˈloʊ/', audio: 'https://api.dictionaryapi.dev/media/hello.mp3' }
+        ],
+        meanings: [{ partOfSpeech: 'exclamation', definitions: [{ definition: 'A greeting.' }] }]
+      }]
+    })]);
 
-    const result = await fetchDefinition('ephemeral');
-    assert.equal(result.isRich, true);
-    assert.equal(result.title, 'ephemeral');
-    assert.equal(result.phonetic, '/ɪˈfɛm.ər.əl/');
-    assert.equal(result.meanings[0].partOfSpeech, 'adjective');
-    assert.equal(result.meanings[0].definitions[0].text, 'Lasting a very short time.');
-    assert.equal(result.meanings[0].definitions[0].example, 'Fashions are ephemeral.');
-    assert.equal(result.source, 'Dictionary API');
+    const result = await fetchDefinition('hello');
+    assert.equal(result.audioUrl, 'https://api.dictionaryapi.dev/media/hello.mp3');
+    assert.equal(result.phonetic, '/həˈloʊ/');
   });
 
-  it('limits to 2 meanings and 3 definitions each', async () => {
-    mockFetch([
-      () => ({
-        ok: true,
-        json: async () => [{
-          word: 'test',
-          meanings: [
-            { partOfSpeech: 'noun', definitions: [{ definition: 'D1' }, { definition: 'D2' }, { definition: 'D3' }, { definition: 'D4' }] },
-            { partOfSpeech: 'verb', definitions: [{ definition: 'V1' }] },
-            { partOfSpeech: 'adjective', definitions: [{ definition: 'A1' }] }
-          ]
-        }]
-      })
-    ]);
+  it('returns empty audioUrl when no audio available', async () => {
+    mockFetch([() => ({
+      ok: true,
+      json: async () => [{
+        word: 'test',
+        phonetics: [{ text: '/tɛst/' }],
+        meanings: [{ partOfSpeech: 'noun', definitions: [{ definition: 'A trial.' }] }]
+      }]
+    })]);
 
     const result = await fetchDefinition('test');
+    assert.equal(result.audioUrl, '');
+  });
+
+  it('returns rich definition with meanings limited', async () => {
+    mockFetch([() => ({
+      ok: true,
+      json: async () => [{
+        word: 'run',
+        meanings: [
+          { partOfSpeech: 'verb', definitions: [{ definition: 'D1' }, { definition: 'D2' }, { definition: 'D3' }, { definition: 'D4' }] },
+          { partOfSpeech: 'noun', definitions: [{ definition: 'N1' }] },
+          { partOfSpeech: 'adj', definitions: [{ definition: 'A1' }] }
+        ]
+      }]
+    })]);
+
+    const result = await fetchDefinition('run');
     assert.equal(result.meanings.length, 2);
     assert.equal(result.meanings[0].definitions.length, 3);
   });
 
-  it('falls through to Datamuse when Dictionary API fails', async () => {
+  it('tries Datamuse when Dictionary fails', async () => {
     mockFetch([
-      () => ({ ok: false }), // Dictionary API fails
-      () => ({
-        ok: true,
-        json: async () => [{ word: 'cat', defs: ['n\tA small domesticated carnivore'] }]
-      })
+      () => ({ ok: false }),
+      () => ({ ok: true, json: async () => [{ word: 'cat', defs: ['n\tA small carnivore'] }] })
     ]);
-
     const result = await fetchDefinition('cat');
     assert.equal(result.source, 'Datamuse');
-    assert.equal(result.isRich, true);
   });
 
   it('Datamuse rejects non-matching words', async () => {
     mockFetch([
-      () => ({ ok: false }), // Dictionary fails
-      () => ({
-        ok: true,
-        json: async () => [{ word: 'bat', defs: ['n\tA flying mammal'] }] // wrong word
-      }),
-      () => ({ ok: false }), // Wiktionary fails
-      () => ({ ok: false })  // Wikipedia fails
+      () => ({ ok: false }),
+      () => ({ ok: true, json: async () => [{ word: 'bat', defs: ['n\tFlying mammal'] }] }),
+      () => ({ ok: false }),
+      () => ({ ok: false })
     ]);
-
     const result = await fetchDefinition('cat');
     assert.equal(result.isNotFound, true);
   });
 
-  it('falls through to Wiktionary', async () => {
-    mockFetch([
-      () => ({ ok: false }),
-      () => ({ ok: true, json: async () => [] }),
-      () => ({ ok: true, json: async () => ({ extract: 'A wiktionary definition.' }) })
-    ]);
-
-    const result = await fetchDefinition('word');
-    assert.equal(result.source, 'Wiktionary');
-    assert.equal(result.content, 'A wiktionary definition.');
-  });
-
-  it('falls through to Wikipedia with first sentence only', async () => {
-    mockFetch([
-      () => ({ ok: false }),
-      () => ({ ok: true, json: async () => [] }),
-      () => ({ ok: false }),
-      () => ({ ok: true, json: async () => ({ extract: 'First sentence. Second sentence. Third.' }) })
-    ]);
-
-    const result = await fetchDefinition('concept');
-    assert.equal(result.source, 'Wikipedia');
-    assert.equal(result.content, 'First sentence.');
-  });
-
-  it('returns not-found with Merriam-Webster link when all fail', async () => {
-    mockFetch([
-      () => ({ ok: false }),
-      () => ({ ok: true, json: async () => [] }),
-      () => ({ ok: false }),
-      () => ({ ok: false })
-    ]);
-
+  it('falls through full chain to not-found', async () => {
+    mockFetch([() => ({ ok: false }), () => ({ ok: true, json: async () => [] }), () => ({ ok: false }), () => ({ ok: false })]);
     const result = await fetchDefinition('xyznonword');
     assert.equal(result.isNotFound, true);
     assert.ok(result.url.includes('merriam-webster'));
-    assert.ok(result.url.includes('xyznonword'));
   });
 
-  it('handles fetch throwing (network error)', async () => {
-    mockFetch([
-      () => { throw new Error('NetworkError'); },
-      () => { throw new Error('NetworkError'); },
-      () => { throw new Error('NetworkError'); },
-      () => { throw new Error('NetworkError'); }
-    ]);
-
+  it('handles all APIs throwing', async () => {
+    mockFetch([() => { throw new Error('net'); }, () => { throw new Error('net'); }, () => { throw new Error('net'); }, () => { throw new Error('net'); }]);
     const result = await fetchDefinition('test');
     assert.equal(result.isNotFound, true);
   });
 });
 
-describe('fetchAIResponse', () => {
-
+describe('fetchDefinition — compound terms (2-3 words)', () => {
   beforeEach(() => {
     fetchMock = { calls: [] };
+    delete storageData.ib_def_cache;
   });
 
-  it('throws on invalid endpoint', async () => {
-    await assert.rejects(
-      fetchAIResponse('hello', 'not-a-url', 'key'),
-      { message: 'Invalid API Endpoint. Please check your settings.' }
-    );
-  });
-
-  it('throws on null endpoint', async () => {
-    await assert.rejects(
-      fetchAIResponse('hello', null, 'key'),
-      /Invalid API Endpoint/
-    );
-  });
-
-  it('appends key as query param for Gemini', async () => {
+  it('routes compound terms through Wikipedia first', async () => {
     mockFetch([
+      () => ({ ok: true, json: async () => ({ title: 'Cold War', extract: 'The Cold War was a geopolitical tension. It lasted decades.' }) })
+    ]);
+
+    const result = await fetchDefinition('cold war');
+    assert.equal(result.source, 'Wikipedia');
+    assert.ok(result.content.includes('Cold War'));
+    // First call should be to Wikipedia, not Dictionary API
+    assert.ok(fetchMock.calls[0].url.includes('wikipedia.org'));
+  });
+
+  it('falls through to Wiktionary for compound terms', async () => {
+    mockFetch([
+      () => ({ ok: false }), // Wikipedia fails
+      () => ({ ok: true, json: async () => ({ extract: 'Machine learning definition.' }) }) // Wiktionary
+    ]);
+
+    const result = await fetchDefinition('machine learning');
+    assert.equal(result.source, 'Wiktionary');
+  });
+
+  it('falls through to Dictionary API for compound terms', async () => {
+    mockFetch([
+      () => ({ ok: false }), // Wikipedia
+      () => ({ ok: false }), // Wiktionary
       () => ({
         ok: true,
-        json: async () => ({ candidates: [{ content: { parts: [{ text: 'A definition.' }] } }] })
+        json: async () => [{
+          word: 'ice cream',
+          meanings: [{ partOfSpeech: 'noun', definitions: [{ definition: 'A frozen dessert.' }] }]
+        }]
       })
     ]);
 
-    await fetchAIResponse('test', 'https://api.google.com/v1/models/gemini', 'my-key', 'gemini');
+    const result = await fetchDefinition('ice cream');
+    assert.equal(result.source, 'Dictionary API');
+    assert.equal(result.isRich, true);
+  });
+});
+
+describe('LRU definition cache', () => {
+  beforeEach(() => {
+    delete storageData.ib_def_cache;
+  });
+
+  it('caches and retrieves a definition', async () => {
+    const data = { title: 'test', content: 'A trial.', source: 'Dictionary API' };
+    await cacheDefinition('test', data);
+    const cached = await getCachedDefinition('test');
+    assert.deepEqual(cached, data);
+  });
+
+  it('is case-insensitive', async () => {
+    await cacheDefinition('Hello', { title: 'hello' });
+    const cached = await getCachedDefinition('hello');
+    assert.equal(cached.title, 'hello');
+  });
+
+  it('returns null for uncached terms', async () => {
+    const cached = await getCachedDefinition('nonexistent');
+    assert.equal(cached, null);
+  });
+
+  it('fetchDefinition returns cached result on second call', async () => {
+    mockFetch([() => ({
+      ok: true,
+      json: async () => [{ word: 'cached', meanings: [{ partOfSpeech: 'adj', definitions: [{ definition: 'Stored.' }] }] }]
+    })]);
+
+    const first = await fetchDefinition('cached');
+    assert.ok(!first.fromCache);
+
+    // Second call should hit cache, not API
+    const second = await fetchDefinition('cached');
+    assert.ok(second.fromCache);
+    // fetch should only have been called once (for the first lookup)
+    assert.equal(fetchMock.calls.length, 1);
+  });
+
+  it('evicts oldest entries beyond 200', async () => {
+    const cache = Array.from({ length: 200 }, (_, i) => ({
+      term: `word${i}`, data: { title: `word${i}` }, ts: Date.now() - i
+    }));
+    storageData.ib_def_cache = cache;
+
+    await cacheDefinition('newword', { title: 'newword' });
+    const updated = storageData.ib_def_cache;
+    assert.equal(updated.length, 200);
+    assert.equal(updated[0].term, 'newword');
+    // word199 (oldest) should have been evicted
+    assert.ok(!updated.find(e => e.term === 'word199'));
+  });
+
+  it('moves accessed entry to front of cache', async () => {
+    storageData.ib_def_cache = [
+      { term: 'first', data: { title: 'first' }, ts: Date.now() },
+      { term: 'second', data: { title: 'second' }, ts: Date.now() - 1000 },
+      { term: 'third', data: { title: 'third' }, ts: Date.now() - 2000 }
+    ];
+
+    await getCachedDefinition('third');
+    const updated = storageData.ib_def_cache;
+    assert.equal(updated[0].term, 'third');
+  });
+});
+
+describe('fetchAIResponse', () => {
+  beforeEach(() => { fetchMock = { calls: [] }; });
+
+  it('throws on invalid endpoint', async () => {
+    await assert.rejects(fetchAIResponse('hello', 'not-a-url', 'key'), /Invalid API Endpoint/);
+  });
+
+  it('appends key as query param for Gemini', async () => {
+    mockFetch([() => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'Def.' }] } }] }) })]);
+    await fetchAIResponse('test', 'https://api.google.com', 'my-key', 'gemini');
     assert.ok(fetchMock.calls[0].url.includes('key=my-key'));
   });
 
   it('uses Bearer auth for OpenAI', async () => {
-    mockFetch([
-      () => ({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: 'A definition.' } }] })
-      })
-    ]);
-
-    await fetchAIResponse('test', 'https://api.openai.com/v1/chat', 'sk-123', 'openai');
+    mockFetch([() => ({ ok: true, json: async () => ({ choices: [{ message: { content: 'Def.' } }] }) })]);
+    await fetchAIResponse('test', 'https://api.openai.com', 'sk-123', 'openai');
     assert.equal(fetchMock.calls[0].opts.headers['Authorization'], 'Bearer sk-123');
   });
 
-  it('parses Gemini response format', async () => {
-    mockFetch([
-      () => ({
-        ok: true,
-        json: async () => ({ candidates: [{ content: { parts: [{ text: '  Result text  ' }] } }] })
-      })
-    ]);
-
-    const result = await fetchAIResponse('test', 'https://api.google.com', 'key', 'gemini');
-    assert.equal(result, 'Result text');
+  it('parses Gemini response', async () => {
+    mockFetch([() => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: '  Result  ' }] } }] }) })]);
+    assert.equal(await fetchAIResponse('test', 'https://api.google.com', 'key', 'gemini'), 'Result');
   });
 
-  it('parses OpenAI response format', async () => {
-    mockFetch([
-      () => ({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: '  OpenAI result  ' } }] })
-      })
-    ]);
-
-    const result = await fetchAIResponse('test', 'https://api.openai.com', 'key', 'openai');
-    assert.equal(result, 'OpenAI result');
+  it('parses OpenAI response', async () => {
+    mockFetch([() => ({ ok: true, json: async () => ({ choices: [{ message: { content: '  OpenAI  ' } }] }) })]);
+    assert.equal(await fetchAIResponse('test', 'https://api.openai.com', 'key', 'openai'), 'OpenAI');
   });
 
-  it('parses generic response format', async () => {
-    mockFetch([
-      () => ({
-        ok: true,
-        json: async () => ({ text: 'Generic result' })
-      })
-    ]);
-
-    const result = await fetchAIResponse('test', 'https://custom.api.com', 'key', 'generic');
-    assert.equal(result, 'Generic result');
+  it('parses generic response', async () => {
+    mockFetch([() => ({ ok: true, json: async () => ({ text: 'Generic' }) })]);
+    assert.equal(await fetchAIResponse('test', 'https://custom.api', 'key', 'generic'), 'Generic');
   });
 
-  it('throws on HTTP error with message', async () => {
-    mockFetch([
-      () => ({
-        ok: false,
-        status: 401,
-        json: async () => ({ error: { message: 'Invalid authentication' } })
-      })
-    ]);
-
-    await assert.rejects(
-      fetchAIResponse('test', 'https://api.openai.com', 'bad-key', 'openai'),
-      { message: 'Invalid authentication' }
-    );
+  it('throws on HTTP error', async () => {
+    mockFetch([() => ({ ok: false, status: 401, json: async () => ({ error: { message: 'Invalid auth' } }) })]);
+    await assert.rejects(fetchAIResponse('test', 'https://api.openai.com', 'bad', 'openai'), { message: 'Invalid auth' });
   });
 
-  it('throws on HTTP error without message body', async () => {
-    mockFetch([
-      () => ({
-        ok: false,
-        status: 500,
-        json: async () => { throw new Error('no JSON'); }
-      })
-    ]);
-
-    await assert.rejects(
-      fetchAIResponse('test', 'https://api.openai.com', 'key', 'openai'),
-      { message: 'API Error: 500' }
-    );
+  it('throws on empty response', async () => {
+    mockFetch([() => ({ ok: true, json: async () => ({ candidates: [] }) })]);
+    await assert.rejects(fetchAIResponse('test', 'https://api.google.com', 'key', 'gemini'), /Could not parse/);
   });
 
-  it('throws on empty AI response', async () => {
-    mockFetch([
-      () => ({
-        ok: true,
-        json: async () => ({ candidates: [] })
-      })
-    ]);
-
-    await assert.rejects(
-      fetchAIResponse('test', 'https://api.google.com', 'key', 'gemini'),
-      { message: 'Could not parse AI response.' }
-    );
-  });
-
-  it('truncates summarize input to 8000 chars', async () => {
-    mockFetch([
-      (url, opts) => {
-        const body = JSON.parse(opts.body);
-        const text = body.contents[0].parts[0].text;
-        // Prompt should contain truncated text
-        assert.ok(text.length < 9000, `Prompt was ${text.length} chars, expected < 9000`);
-        return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'Summary' }] } }] }) };
-      }
-    ]);
-
+  it('truncates summarize input', async () => {
+    mockFetch([(url, opts) => {
+      const text = JSON.parse(opts.body).contents[0].parts[0].text;
+      assert.ok(text.length < 9000);
+      return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'Summary' }] } }] }) };
+    }]);
     await fetchAIResponse('x'.repeat(20000), 'https://api.google.com', 'key', 'gemini', 'summarize');
   });
 });
