@@ -90,37 +90,14 @@
     }
   });
 
-  // --- Selection handling: dblclick for single words, debounced mouseup for compound terms ---
-  // Mouseup is debounced by 300ms. If a dblclick fires within that window, the mouseup is cancelled.
-  let mouseupTimer = null;
-
+  // Double-click → single word definition
   document.addEventListener('dblclick', async (event) => {
-    // Cancel any pending compound-term lookup
-    clearTimeout(mouseupTimer);
-
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
     const sel = window.getSelection();
     const text = sel.toString().trim();
     if (!text || text.length > 40 || text.includes(' ')) return;
 
     triggerDefinition(text, sel.getRangeAt(0).getBoundingClientRect());
-  });
-
-  document.addEventListener('mouseup', (event) => {
-    clearTimeout(mouseupTimer);
-    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
-
-    // Delay to let dblclick fire and cancel if needed
-    mouseupTimer = setTimeout(() => {
-      const sel = window.getSelection();
-      const text = sel.toString().trim();
-      if (!text) return;
-
-      const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-      if (wordCount < 2 || wordCount > 3 || text.length > 60) return;
-
-      triggerDefinition(text, sel.getRangeAt(0).getBoundingClientRect());
-    }, 300);
   });
 
   // Messages from background / popup
