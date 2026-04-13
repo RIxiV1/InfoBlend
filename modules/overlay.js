@@ -83,12 +83,6 @@
     // Header
     const header = document.createElement('div');
     header.className = 'infoblend-header';
-    const logo = document.createElement('img');
-    logo.className = 'infoblend-logo';
-    logo.src = chrome.runtime.getURL('icons/icon48.png');
-    logo.width = 18;
-    logo.height = 18;
-    logo.alt = '';
     const title = document.createElement('span');
     title.className = 'infoblend-title';
     title.textContent = 'InfoBlend';
@@ -100,11 +94,7 @@
     closeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
     closeBtn.onclick = (e) => { e.stopPropagation(); closeOverlay(host, container); };
     controls.appendChild(closeBtn);
-    const brand = document.createElement('div');
-    brand.className = 'infoblend-brand';
-    brand.appendChild(logo);
-    brand.appendChild(title);
-    header.appendChild(brand);
+    header.appendChild(title);
     header.appendChild(controls);
 
     // Skeleton
