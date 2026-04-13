@@ -272,6 +272,50 @@ main {
   pointer-events: none;
 }
 
+/* Test Connection */
+.test-btn {
+  width: 100%;
+  padding: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.test-btn:hover {
+  background: var(--accent-lo);
+  border-color: var(--accent-md);
+  color: var(--accent);
+}
+
+.test-btn.test-ok {
+  background: rgba(48,209,88,0.08);
+  border-color: rgba(48,209,88,0.25);
+  color: var(--green);
+}
+
+.test-btn.test-fail {
+  background: rgba(255,69,58,0.08);
+  border-color: rgba(255,69,58,0.25);
+  color: #ff453a;
+}
+
+/* Field Validation */
+.input-error {
+  border-color: #ff453a !important;
+}
+
+.field-error {
+  font-size: 10px;
+  color: #ff453a;
+  margin-top: 2px;
+}
+
 .config-note {
   font-size: 11px;
   color: var(--text-4);

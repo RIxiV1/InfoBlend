@@ -23,11 +23,13 @@
     const overlayBg = document.createElement('div');
     overlayBg.className = 'ib-palette-overlay';
 
-    // Theme (synchronous — reads cached value via matchMedia fallback)
+    // Theme: apply system default immediately, then correct once storage loads
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (!systemDark) overlayBg.classList.add('ib-light-theme');
     ib.getStorage(['theme']).then(settings => {
-      const theme = settings.theme || 'dark';
-      const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      if (!isDark) overlayBg.classList.add('ib-light-theme');
+      const theme = settings.theme || 'system';
+      const isDark = theme === 'dark' || (theme === 'system' && systemDark);
+      overlayBg.classList.toggle('ib-light-theme', !isDark);
     });
 
     overlayBg.onclick = () => togglePalette();
