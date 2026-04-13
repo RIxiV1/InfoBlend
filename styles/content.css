@@ -234,7 +234,6 @@
 
 .ib-sk-title { height: 16px; width: 35%; }
 .ib-sk-line  { width: 100%; }
-.ib-sk-line-short { width: 55%; }
 
 /* ─── Rich Definition ─── */
 .ib-definition { display: flex; flex-direction: column; gap: 10px; }
@@ -388,4 +387,10 @@
 @keyframes ib-fade-pulse {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
+}
+
+/* ─── Mobile ─── */
+@media (max-width: 480px) {
+  .infoblend-overlay.ib-mode-tooltip { width: min(340px, 90vw); }
+  .infoblend-overlay.ib-mode-panel { width: min(380px, calc(100vw - 32px)); right: 8px; }
 }
