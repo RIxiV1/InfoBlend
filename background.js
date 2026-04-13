@@ -25,13 +25,18 @@ chrome.runtime.onStartup.addListener(setupContextMenus);
 // --- Handlers ---
 const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
 
-const handleDefinition = async (word) => {
+const handleDefinition = async (word, context) => {
   const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
   if (aiKey && aiEndpoint) {
-    const content = await fetchAIResponse(word, aiEndpoint, aiKey, aiProvider, 'define');
+    const content = await fetchAIResponse(word, aiEndpoint, aiKey, aiProvider, 'define', context);
     return { title: word, content, source: `AI (${aiProvider})` };
   }
-  return await fetchDefinition(word);
+  // For non-AI definitions, get standard definition and append context note if available
+  const result = await fetchDefinition(word);
+  if (context && result && !result.isNotFound) {
+    result.contextNote = context;
+  }
+  return result;
 };
 
 const handleSummarization = async (text) => {
@@ -120,7 +125,7 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
 
     case 'FETCH_DEFINITION':
       trackEvent('definition');
-      sendResponse({ success: true, data: await handleDefinition(message.word) });
+      sendResponse({ success: true, data: await handleDefinition(message.word, message.context) });
       return;
 
     case 'PERFORM_SUMMARIZATION': {
