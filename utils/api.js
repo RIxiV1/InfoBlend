@@ -7,6 +7,7 @@
 // --- LRU Definition Cache (in-memory + storage persistence) ---
 const CACHE_KEY = 'ib_def_cache';
 const CACHE_MAX = 200;
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 let _memCache = null; // loaded lazily from storage on first access
 let _loadPromise = null; // prevents concurrent loadCache() races
 let _flushPending = false; // coalesces rapid flush calls
@@ -43,8 +44,15 @@ async function getCachedDefinition(term) {
   const idx = cache.findIndex(e => e.term === key);
   if (idx < 0) return null;
 
-  // Move to front (most recently used)
   const [entry] = cache.splice(idx, 1);
+
+  // Evict expired entries
+  if (entry.ts && Date.now() - entry.ts > CACHE_TTL) {
+    await flushCache();
+    return null;
+  }
+
+  // Move to front (most recently used)
   cache.unshift(entry);
   await flushCache();
   return entry.data;
@@ -58,6 +66,17 @@ async function cacheDefinition(term, data) {
   cache.unshift({ term: key, data, ts: Date.now() });
   if (cache.length > CACHE_MAX) cache.length = CACHE_MAX;
   await flushCache();
+}
+
+/** Evicts expired entries and trims cache. Called periodically from background. */
+export async function cleanupCache() {
+  const cache = await loadCache();
+  const now = Date.now();
+  const before = cache.length;
+  for (let i = cache.length - 1; i >= 0; i--) {
+    if (cache[i].ts && now - cache[i].ts > CACHE_TTL) cache.splice(i, 1);
+  }
+  if (cache.length !== before) await flushCache();
 }
 
 // --- Individual API fetchers ---
