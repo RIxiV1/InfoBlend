@@ -1,4 +1,4 @@
-import { fetchDefinition, fetchAIResponse } from './utils/api.js';
+import { fetchDefinition, fetchAIResponse, cleanupCache } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
 import { translateError } from './utils/errors.js';
@@ -70,11 +70,18 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 const injectedTabs = new Set();
 chrome.tabs.onRemoved.addListener((tabId) => injectedTabs.delete(tabId));
 
+// --- Periodic cache cleanup (every 6 hours) ---
+chrome.alarms.create('ib-cache-cleanup', { periodInMinutes: 360 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'ib-cache-cleanup') cleanupCache();
+});
+
 // --- Message validation ---
 const VALID_MESSAGES = {
   'INJECT_MODULES': {},
   'FETCH_DEFINITION': { required: ['word'] },
-  'PERFORM_SUMMARIZATION': { required: ['text'] }
+  'PERFORM_SUMMARIZATION': { required: ['text'] },
+  'SHOW_RETRYING': {}
 };
 
 function validateMessage(message) {
@@ -121,7 +128,13 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
         try {
           const summary = await fetchAIResponse(message.text, aiEndpoint, aiKey, aiProvider, 'summarize');
           return sendResponse({ success: true, summary, method: `AI (${aiProvider})` });
-        } catch { /* fall through to local */ }
+        } catch {
+          // Notify the tab that AI failed and we're falling back
+          const tabId = sender.tab?.id;
+          if (tabId) {
+            try { await chrome.tabs.sendMessage(tabId, { type: 'SHOW_RETRYING' }); } catch {}
+          }
+        }
       }
       sendResponse({
         success: true,

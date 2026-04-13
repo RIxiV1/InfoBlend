@@ -27,6 +27,8 @@
 
   const getStorage = async (keys) => (await chrome.storage.local.get(keys)) || {};
 
+  let _defTimer = null;
+
   Object.assign(window.__ib, { sendMessage, getStorage });
 
   function ensureModules() {
@@ -89,19 +91,21 @@
     }
   });
 
-  // Double-click → single word definition
+  // Double-click → single word definition (debounced to prevent rapid-fire API calls)
   document.addEventListener('dblclick', async (event) => {
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
     const sel = window.getSelection();
     const text = sel.toString().trim();
     if (!text || text.length > 40 || text.includes(' ')) return;
 
-    triggerDefinition(text, sel.getRangeAt(0).getBoundingClientRect());
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    clearTimeout(_defTimer);
+    _defTimer = setTimeout(() => triggerDefinition(text, rect), 150);
   });
 
   // Messages from background / popup
   chrome.runtime.onMessage.addListener((message) => {
-    const routable = ['SHOW_DEFINITION', 'SHOW_ERROR', 'SHOW_LOADING', 'SUMMARIZE_PAGE', 'SUMMARIZE_SELECTION'];
+    const routable = ['SHOW_DEFINITION', 'SHOW_ERROR', 'SHOW_LOADING', 'SHOW_RETRYING', 'SUMMARIZE_PAGE', 'SUMMARIZE_SELECTION'];
     if (routable.includes(message.type)) {
       ensureModules().then(ok => { if (ok) window.__ib.handleMessage(message); });
     }

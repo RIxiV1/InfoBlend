@@ -311,3 +311,17 @@
 
 .ib-empty-state svg { color: var(--ib-text-3) !important; opacity: 0.5; }
 .ib-empty-state-text { font-size: 12px !important; color: var(--ib-text-2) !important; line-height: 1.5; }
+
+/* ─── Retry Status ─── */
+.ib-retrying {
+  margin-top: 10px;
+  font-size: 11px !important;
+  color: var(--ib-text-3) !important;
+  text-align: center;
+  animation: ib-fade-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ib-fade-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}

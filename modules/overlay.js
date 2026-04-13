@@ -17,8 +17,10 @@
   // --- Theme ---
   // Tooltip mode: auto-detect from page background (anchor.pageTheme)
   // Panel mode: use stored setting (fallback to system preference)
-  let _storedTheme = 'dark';
-  ib.getStorage(['theme']).then(s => { _storedTheme = s.theme || 'dark'; });
+  // Eagerly resolve from storage; default to system preference to avoid flash
+  let _storedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  let _themeReady = false;
+  ib.getStorage(['theme']).then(s => { _storedTheme = s.theme || _storedTheme; _themeReady = true; });
 
   function resolveTheme() {
     // Tooltip mode — use detected page theme
@@ -123,7 +125,31 @@
       setTimeout(() => document.addEventListener('mousedown', _dismissHandler, true), 150);
     }
 
-    setTimeout(() => container.classList.add('open'), 10);
+    // Focus trapping: keep Tab within the overlay
+    container.setAttribute('tabindex', '-1');
+    container.setAttribute('role', 'dialog');
+    container.setAttribute('aria-label', 'InfoBlend overlay');
+    container.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(container.querySelectorAll('button, a, [tabindex]:not([tabindex="-1"])'));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    setTimeout(() => {
+      container.classList.add('open');
+      // Move focus into the overlay for keyboard users
+      const firstBtn = container.querySelector('button');
+      if (firstBtn) firstBtn.focus();
+    }, 10);
     return container;
   }
 
@@ -296,21 +322,46 @@
     }, 250);
   }
 
-  // --- Page Extraction ---
+  // --- Page Extraction (Readability-inspired heuristics) ---
   function extractArticleContent() {
+    // Phase 1: Try semantic selectors (most precise)
     const selectors = ['article', 'main', '[role="main"]', '.post-content', '.entry-content', '#content', '.article-body', '.story-body'];
     let area = null;
     for (const s of selectors) { area = document.querySelector(s); if (area) break; }
+
+    // Phase 2: Score candidate containers by text density
+    if (!area) {
+      const candidates = document.querySelectorAll('div, section');
+      let bestScore = 0;
+      for (const el of candidates) {
+        const text = el.innerText || '';
+        const pCount = el.querySelectorAll('p').length;
+        const linkDensity = (el.querySelectorAll('a').length + 1) / (pCount + 1);
+        // Favor containers with many paragraphs, long text, and low link density
+        const score = (pCount * 10 + text.length / 100) / (linkDensity + 1);
+        if (score > bestScore && text.length > 200) {
+          bestScore = score;
+          area = el;
+        }
+      }
+    }
+
     area = area || document.body;
 
-    const junk = 'nav,footer,header,script,style,noscript,template,aside,[role="complementary"],.sidebar,#sidebar,[class*="ad-"],[id*="ad-"],.social-share,.comments-area,.related-posts';
-    const prose = Array.from(area.querySelectorAll('p, h1, h2, h3, h4, li'))
+    const junk = 'nav,footer,header,script,style,noscript,template,aside,[role="complementary"],[role="navigation"],[role="banner"],.sidebar,#sidebar,[class*="ad-"],[id*="ad-"],[class*="social"],[class*="share"],[class*="comment"],[class*="related"],[class*="recommend"],[class*="newsletter"],[class*="subscribe"],[class*="popup"],[class*="modal"],[class*="cookie"],[class*="banner"],.social-share,.comments-area,.related-posts,.breadcrumb,.pagination,.toc';
+    const prose = Array.from(area.querySelectorAll('p, h1, h2, h3, h4, li, blockquote, figcaption'))
       .filter(el => {
         const s = window.getComputedStyle(el);
-        return s.display !== 'none' && s.visibility !== 'hidden' && !el.closest(junk) && !(el.tagName === 'LI' && el.innerText.length < 15);
+        if (s.display === 'none' || s.visibility === 'hidden') return false;
+        if (el.closest(junk)) return false;
+        if (el.tagName === 'LI' && el.innerText.length < 15) return false;
+        // Skip elements that are mostly links (navigation lists)
+        const linkText = Array.from(el.querySelectorAll('a')).reduce((sum, a) => sum + a.textContent.length, 0);
+        if (linkText > el.innerText.length * 0.6 && el.tagName === 'LI') return false;
+        return true;
       })
       .map(el => el.innerText.trim())
-      .filter(t => t.length > 25 && !t.includes('function(') && t.split('|').length <= 3);
+      .filter(t => t.length > 25 && !t.includes('function(') && !t.includes('var ') && t.split('|').length <= 3);
 
     const content = Array.from(new Set(prose)).join('\n\n');
     return content.length > 100 ? content.substring(0, 12000) : null;
@@ -332,15 +383,30 @@
     });
   }
 
+  function showRetryingStatus() {
+    if (!overlayHost?.shadowRoot) return;
+    const loading = overlayHost.shadowRoot.querySelector('.infoblend-loading');
+    if (!loading) return;
+    // Add retrying indicator below skeleton
+    let retryEl = loading.querySelector('.ib-retrying');
+    if (!retryEl) {
+      retryEl = document.createElement('div');
+      retryEl.className = 'ib-retrying';
+      retryEl.textContent = 'AI unavailable, falling back to local...';
+      loading.appendChild(retryEl);
+    }
+  }
+
   function handleMessage(message) {
     switch (message.type) {
       case 'SHOW_DEFINITION': updateOverlay(message.data.title, message.data.content, message.data.source, message.data); break;
       case 'SHOW_ERROR': updateOverlay('Error', message.message, 'InfoBlend'); break;
       case 'SHOW_LOADING': showLoadingOverlay({ mode: 'panel' }); break;
+      case 'SHOW_RETRYING': showRetryingStatus(); break;
       case 'SUMMARIZE_PAGE': handlePageSummarization(); break;
       case 'SUMMARIZE_SELECTION': showLoadingOverlay({ mode: 'panel' }); runSummarizer(message.text, 'Selection Summary'); break;
     }
   }
 
-  Object.assign(ib, { showLoadingOverlay, updateOverlay, handlePageSummarization, handleMessage });
+  Object.assign(ib, { showLoadingOverlay, updateOverlay, handlePageSummarization, handleMessage, showRetryingStatus });
 })();
