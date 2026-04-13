@@ -387,7 +387,18 @@
 
     copyBtn.onclick = (e) => {
       e.stopPropagation();
-      navigator.clipboard.writeText(copyText);
+      try {
+        navigator.clipboard.writeText(copyText);
+      } catch {
+        // Fallback for Firefox or permission-denied contexts
+        const ta = document.createElement('textarea');
+        ta.value = copyText;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
       copyBtn.innerHTML = checkIcon;
       copyBtn.classList.add('ib-copied');
       setTimeout(() => { copyBtn.innerHTML = copyIcon; copyBtn.classList.remove('ib-copied'); }, 2000);
