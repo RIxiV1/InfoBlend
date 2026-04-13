@@ -50,7 +50,7 @@
     const vh = window.innerHeight;
     const w = 320;
 
-    let left = Math.max(8, Math.min(_anchor.x - w / 2, vw - w - 8));
+    const left = Math.max(8, Math.min(_anchor.x - w / 2, vw - w - 8));
     let top = _anchor.y;
 
     if (top + 200 > vh) {
