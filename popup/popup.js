@@ -132,7 +132,16 @@ async function testConnection() {
   setTimeout(() => { btn.textContent = 'Test connection'; btn.classList.remove('test-ok', 'test-fail'); }, 3000);
 }
 
+// --- i18n ---
+function localizeUI() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const msg = chrome.i18n.getMessage(el.dataset.i18n);
+    if (msg) el.textContent = msg;
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+  localizeUI();
   await loadSettings();
 
   $('closeOnboarding')?.addEventListener('click', async () => {
