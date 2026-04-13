@@ -19,8 +19,7 @@
   // Panel mode: use stored setting (fallback to system preference)
   // Eagerly resolve from storage; default to system preference to avoid flash
   let _storedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  let _themeReady = false;
-  ib.getStorage(['theme']).then(s => { _storedTheme = s.theme || _storedTheme; _themeReady = true; });
+  ib.getStorage(['theme']).then(s => { _storedTheme = s.theme || _storedTheme; });
 
   function resolveTheme() {
     // Tooltip mode — use detected page theme
