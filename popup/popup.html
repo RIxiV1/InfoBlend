@@ -30,7 +30,7 @@
         <line x1="16" y1="13" x2="8" y2="13"/>
         <line x1="16" y1="17" x2="8" y2="17"/>
       </svg>
-      <span>Summarize this page</span>
+      <span data-i18n="summarizePageBtn">Summarize this page</span>
     </div>
     <kbd>Ctrl+K</kbd>
   </button>
@@ -39,8 +39,8 @@
     <!-- Toggle -->
     <label class="setting-row">
       <div class="setting-info">
-        <span class="setting-label">Auto-definitions</span>
-        <span class="setting-hint">Double-click a word to see its meaning</span>
+        <span class="setting-label" data-i18n="autoDefinitions">Auto-definitions</span>
+        <span class="setting-hint" data-i18n="autoDefinitionsHint">Double-click a word to see its meaning</span>
       </div>
       <div class="toggle">
         <input type="checkbox" id="definitionsEnabled" checked>
@@ -51,13 +51,13 @@
     <!-- AI Config (collapsible) -->
     <details class="config-panel">
       <summary class="config-header">
-        <span>AI Engine</span>
-        <span class="config-badge">optional</span>
+        <span data-i18n="aiEngine">AI Engine</span>
+        <span class="config-badge" data-i18n="optional">optional</span>
       </summary>
       <div class="config-body">
         <div class="config-grid">
           <div class="input-group">
-            <label for="aiProvider">Provider</label>
+            <label for="aiProvider" data-i18n="provider">Provider</label>
             <div class="select-wrap">
               <select id="aiProvider">
                 <option value="gemini">Gemini</option>
@@ -67,22 +67,22 @@
             </div>
           </div>
           <div class="input-group">
-            <label for="aiKey">API Key</label>
+            <label for="aiKey" data-i18n="apiKey">API Key</label>
             <input type="password" id="aiKey" placeholder="sk-..." spellcheck="false">
           </div>
           <div class="input-group full">
-            <label for="aiEndpoint">Endpoint URL</label>
+            <label for="aiEndpoint" data-i18n="endpointUrl">Endpoint URL</label>
             <input type="text" id="aiEndpoint" placeholder="https://api.provider.com/v1/..." spellcheck="false">
           </div>
         </div>
-        <button id="testBtn" class="test-btn">Test connection</button>
-        <p class="config-note">Without a key, summaries use local extraction.</p>
+        <button id="testBtn" class="test-btn" data-i18n="testConnection">Test connection</button>
+        <p class="config-note" data-i18n="configNote">Without a key, summaries use local extraction.</p>
       </div>
     </details>
 
     <!-- Theme -->
     <label class="setting-row">
-      <span class="setting-label">Summary theme</span>
+      <span class="setting-label" data-i18n="summaryTheme">Summary theme</span>
       <div class="select-wrap select-sm">
         <select id="theme">
           <option value="system" selected>Auto</option>
@@ -92,7 +92,7 @@
       </div>
     </label>
 
-    <button id="saveBtn" class="save-btn">Save settings</button>
+    <button id="saveBtn" class="save-btn" data-i18n="saveSettings">Save settings</button>
   </main>
 
   <footer>
@@ -110,7 +110,7 @@
         <li>Press <strong>Ctrl+K</strong> to summarize any page</li>
         <li>Add an AI key for smarter results</li>
       </ul>
-      <button id="closeOnboarding" class="modal-cta">Get started</button>
+      <button id="closeOnboarding" class="modal-cta" data-i18n="getStarted">Get started</button>
     </div>
   </div>
 
