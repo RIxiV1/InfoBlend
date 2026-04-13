@@ -177,11 +177,34 @@
         audioBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
         audioBtn.onclick = (e) => {
           e.stopPropagation();
-          if (_activeAudio) { _activeAudio.pause(); _activeAudio = null; }
-          _activeAudio = new Audio(data.audioUrl);
-          _activeAudio.play().catch(() => {});
+          if (_activeAudio) {
+            _activeAudio.pause();
+            if (_activeAudio.parentNode) _activeAudio.remove();
+            _activeAudio = null;
+          }
           audioBtn.classList.add('ib-audio-playing');
-          _activeAudio.onended = () => { audioBtn.classList.remove('ib-audio-playing'); _activeAudio = null; };
+          // Fetch audio via background script to bypass page CSP
+          ib.sendMessage({ type: 'FETCH_AUDIO', url: data.audioUrl }, (resp) => {
+            if (!resp?.success || !resp.dataUrl) {
+              audioBtn.classList.remove('ib-audio-playing');
+              return;
+            }
+            const audio = document.createElement('audio');
+            audio.src = resp.dataUrl;
+            audio.style.display = 'none';
+            document.body.appendChild(audio);
+            _activeAudio = audio;
+            audio.play().catch(() => {
+              audioBtn.classList.remove('ib-audio-playing');
+              if (audio.parentNode) audio.remove();
+              _activeAudio = null;
+            });
+            audio.onended = () => {
+              audioBtn.classList.remove('ib-audio-playing');
+              if (audio.parentNode) audio.remove();
+              _activeAudio = null;
+            };
+          });
         };
         row.appendChild(audioBtn);
       }
