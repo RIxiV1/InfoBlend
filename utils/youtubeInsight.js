@@ -2,6 +2,7 @@
  * YouTube Insight Engine
  * Extracts and processes YouTube transcripts using native endpoints.
  */
+import { fetchWithTimeout } from './compat.js';
 
 const decodeHTML = (text) => {
   // Named entities not covered by numeric replacements
@@ -80,16 +81,12 @@ const parseTranscriptFromHTML = async (html) => {
 };
 
 export const extractYouTubeTranscript = async (url) => {
-  const ac = new AbortController();
-  const timeout = setTimeout(() => ac.abort(), 15000);
   try {
-    const response = await fetch(url, { signal: ac.signal });
-    clearTimeout(timeout);
+    const response = await fetchWithTimeout(url, {}, 15000);
     if (!response.ok) throw new Error('YouTube unreachable. Check connection.');
     const html = await response.text();
     return await parseTranscriptFromHTML(html);
   } catch (error) {
-    clearTimeout(timeout);
     if (error.name === 'AbortError') throw new Error('YouTube request timed out. Check connection.');
     if (error.message.includes('Unexpected token') || error.message.includes('JSON')) {
       throw new Error('YouTube format changed. Please report this issue.');
@@ -106,10 +103,7 @@ export async function fetchAndProcessTrack(tracks) {
   
   if (!enTrack?.baseUrl) throw new Error('No readable transcript tracks found.');
 
-  const xmlAc = new AbortController();
-  const xmlTimeout = setTimeout(() => xmlAc.abort(), 10000);
-  const xmlResponse = await fetch(enTrack.baseUrl, { signal: xmlAc.signal });
-  clearTimeout(xmlTimeout);
+  const xmlResponse = await fetchWithTimeout(enTrack.baseUrl, {}, 10000);
   if (!xmlResponse.ok) throw new Error('Failed to fetch transcript data.');
   const xml = await xmlResponse.text();
 

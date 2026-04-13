@@ -154,6 +154,7 @@
 
   // --- Render Definition (rich structured data) ---
   function renderDefinition(data, container) {
+    if (!data.meanings?.length) return;
     const def = document.createElement('div');
     def.className = 'ib-definition';
 
@@ -305,9 +306,13 @@
       setTimeout(() => container.classList.add('open'), 10);
     }
 
-    container.querySelector('.infoblend-title').textContent = title;
-    container.querySelector('.infoblend-content')?.remove();
-    container.querySelector('.infoblend-loading')?.remove();
+    // Batch DOM queries
+    const titleEl = container.querySelector('.infoblend-title');
+    const oldContent = container.querySelector('.infoblend-content');
+    const oldLoading = container.querySelector('.infoblend-loading');
+    titleEl.textContent = title;
+    if (oldContent) oldContent.remove();
+    if (oldLoading) oldLoading.remove();
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'infoblend-content';
@@ -423,9 +428,7 @@
   // --- Page Extraction (Readability-inspired heuristics) ---
   function extractArticleContent() {
     // Phase 1: Try semantic selectors (most precise)
-    const selectors = ['article', 'main', '[role="main"]', '.post-content', '.entry-content', '#content', '.article-body', '.story-body'];
-    let area = null;
-    for (const s of selectors) { area = document.querySelector(s); if (area) break; }
+    let area = document.querySelector('article, main, [role="main"], .post-content, .entry-content, #content, .article-body, .story-body');
 
     // Phase 2: Score candidate containers by text density
     if (!area) {

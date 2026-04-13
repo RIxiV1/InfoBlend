@@ -42,19 +42,26 @@ export function generateIntelligentSummary(text, maxSentences = 4) {
   if (sentences.length <= maxSentences) return sentences.join(' ');
 
   // Score sentences based on word frequency (minimum word length 3)
-  const rawWords = truncated.toLowerCase().match(/\b\w{3,}\b/g) || [];
+  const lowerText = truncated.toLowerCase();
+  const wordPattern = /\b\w{3,}\b/g;
+  const rawWords = lowerText.match(wordPattern) || [];
   const freq = {};
-  rawWords.forEach(w => {
+  for (const w of rawWords) {
     if (!STOP_WORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
-  });
+  }
 
-  const scores = sentences.map((s, idx) => {
-    const sWords = s.toLowerCase().match(/\b\w{3,}\b/g) || [];
-    const wordScore = sWords.reduce((acc, w) => acc + (freq[w] || 0), 0);
+  // Pre-compute lowercase + word arrays for each sentence to avoid redundant work
+  const sentenceWords = sentences.map(s => s.toLowerCase().match(wordPattern) || []);
+  const sentenceCount = sentences.length;
+  const positionDenom = sentenceCount - 1 || 1;
+
+  const scores = sentenceWords.map((sWords, idx) => {
+    let wordScore = 0;
+    for (const w of sWords) wordScore += freq[w] || 0;
 
     // U-curve position boost: reward sentences near the beginning and end
     // Normalized position 0..1, U-curve = high at edges, low in middle
-    const pos = idx / (sentences.length - 1 || 1);
+    const pos = idx / positionDenom;
     const positionBoost = 1.5 * (Math.pow(pos - 0.5, 2) * 4); // peaks at 0 and 1
 
     // Penalize very short sentences (likely headings, labels, or fragments)

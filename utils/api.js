@@ -3,6 +3,7 @@
  * Single words: Dictionary → Datamuse → Wiktionary → Wikipedia
  * Compound terms (2+ words): Wikipedia → Wiktionary → Dictionary → Datamuse
  */
+import { fetchWithTimeout } from './compat.js';
 
 // --- LRU Definition Cache (in-memory + storage persistence) ---
 const CACHE_KEY = 'ib_def_cache';
@@ -70,13 +71,15 @@ async function cacheDefinition(term, data) {
 
 /** Evicts expired entries and trims cache. Called periodically from background. */
 export async function cleanupCache() {
-  const cache = await loadCache();
-  const now = Date.now();
-  const before = cache.length;
-  for (let i = cache.length - 1; i >= 0; i--) {
-    if (cache[i].ts && now - cache[i].ts > CACHE_TTL) cache.splice(i, 1);
-  }
-  if (cache.length !== before) await flushCache();
+  try {
+    const cache = await loadCache();
+    const now = Date.now();
+    const before = cache.length;
+    for (let i = cache.length - 1; i >= 0; i--) {
+      if (cache[i].ts && now - cache[i].ts > CACHE_TTL) cache.splice(i, 1);
+    }
+    if (cache.length !== before) await flushCache();
+  } catch { /* non-critical maintenance task */ }
 }
 
 // --- Individual API fetchers ---
@@ -265,14 +268,10 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const ac = new AbortController();
-      const timeout = setTimeout(() => ac.abort(), 15000);
-      const resp = await fetch(url, {
+      const resp = await fetchWithTimeout(url, {
         method: 'POST', headers,
-        body: JSON.stringify(body[provider] || body.generic),
-        signal: ac.signal
-      });
-      clearTimeout(timeout);
+        body: JSON.stringify(body[provider] || body.generic)
+      }, 15000);
 
       // Retry on rate-limit or server errors
       if ((resp.status === 429 || resp.status >= 500) && attempt < MAX_RETRIES) {
