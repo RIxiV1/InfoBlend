@@ -2,6 +2,11 @@
  * Popup logic for InfoBlend.
  * Settings: definitions toggle, AI engine config, theme.
  */
+// Firefox compatibility
+if (typeof globalThis.chrome === 'undefined' && typeof globalThis.browser !== 'undefined') {
+  globalThis.chrome = globalThis.browser;
+}
+
 import { getStorageData, setStorageData } from '../utils/storage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -109,11 +114,14 @@ async function testConnection() {
       generic: { prompt: testPrompt, max_tokens: 5 }
     };
 
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 10000);
     const resp = await fetch(url, {
       method: 'POST', headers,
       body: JSON.stringify(body[provider] || body.generic),
-      signal: AbortSignal.timeout(10000)
+      signal: ac.signal
     });
+    clearTimeout(timer);
 
     if (resp.ok) {
       btn.textContent = 'Connected';
@@ -124,7 +132,7 @@ async function testConnection() {
       btn.classList.add('test-fail');
     }
   } catch (e) {
-    btn.textContent = e.name === 'TimeoutError' ? 'Timed out' : 'Connection failed';
+    btn.textContent = (e.name === 'AbortError' || e.name === 'TimeoutError') ? 'Timed out' : 'Connection failed';
     btn.classList.add('test-fail');
   }
 

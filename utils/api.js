@@ -265,11 +265,14 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
+      const ac = new AbortController();
+      const timeout = setTimeout(() => ac.abort(), 15000);
       const resp = await fetch(url, {
         method: 'POST', headers,
         body: JSON.stringify(body[provider] || body.generic),
-        signal: AbortSignal.timeout(15000)
+        signal: ac.signal
       });
+      clearTimeout(timeout);
 
       // Retry on rate-limit or server errors
       if ((resp.status === 429 || resp.status >= 500) && attempt < MAX_RETRIES) {
@@ -292,7 +295,7 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
     } catch (e) {
       lastError = e;
       // Retry on network/timeout errors, but not on validation errors
-      const isRetryable = e.name === 'TimeoutError' || e.name === 'TypeError' || e.message === 'Failed to fetch';
+      const isRetryable = e.name === 'AbortError' || e.name === 'TimeoutError' || e.name === 'TypeError' || e.message === 'Failed to fetch';
       if (!isRetryable || attempt >= MAX_RETRIES) throw e;
       await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
     }

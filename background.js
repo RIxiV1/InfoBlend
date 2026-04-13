@@ -1,3 +1,8 @@
+// Firefox compatibility: `browser` namespace → `chrome` alias
+if (typeof globalThis.chrome === 'undefined' && typeof globalThis.browser !== 'undefined') {
+  globalThis.chrome = globalThis.browser;
+}
+
 import { fetchDefinition, fetchAIResponse, cleanupCache } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';

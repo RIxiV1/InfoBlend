@@ -4,6 +4,11 @@
  * Select text → floating "Define" button for multi-word.
  * Ctrl+K → command palette.
  */
+// Firefox compatibility
+if (typeof globalThis.chrome === 'undefined' && typeof globalThis.browser !== 'undefined') {
+  globalThis.chrome = globalThis.browser;
+}
+
 (() => {
   // After extension reload, old __ib may have stale flags but missing functions
   if (window.__ib && (
@@ -125,7 +130,7 @@
       zIndex: '2147483647',
       pointerEvents: 'auto'
     });
-    const shadow = host.attachShadow({ mode: 'closed' });
+    const shadow = host.attachShadow({ mode: 'open' });
 
     const isDark = detectPageTheme(rect.left + rect.width / 2, rect.top) === 'dark';
 
