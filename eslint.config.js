@@ -22,6 +22,7 @@ export default [
         AbortController: 'readonly',
         TextEncoder: 'readonly',
         TextDecoder: 'readonly',
+        FileReader: 'readonly',
         Uint8Array: 'readonly',
         URL: 'readonly',
         // Browser extension globals

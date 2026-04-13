@@ -30,19 +30,37 @@
     }
   };
 
-  const getStorage = async (keys) => (await chrome.storage.local.get(keys)) || {};
+  const getStorage = async (keys) => {
+    try {
+      if (!chrome.runtime?.id) return {};
+      return (await chrome.storage.local.get(keys)) || {};
+    } catch { return {}; }
+  };
 
   let _defTimer = null;
 
   Object.assign(window.__ib, { sendMessage, getStorage });
 
+  function modulesReady() {
+    return typeof window.__ib.showLoadingOverlay === 'function'
+      && typeof window.__ib.togglePalette === 'function'
+      && typeof window.__ib.handleMessage === 'function';
+  }
+
   function ensureModules() {
     const ib = window.__ib;
-    if (ib.modulesLoaded) return Promise.resolve(true);
+    if (ib.modulesLoaded && modulesReady()) return Promise.resolve(true);
     if (ib._loadingPromise) return ib._loadingPromise;
     ib._loadingPromise = new Promise((resolve) => {
-      sendMessage({ type: 'INJECT_MODULES' }, (r) => {
-        ib.modulesLoaded = !!r?.success;
+      sendMessage({ type: 'INJECT_MODULES' }, async (r) => {
+        if (!r?.success) { ib._loadingPromise = null; resolve(false); return; }
+        // Wait for injected IIFEs to execute and register functions
+        let tries = 0;
+        while (!modulesReady() && tries < 50) {
+          await new Promise(tick => setTimeout(tick, 20));
+          tries++;
+        }
+        ib.modulesLoaded = modulesReady();
         ib._loadingPromise = null;
         resolve(ib.modulesLoaded);
       });
@@ -221,8 +239,9 @@
       const sel = window.getSelection();
       const text = sel.toString().trim();
 
-      // Only show for multi-word selections (2-5 words) that weren't from double-click
-      if (!text || text.split(/\s+/).length < 2 || text.split(/\s+/).length > 5 || text.length > 120) {
+      // Only show for multi-word selections (2-5 words)
+      const wordCount = text ? text.split(/\s+/).length : 0;
+      if (!text || wordCount < 2 || wordCount > 5 || text.length > 120) {
         removeDefineBtn();
         return;
       }

@@ -88,6 +88,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 const VALID_MESSAGES = {
   'INJECT_MODULES': {},
   'FETCH_DEFINITION': { required: ['word'], optional: ['context'] },
+  'FETCH_AUDIO': { required: ['url'] },
   'PERFORM_SUMMARIZATION': { required: ['text'] },
   'SHOW_RETRYING': {}
 };
@@ -128,6 +129,25 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       trackEvent('definition');
       sendResponse({ success: true, data: await handleDefinition(message.word, message.context) });
       return;
+
+    case 'FETCH_AUDIO': {
+      // Fetch audio in background to bypass page CSP restrictions
+      try {
+        const resp = await fetch(message.url);
+        if (!resp.ok) throw new Error('Audio fetch failed');
+        const blob = await resp.blob();
+        const reader = new FileReader();
+        const dataUrl = await new Promise((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        sendResponse({ success: true, dataUrl });
+      } catch {
+        sendResponse({ success: false });
+      }
+      return;
+    }
 
     case 'PERFORM_SUMMARIZATION': {
       const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
