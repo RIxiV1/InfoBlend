@@ -1,6 +1,7 @@
 /**
  * InfoBlend — Bootstrap
- * Double-click → single word definition.
+ * Double-click → word/phrase definition (with context).
+ * Select text → floating "Define" button for multi-word.
  * Ctrl+K → command palette.
  */
 (() => {
@@ -28,6 +29,7 @@
   const getStorage = async (keys) => (await chrome.storage.local.get(keys)) || {};
 
   let _defTimer = null;
+  let _defineBtn = null;
 
   Object.assign(window.__ib, { sendMessage, getStorage });
 
@@ -54,17 +56,32 @@
         const match = bg.match(/\d+/g);
         if (match) {
           const [r, g, b] = match.map(Number);
-          // Perceived luminance: 0 = black, 1 = white
           return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? 'light' : 'dark';
         }
       }
       el = el.parentElement;
     }
-    // Fallback to system preference
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
 
-  async function triggerDefinition(text, rect) {
+  // Extract surrounding context (sentence or nearby text) for the selected word
+  function extractContext(selection) {
+    if (!selection.rangeCount) return '';
+    const range = selection.getRangeAt(0);
+    let container = range.startContainer;
+    // Walk up to the nearest block-level element (p, div, li, etc.)
+    while (container && container.nodeType !== 1) container = container.parentNode;
+    if (!container) return '';
+    const blockEls = ['P', 'DIV', 'LI', 'TD', 'BLOCKQUOTE', 'SECTION', 'ARTICLE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+    while (container && !blockEls.includes(container.tagName)) {
+      container = container.parentElement;
+    }
+    const fullText = (container || range.startContainer.parentElement)?.innerText || '';
+    // Return up to 300 chars of surrounding context
+    return fullText.substring(0, 300).trim();
+  }
+
+  async function triggerDefinition(text, rect, context) {
     const settings = await getStorage(['definitionsEnabled']);
     if (settings.definitionsEnabled === false) return;
 
@@ -73,7 +90,9 @@
     const anchor = { x: cx, y: rect.bottom + 8, mode: 'tooltip', pageTheme: detectPageTheme(cx, cy) };
     if (await ensureModules()) {
       window.__ib.showLoadingOverlay(anchor);
-      sendMessage({ type: 'FETCH_DEFINITION', word: text }, (response) => {
+      const msg = { type: 'FETCH_DEFINITION', word: text };
+      if (context) msg.context = context;
+      sendMessage(msg, (response) => {
         if (response?.success) {
           window.__ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
         } else {
@@ -81,6 +100,55 @@
         }
       });
     }
+  }
+
+  // --- Floating "Define" button for multi-word selections ---
+  function removeDefineBtn() {
+    if (_defineBtn) {
+      _defineBtn.remove();
+      _defineBtn = null;
+    }
+  }
+
+  function showDefineBtn(rect, text, context) {
+    removeDefineBtn();
+    const btn = document.createElement('button');
+    btn.textContent = 'Define';
+    btn.setAttribute('aria-label', `Define "${text.substring(0, 20)}"`);
+    Object.assign(btn.style, {
+      position: 'fixed',
+      top: `${rect.bottom + 6}px`,
+      left: `${rect.left + rect.width / 2 - 32}px`,
+      zIndex: '2147483647',
+      padding: '4px 12px',
+      fontSize: '12px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+      fontWeight: '600',
+      color: '#fff',
+      background: '#5e9cff',
+      border: 'none',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+      transition: 'opacity 0.15s, transform 0.15s',
+      opacity: '0',
+      transform: 'translateY(2px)'
+    });
+    document.body.appendChild(btn);
+    _defineBtn = btn;
+
+    // Animate in
+    requestAnimationFrame(() => {
+      btn.style.opacity = '1';
+      btn.style.transform = 'translateY(0)';
+    });
+
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      removeDefineBtn();
+      triggerDefinition(text, rect, context);
+    });
   }
 
   // Ctrl+K → Command Palette
@@ -91,17 +159,51 @@
     }
   });
 
-  // Double-click → single word definition (debounced to prevent rapid-fire API calls)
+  // Double-click → word definition (single or multi-word, with context)
   document.addEventListener('dblclick', async (event) => {
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
+    removeDefineBtn();
     const sel = window.getSelection();
     const text = sel.toString().trim();
-    if (!text || text.length > 40 || text.includes(' ')) return;
+    if (!text || text.length > 80) return;
+    // Allow up to 5 words for double-click
+    if (text.split(/\s+/).length > 5) return;
 
     const rect = sel.getRangeAt(0).getBoundingClientRect();
+    const context = extractContext(sel);
     clearTimeout(_defTimer);
-    _defTimer = setTimeout(() => triggerDefinition(text, rect), 150);
+    _defTimer = setTimeout(() => triggerDefinition(text, rect, context), 150);
   });
+
+  // Text selection → show floating "Define" button for multi-word selections
+  document.addEventListener('mouseup', (event) => {
+    // Skip if inside our own UI
+    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host' || el === _defineBtn)) return;
+
+    setTimeout(() => {
+      const sel = window.getSelection();
+      const text = sel.toString().trim();
+
+      // Only show for multi-word selections (2-5 words) that weren't from double-click
+      if (!text || text.split(/\s+/).length < 2 || text.split(/\s+/).length > 5 || text.length > 120) {
+        removeDefineBtn();
+        return;
+      }
+
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) { removeDefineBtn(); return; }
+
+      const context = extractContext(sel);
+      showDefineBtn(rect, text, context);
+    }, 10);
+  });
+
+  // Remove floating button on click elsewhere or scroll
+  document.addEventListener('mousedown', (e) => {
+    if (_defineBtn && e.target !== _defineBtn) removeDefineBtn();
+  });
+  document.addEventListener('scroll', removeDefineBtn, true);
 
   // Messages from background / popup
   chrome.runtime.onMessage.addListener((message) => {
