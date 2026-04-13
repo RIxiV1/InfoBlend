@@ -4,12 +4,11 @@
  * Select text → floating "Define" button for multi-word.
  * Ctrl+K → command palette.
  */
-// Firefox compatibility
-if (typeof globalThis.chrome === 'undefined' && typeof globalThis.browser !== 'undefined') {
-  globalThis.chrome = globalThis.browser;
-}
-
 (() => {
+  // Firefox compatibility
+  if (typeof globalThis.chrome === 'undefined' && typeof globalThis.browser !== 'undefined') {
+    globalThis.chrome = globalThis.browser;
+  }
   // After extension reload, old __ib may have stale flags but missing functions
   if (window.__ib && (
     typeof window.__ib.showLoadingOverlay !== 'function' ||
