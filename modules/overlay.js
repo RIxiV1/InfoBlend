@@ -14,6 +14,14 @@
   let _dismissHandler = null;
   let _activeAudio = null;
 
+  // DOM helper — reduces createElement + className boilerplate
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    return e;
+  };
+
   // --- Theme ---
   // Tooltip mode: auto-detect from page background (anchor.pageTheme)
   // Panel mode: use stored setting (fallback to system preference)
@@ -82,15 +90,10 @@
     positionOverlay(container);
 
     // Header
-    const header = document.createElement('div');
-    header.className = 'infoblend-header';
-    const title = document.createElement('span');
-    title.className = 'infoblend-title';
-    title.textContent = 'InfoBlend';
-    const controls = document.createElement('div');
-    controls.className = 'infoblend-controls';
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'infoblend-btn infoblend-close';
+    const header = el('div', 'infoblend-header');
+    const title = el('span', 'infoblend-title', 'InfoBlend');
+    const controls = el('div', 'infoblend-controls');
+    const closeBtn = el('button', 'infoblend-btn infoblend-close');
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
     closeBtn.onclick = (e) => { e.stopPropagation(); closeOverlay(host, container); };
@@ -99,15 +102,11 @@
     header.appendChild(controls);
 
     // Skeleton
-    const loading = document.createElement('div');
-    loading.className = 'infoblend-loading';
-    const group = document.createElement('div');
-    group.className = 'ib-skeleton-group';
-    ['ib-sk-title', 'ib-sk-line', 'ib-sk-line'].forEach(c => {
-      const s = document.createElement('div');
-      s.className = `ib-skeleton ${c}`;
-      group.appendChild(s);
-    });
+    const loading = el('div', 'infoblend-loading');
+    const group = el('div', 'ib-skeleton-group');
+    for (const c of ['ib-sk-title', 'ib-sk-line', 'ib-sk-line']) {
+      group.appendChild(el('div', `ib-skeleton ${c}`));
+    }
     loading.appendChild(group);
 
     container.appendChild(header);
@@ -152,27 +151,33 @@
     return container;
   }
 
+  // --- Tag row builder (synonyms/antonyms) ---
+  function buildTagRow(label, words, type, clickable = false) {
+    const row = el('div', 'ib-def-tags');
+    row.appendChild(el('span', 'ib-def-tag-label', label));
+    for (const w of words) {
+      const tag = el('span', `ib-def-tag ib-tag-${type}`, w);
+      if (clickable) tag.onclick = () => ib.sendMessage({ type: 'FETCH_DEFINITION', word: w });
+      row.appendChild(tag);
+    }
+    return row;
+  }
+
   // --- Render Definition (rich structured data) ---
   function renderDefinition(data, container) {
     if (!data.meanings?.length) return;
-    const def = document.createElement('div');
-    def.className = 'ib-definition';
+    const def = el('div', 'ib-definition');
 
     // Phonetic + audio
     if (data.phonetic || data.audioUrl) {
-      const row = document.createElement('div');
-      row.className = 'ib-def-phonetic-row';
+      const row = el('div', 'ib-def-phonetic-row');
 
       if (data.phonetic) {
-        const phonetic = document.createElement('span');
-        phonetic.className = 'ib-def-phonetic';
-        phonetic.textContent = data.phonetic;
-        row.appendChild(phonetic);
+        row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
       }
 
       if (data.audioUrl) {
-        const audioBtn = document.createElement('button');
-        audioBtn.className = 'infoblend-btn ib-def-audio';
+        const audioBtn = el('button', 'infoblend-btn ib-def-audio');
         audioBtn.setAttribute('aria-label', 'Play pronunciation');
         audioBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
         audioBtn.onclick = (e) => {
@@ -214,102 +219,34 @@
 
     // Meanings
     for (const meaning of data.meanings) {
-      const block = document.createElement('div');
-      block.className = 'ib-def-meaning';
+      const block = el('div', 'ib-def-meaning');
+      block.appendChild(el('span', 'ib-def-pos', meaning.partOfSpeech));
 
-      const pos = document.createElement('span');
-      pos.className = 'ib-def-pos';
-      pos.textContent = meaning.partOfSpeech;
-      block.appendChild(pos);
-
-      const list = document.createElement('ol');
-      list.className = 'ib-def-list';
-
+      const list = el('ol', 'ib-def-list');
       for (const d of meaning.definitions) {
-        const li = document.createElement('li');
-        li.textContent = d.text;
-
-        if (d.example) {
-          const ex = document.createElement('div');
-          ex.className = 'ib-def-example';
-          ex.textContent = `"${d.example}"`;
-          li.appendChild(ex);
-        }
+        const li = el('li', null, d.text);
+        if (d.example) li.appendChild(el('div', 'ib-def-example', `"${d.example}"`));
         list.appendChild(li);
       }
-
       block.appendChild(list);
 
-      // Per-meaning synonyms
-      if (meaning.synonyms?.length) {
-        const synRow = document.createElement('div');
-        synRow.className = 'ib-def-tags';
-        const synLabel = document.createElement('span');
-        synLabel.className = 'ib-def-tag-label';
-        synLabel.textContent = 'Synonyms';
-        synRow.appendChild(synLabel);
-        for (const s of meaning.synonyms) {
-          const tag = document.createElement('span');
-          tag.className = 'ib-def-tag ib-tag-syn';
-          tag.textContent = s;
-          tag.onclick = () => { ib.sendMessage({ type: 'FETCH_DEFINITION', word: s }); };
-          synRow.appendChild(tag);
-        }
-        block.appendChild(synRow);
-      }
-
-      // Per-meaning antonyms
-      if (meaning.antonyms?.length) {
-        const antRow = document.createElement('div');
-        antRow.className = 'ib-def-tags';
-        const antLabel = document.createElement('span');
-        antLabel.className = 'ib-def-tag-label';
-        antLabel.textContent = 'Antonyms';
-        antRow.appendChild(antLabel);
-        for (const a of meaning.antonyms) {
-          const tag = document.createElement('span');
-          tag.className = 'ib-def-tag ib-tag-ant';
-          tag.textContent = a;
-          antRow.appendChild(tag);
-        }
-        block.appendChild(antRow);
-      }
+      // Per-meaning synonyms / antonyms
+      if (meaning.synonyms?.length) block.appendChild(buildTagRow('Synonyms', meaning.synonyms, 'syn', true));
+      if (meaning.antonyms?.length) block.appendChild(buildTagRow('Antonyms', meaning.antonyms, 'ant'));
 
       def.appendChild(block);
     }
 
-    // Top-level synonyms (from Datamuse enrichment or aggregated)
+    // Top-level synonyms / antonyms
     if (data.synonyms?.length) {
-      const synSection = document.createElement('div');
-      synSection.className = 'ib-def-tags ib-def-tags-section';
-      const synLabel = document.createElement('span');
-      synLabel.className = 'ib-def-tag-label';
-      synLabel.textContent = 'Similar';
-      synSection.appendChild(synLabel);
-      for (const s of data.synonyms) {
-        const tag = document.createElement('span');
-        tag.className = 'ib-def-tag ib-tag-syn';
-        tag.textContent = s;
-        synSection.appendChild(tag);
-      }
-      def.appendChild(synSection);
+      const row = buildTagRow('Similar', data.synonyms, 'syn');
+      row.classList.add('ib-def-tags-section');
+      def.appendChild(row);
     }
-
-    // Top-level antonyms
     if (data.antonyms?.length) {
-      const antSection = document.createElement('div');
-      antSection.className = 'ib-def-tags ib-def-tags-section';
-      const antLabel = document.createElement('span');
-      antLabel.className = 'ib-def-tag-label';
-      antLabel.textContent = 'Opposite';
-      antSection.appendChild(antLabel);
-      for (const a of data.antonyms) {
-        const tag = document.createElement('span');
-        tag.className = 'ib-def-tag ib-tag-ant';
-        tag.textContent = a;
-        antSection.appendChild(tag);
-      }
-      def.appendChild(antSection);
+      const row = buildTagRow('Opposite', data.antonyms, 'ant');
+      row.classList.add('ib-def-tags-section');
+      def.appendChild(row);
     }
 
     container.appendChild(def);
@@ -337,19 +274,13 @@
     if (oldContent) oldContent.remove();
     if (oldLoading) oldLoading.remove();
 
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'infoblend-content';
-
+    const contentDiv = el('div', 'infoblend-content');
     const isNotice = title === 'Notice' || title === 'Error';
 
     if (isNotice) {
-      const state = document.createElement('div');
-      state.className = 'ib-empty-state';
+      const state = el('div', 'ib-empty-state');
       state.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-      const msg = document.createElement('div');
-      msg.className = 'ib-empty-state-text';
-      msg.textContent = content;
-      state.appendChild(msg);
+      state.appendChild(el('div', 'ib-empty-state-text', content));
       contentDiv.appendChild(state);
     } else if (extra.isRich && extra.meanings) {
       // Structured definition
@@ -359,28 +290,18 @@
       ib.BentoRenderer.render(content, contentDiv);
     }
 
-    // Context note: show the surrounding text that informed the definition
+    // Context note
     if (extra.contextNote && !isNotice) {
-      const ctxEl = document.createElement('div');
-      ctxEl.className = 'ib-context-note';
-      const ctxLabel = document.createElement('span');
-      ctxLabel.className = 'ib-context-label';
-      ctxLabel.textContent = 'In context: ';
-      const ctxText = document.createElement('span');
-      // Show a truncated version of the context sentence
-      const truncated = extra.contextNote.length > 120
-        ? extra.contextNote.substring(0, 120) + '...'
-        : extra.contextNote;
-      ctxText.textContent = truncated;
-      ctxEl.appendChild(ctxLabel);
-      ctxEl.appendChild(ctxText);
+      const ctxEl = el('div', 'ib-context-note');
+      ctxEl.appendChild(el('span', 'ib-context-label', 'In context: '));
+      const truncated = extra.contextNote.length > 120 ? extra.contextNote.substring(0, 120) + '...' : extra.contextNote;
+      ctxEl.appendChild(el('span', null, truncated));
       contentDiv.appendChild(ctxEl);
     }
 
     // Source
     if (!isNotice) {
-      const src = document.createElement('div');
-      src.className = 'infoblend-source';
+      const src = el('div', 'infoblend-source');
       if (extra.isNotFound && extra.url) {
         src.textContent = 'Search ';
         const link = document.createElement('a');
@@ -403,8 +324,7 @@
 
     const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
     const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'infoblend-btn infoblend-copy';
+    const copyBtn = el('button', 'infoblend-btn infoblend-copy');
     copyBtn.setAttribute('aria-label', 'Copy');
     copyBtn.innerHTML = copyIcon;
 
@@ -453,20 +373,18 @@
     // Phase 1: Try semantic selectors (most precise)
     let area = document.querySelector('article, main, [role="main"], .post-content, .entry-content, #content, .article-body, .story-body');
 
-    // Phase 2: Score candidate containers by text density
+    // Phase 2: Score candidate containers by text density (limit depth for perf)
     if (!area) {
-      const candidates = document.querySelectorAll('div, section');
       let bestScore = 0;
-      for (const el of candidates) {
-        const text = el.innerText || '';
-        const pCount = el.querySelectorAll('p').length;
-        const linkDensity = (el.querySelectorAll('a').length + 1) / (pCount + 1);
-        // Favor containers with many paragraphs, long text, and low link density
-        const score = (pCount * 10 + text.length / 100) / (linkDensity + 1);
-        if (score > bestScore && text.length > 200) {
-          bestScore = score;
-          area = el;
-        }
+      for (const cand of document.querySelectorAll('div, section')) {
+        // Skip deeply nested or tiny containers
+        const pCount = cand.querySelectorAll(':scope > p, :scope > * > p').length;
+        if (pCount < 2) continue;
+        const textLen = cand.textContent.length;
+        if (textLen < 200) continue;
+        const linkDensity = (cand.querySelectorAll('a').length + 1) / (pCount + 1);
+        const score = (pCount * 10 + textLen / 100) / (linkDensity + 1);
+        if (score > bestScore) { bestScore = score; area = cand; }
       }
     }
 
@@ -474,17 +392,18 @@
 
     const junk = 'nav,footer,header,script,style,noscript,template,aside,[role="complementary"],[role="navigation"],[role="banner"],.sidebar,#sidebar,[class*="ad-"],[id*="ad-"],[class*="social"],[class*="share"],[class*="comment"],[class*="related"],[class*="recommend"],[class*="newsletter"],[class*="subscribe"],[class*="popup"],[class*="modal"],[class*="cookie"],[class*="banner"],.social-share,.comments-area,.related-posts,.breadcrumb,.pagination,.toc';
     const prose = Array.from(area.querySelectorAll('p, h1, h2, h3, h4, li, blockquote, figcaption'))
-      .filter(el => {
-        const s = window.getComputedStyle(el);
-        if (s.display === 'none' || s.visibility === 'hidden') return false;
-        if (el.closest(junk)) return false;
-        if (el.tagName === 'LI' && el.innerText.length < 15) return false;
-        // Skip elements that are mostly links (navigation lists)
-        const linkText = Array.from(el.querySelectorAll('a')).reduce((sum, a) => sum + a.textContent.length, 0);
-        if (linkText > el.innerText.length * 0.6 && el.tagName === 'LI') return false;
+      .filter(node => {
+        if (node.closest(junk)) return false;
+        if (node.offsetHeight === 0) return false; // hidden — cheaper than getComputedStyle
+        const text = node.innerText;
+        if (node.tagName === 'LI' && text.length < 15) return false;
+        if (node.tagName === 'LI') {
+          const linkLen = node.querySelectorAll('a').length ? Array.from(node.querySelectorAll('a')).reduce((s, a) => s + a.textContent.length, 0) : 0;
+          if (linkLen > text.length * 0.6) return false;
+        }
         return true;
       })
-      .map(el => el.innerText.trim())
+      .map(node => node.innerText.trim())
       .filter(t => t.length > 25 && !t.includes('function(') && !t.includes('var ') && t.split('|').length <= 3);
 
     const content = Array.from(new Set(prose)).join('\n\n');
@@ -508,17 +427,9 @@
   }
 
   function showRetryingStatus() {
-    if (!overlayHost?.shadowRoot) return;
-    const loading = overlayHost.shadowRoot.querySelector('.infoblend-loading');
-    if (!loading) return;
-    // Add retrying indicator below skeleton
-    let retryEl = loading.querySelector('.ib-retrying');
-    if (!retryEl) {
-      retryEl = document.createElement('div');
-      retryEl.className = 'ib-retrying';
-      retryEl.textContent = 'AI unavailable, falling back to local...';
-      loading.appendChild(retryEl);
-    }
+    const loading = overlayHost?.shadowRoot?.querySelector('.infoblend-loading');
+    if (!loading || loading.querySelector('.ib-retrying')) return;
+    loading.appendChild(el('div', 'ib-retrying', 'AI unavailable, falling back to local...'));
   }
 
   function handleMessage(message) {
