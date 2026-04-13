@@ -50,7 +50,7 @@ export function generateIntelligentSummary(text, maxSentences = 4) {
 
   const scores = sentences.map((s, idx) => {
     const sWords = s.toLowerCase().match(/\b\w{3,}\b/g) || [];
-    let wordScore = sWords.reduce((acc, w) => acc + (freq[w] || 0), 0);
+    const wordScore = sWords.reduce((acc, w) => acc + (freq[w] || 0), 0);
 
     // U-curve position boost: reward sentences near the beginning and end
     // Normalized position 0..1, U-curve = high at edges, low in middle

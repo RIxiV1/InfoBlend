@@ -70,12 +70,33 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 const injectedTabs = new Set();
 chrome.tabs.onRemoved.addListener((tabId) => injectedTabs.delete(tabId));
 
+// --- Message validation ---
+const VALID_MESSAGES = {
+  'INJECT_MODULES': {},
+  'FETCH_DEFINITION': { required: ['word'] },
+  'PERFORM_SUMMARIZATION': { required: ['text'] }
+};
+
+function validateMessage(message) {
+  if (!message?.type || !(message.type in VALID_MESSAGES)) return false;
+  const schema = VALID_MESSAGES[message.type];
+  if (schema.required) {
+    return schema.required.every(key => message[key] != null);
+  }
+  return true;
+}
+
 // --- Message handler ---
 chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendResponse) => {
+  if (!validateMessage(message)) {
+    sendResponse({ success: false, error: `Unknown or malformed message type: ${message?.type}` });
+    return;
+  }
+
   switch (message.type) {
     case 'INJECT_MODULES': {
       const tabId = sender.tab?.id;
-      if (!tabId) return sendResponse({ success: false });
+      if (!tabId) return sendResponse({ success: false, error: 'No tab context' });
 
       if (!injectedTabs.has(tabId)) {
         await chrome.scripting.executeScript({
