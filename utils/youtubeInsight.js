@@ -80,13 +80,17 @@ const parseTranscriptFromHTML = async (html) => {
 };
 
 export const extractYouTubeTranscript = async (url) => {
+  const ac = new AbortController();
+  const timeout = setTimeout(() => ac.abort(), 15000);
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const response = await fetch(url, { signal: ac.signal });
+    clearTimeout(timeout);
     if (!response.ok) throw new Error('YouTube unreachable. Check connection.');
     const html = await response.text();
     return await parseTranscriptFromHTML(html);
   } catch (error) {
-    if (error.name === 'TimeoutError') throw new Error('YouTube request timed out. Check connection.');
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') throw new Error('YouTube request timed out. Check connection.');
     if (error.message.includes('Unexpected token') || error.message.includes('JSON')) {
       throw new Error('YouTube format changed. Please report this issue.');
     }
@@ -102,7 +106,10 @@ export async function fetchAndProcessTrack(tracks) {
   
   if (!enTrack?.baseUrl) throw new Error('No readable transcript tracks found.');
 
-  const xmlResponse = await fetch(enTrack.baseUrl, { signal: AbortSignal.timeout(10000) });
+  const xmlAc = new AbortController();
+  const xmlTimeout = setTimeout(() => xmlAc.abort(), 10000);
+  const xmlResponse = await fetch(enTrack.baseUrl, { signal: xmlAc.signal });
+  clearTimeout(xmlTimeout);
   if (!xmlResponse.ok) throw new Error('Failed to fetch transcript data.');
   const xml = await xmlResponse.text();
 

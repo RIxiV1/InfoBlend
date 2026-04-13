@@ -19,12 +19,14 @@ export default [
         atob: 'readonly',
         Audio: 'readonly',
         AbortSignal: 'readonly',
+        AbortController: 'readonly',
         TextEncoder: 'readonly',
         TextDecoder: 'readonly',
         Uint8Array: 'readonly',
         URL: 'readonly',
-        // Chrome extension globals
+        // Browser extension globals
         chrome: 'readonly',
+        browser: 'readonly',
         // Node test globals (for test files)
         globalThis: 'readonly'
       }
