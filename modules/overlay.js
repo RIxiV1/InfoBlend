@@ -215,7 +215,77 @@
       }
 
       block.appendChild(list);
+
+      // Per-meaning synonyms
+      if (meaning.synonyms?.length) {
+        const synRow = document.createElement('div');
+        synRow.className = 'ib-def-tags';
+        const synLabel = document.createElement('span');
+        synLabel.className = 'ib-def-tag-label';
+        synLabel.textContent = 'Synonyms';
+        synRow.appendChild(synLabel);
+        for (const s of meaning.synonyms) {
+          const tag = document.createElement('span');
+          tag.className = 'ib-def-tag ib-tag-syn';
+          tag.textContent = s;
+          tag.onclick = () => { ib.sendMessage({ type: 'FETCH_DEFINITION', word: s }); };
+          synRow.appendChild(tag);
+        }
+        block.appendChild(synRow);
+      }
+
+      // Per-meaning antonyms
+      if (meaning.antonyms?.length) {
+        const antRow = document.createElement('div');
+        antRow.className = 'ib-def-tags';
+        const antLabel = document.createElement('span');
+        antLabel.className = 'ib-def-tag-label';
+        antLabel.textContent = 'Antonyms';
+        antRow.appendChild(antLabel);
+        for (const a of meaning.antonyms) {
+          const tag = document.createElement('span');
+          tag.className = 'ib-def-tag ib-tag-ant';
+          tag.textContent = a;
+          antRow.appendChild(tag);
+        }
+        block.appendChild(antRow);
+      }
+
       def.appendChild(block);
+    }
+
+    // Top-level synonyms (from Datamuse enrichment or aggregated)
+    if (data.synonyms?.length) {
+      const synSection = document.createElement('div');
+      synSection.className = 'ib-def-tags ib-def-tags-section';
+      const synLabel = document.createElement('span');
+      synLabel.className = 'ib-def-tag-label';
+      synLabel.textContent = 'Similar';
+      synSection.appendChild(synLabel);
+      for (const s of data.synonyms) {
+        const tag = document.createElement('span');
+        tag.className = 'ib-def-tag ib-tag-syn';
+        tag.textContent = s;
+        synSection.appendChild(tag);
+      }
+      def.appendChild(synSection);
+    }
+
+    // Top-level antonyms
+    if (data.antonyms?.length) {
+      const antSection = document.createElement('div');
+      antSection.className = 'ib-def-tags ib-def-tags-section';
+      const antLabel = document.createElement('span');
+      antLabel.className = 'ib-def-tag-label';
+      antLabel.textContent = 'Opposite';
+      antSection.appendChild(antLabel);
+      for (const a of data.antonyms) {
+        const tag = document.createElement('span');
+        tag.className = 'ib-def-tag ib-tag-ant';
+        tag.textContent = a;
+        antSection.appendChild(tag);
+      }
+      def.appendChild(antSection);
     }
 
     container.appendChild(def);
@@ -257,8 +327,26 @@
       // Structured definition
       renderDefinition(extra, contentDiv);
     } else {
-      // Plain text (summaries, Wiktionary/Wikipedia fallback)
+      // Plain text (summaries, Wiktionary/Wikipedia fallback, AI context definitions)
       ib.BentoRenderer.render(content, contentDiv);
+    }
+
+    // Context note: show the surrounding text that informed the definition
+    if (extra.contextNote && !isNotice) {
+      const ctxEl = document.createElement('div');
+      ctxEl.className = 'ib-context-note';
+      const ctxLabel = document.createElement('span');
+      ctxLabel.className = 'ib-context-label';
+      ctxLabel.textContent = 'In context: ';
+      const ctxText = document.createElement('span');
+      // Show a truncated version of the context sentence
+      const truncated = extra.contextNote.length > 120
+        ? extra.contextNote.substring(0, 120) + '...'
+        : extra.contextNote;
+      ctxText.textContent = truncated;
+      ctxEl.appendChild(ctxLabel);
+      ctxEl.appendChild(ctxText);
+      contentDiv.appendChild(ctxEl);
     }
 
     // Source

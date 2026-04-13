@@ -86,7 +86,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // --- Message validation ---
 const VALID_MESSAGES = {
   'INJECT_MODULES': {},
-  'FETCH_DEFINITION': { required: ['word'] },
+  'FETCH_DEFINITION': { required: ['word'], optional: ['context'] },
   'PERFORM_SUMMARIZATION': { required: ['text'] },
   'SHOW_RETRYING': {}
 };

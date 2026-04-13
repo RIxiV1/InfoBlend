@@ -29,7 +29,6 @@
   const getStorage = async (keys) => (await chrome.storage.local.get(keys)) || {};
 
   let _defTimer = null;
-  let _defineBtn = null;
 
   Object.assign(window.__ib, { sendMessage, getStorage });
 
@@ -102,47 +101,81 @@
     }
   }
 
-  // --- Floating "Define" button for multi-word selections ---
+  // --- Floating "Define" button (Shadow DOM isolated) ---
+  let _defineBtnHost = null;
+
   function removeDefineBtn() {
-    if (_defineBtn) {
-      _defineBtn.remove();
-      _defineBtn = null;
+    if (_defineBtnHost) {
+      _defineBtnHost.remove();
+      _defineBtnHost = null;
     }
   }
 
   function showDefineBtn(rect, text, context) {
     removeDefineBtn();
-    const btn = document.createElement('button');
-    btn.textContent = 'Define';
-    btn.setAttribute('aria-label', `Define "${text.substring(0, 20)}"`);
-    Object.assign(btn.style, {
+
+    // Create shadow-isolated host
+    const host = document.createElement('div');
+    host.id = 'infoblend-define-host';
+    Object.assign(host.style, {
+      all: 'initial',
       position: 'fixed',
       top: `${rect.bottom + 6}px`,
-      left: `${rect.left + rect.width / 2 - 32}px`,
+      left: `${rect.left + rect.width / 2 - 42}px`,
       zIndex: '2147483647',
-      padding: '4px 12px',
-      fontSize: '12px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-      fontWeight: '600',
-      color: '#fff',
-      background: '#5e9cff',
-      border: 'none',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-      transition: 'opacity 0.15s, transform 0.15s',
-      opacity: '0',
-      transform: 'translateY(2px)'
+      pointerEvents: 'auto'
     });
-    document.body.appendChild(btn);
-    _defineBtn = btn;
+    const shadow = host.attachShadow({ mode: 'closed' });
 
-    // Animate in
-    requestAnimationFrame(() => {
-      btn.style.opacity = '1';
-      btn.style.transform = 'translateY(0)';
-    });
+    const isDark = detectPageTheme(rect.left + rect.width / 2, rect.top) === 'dark';
 
+    shadow.innerHTML = `
+      <style>
+        :host { display: block; }
+        .ib-define-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 14px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+          color: ${isDark ? '#f0f0f0' : '#1d1d1f'};
+          background: ${isDark ? 'rgba(44, 44, 46, 0.95)' : 'rgba(255, 255, 255, 0.95)'};
+          border: 1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'};
+          border-radius: 8px;
+          cursor: pointer;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          box-shadow: 0 4px 16px rgba(0,0,0,${isDark ? '0.4' : '0.12'}), 0 1px 4px rgba(0,0,0,0.08);
+          opacity: 0;
+          transform: translateY(4px) scale(0.95);
+          animation: ib-pop-in 0.15s ease forwards;
+          transition: background 0.1s, border-color 0.1s;
+        }
+        .ib-define-btn:hover {
+          background: ${isDark ? 'rgba(94, 156, 255, 0.15)' : 'rgba(94, 156, 255, 0.1)'};
+          border-color: rgba(94, 156, 255, 0.4);
+        }
+        .ib-define-btn svg {
+          color: #5e9cff;
+          flex-shrink: 0;
+        }
+        @keyframes ib-pop-in {
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      </style>
+      <button class="ib-define-btn" aria-label="Define selection">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Define
+      </button>
+    `;
+
+    document.body.appendChild(host);
+    _defineBtnHost = host;
+
+    const btn = shadow.querySelector('.ib-define-btn');
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -178,7 +211,7 @@
   // Text selection → show floating "Define" button for multi-word selections
   document.addEventListener('mouseup', (event) => {
     // Skip if inside our own UI
-    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host' || el === _defineBtn)) return;
+    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host' || el.id === 'infoblend-define-host')) return;
 
     setTimeout(() => {
       const sel = window.getSelection();
@@ -201,7 +234,7 @@
 
   // Remove floating button on click elsewhere or scroll
   document.addEventListener('mousedown', (e) => {
-    if (_defineBtn && e.target !== _defineBtn) removeDefineBtn();
+    if (_defineBtnHost && !e.composedPath().some(el => el.id === 'infoblend-define-host')) removeDefineBtn();
   });
   document.addEventListener('scroll', removeDefineBtn, true);
 

@@ -299,6 +299,54 @@
   border-left: 2px solid var(--ib-border);
 }
 
+/* ─── Synonym / Antonym Tags ─── */
+.ib-def-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.ib-def-tags-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ib-border);
+}
+
+.ib-def-tag-label {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ib-text-3) !important;
+  margin-right: 4px;
+}
+
+.ib-def-tag {
+  display: inline-block;
+  font-size: 11px !important;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: default;
+  transition: background 0.1s;
+}
+
+.ib-tag-syn {
+  background: var(--ib-accent-low) !important;
+  color: var(--ib-accent) !important;
+  cursor: pointer;
+}
+
+.ib-tag-syn:hover {
+  background: rgba(94,156,255,0.2) !important;
+}
+
+.ib-tag-ant {
+  background: rgba(255,149,0,0.1) !important;
+  color: #ff9500 !important;
+}
+
 /* ─── Empty/Error ─── */
 .ib-empty-state {
   display: flex;
@@ -311,6 +359,22 @@
 
 .ib-empty-state svg { color: var(--ib-text-3) !important; opacity: 0.5; }
 .ib-empty-state-text { font-size: 12px !important; color: var(--ib-text-2) !important; line-height: 1.5; }
+
+/* ─── Context Note ─── */
+.ib-context-note {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--ib-accent-low);
+  border-radius: 6px;
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+  color: var(--ib-text-2) !important;
+}
+
+.ib-context-label {
+  font-weight: 600 !important;
+  color: var(--ib-accent) !important;
+}
 
 /* ─── Retry Status ─── */
 .ib-retrying {
