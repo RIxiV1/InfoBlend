@@ -11,6 +11,7 @@ export default [
         navigator: 'readonly',
         console: 'readonly',
         setTimeout: 'readonly',
+        clearTimeout: 'readonly',
         requestAnimationFrame: 'readonly',
         fetch: 'readonly',
         crypto: 'readonly',
