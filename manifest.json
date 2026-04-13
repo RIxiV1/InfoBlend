@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "InfoBlend",
+  "name": "__MSG_extensionName__",
   "version": "3.0.0",
-  "description": "Select any word for instant definitions. Ctrl+K to summarize any page.",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "en",
   "permissions": [
     "storage",
     "activeTab",

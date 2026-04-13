@@ -1,0 +1,125 @@
+{
+  "extensionName": {
+    "message": "InfoBlend",
+    "description": "The display name of the extension"
+  },
+  "extensionDescription": {
+    "message": "Select any word for instant definitions. Ctrl+K to summarize any page.",
+    "description": "The description of the extension"
+  },
+  "summarizePageBtn": {
+    "message": "Summarize this page",
+    "description": "Hero button label in popup"
+  },
+  "autoDefinitions": {
+    "message": "Auto-definitions",
+    "description": "Toggle label for auto-definitions setting"
+  },
+  "autoDefinitionsHint": {
+    "message": "Double-click a word to see its meaning",
+    "description": "Hint text under auto-definitions toggle"
+  },
+  "aiEngine": {
+    "message": "AI Engine",
+    "description": "Collapsible panel header for AI config"
+  },
+  "optional": {
+    "message": "optional",
+    "description": "Badge label for optional settings"
+  },
+  "provider": {
+    "message": "Provider",
+    "description": "Label for AI provider dropdown"
+  },
+  "apiKey": {
+    "message": "API Key",
+    "description": "Label for API key input"
+  },
+  "endpointUrl": {
+    "message": "Endpoint URL",
+    "description": "Label for API endpoint input"
+  },
+  "testConnection": {
+    "message": "Test connection",
+    "description": "Button to test AI API connection"
+  },
+  "configNote": {
+    "message": "Without a key, summaries use local extraction.",
+    "description": "Note under AI config section"
+  },
+  "summaryTheme": {
+    "message": "Summary theme",
+    "description": "Label for theme selector"
+  },
+  "saveSettings": {
+    "message": "Save settings",
+    "description": "Save button label"
+  },
+  "saved": {
+    "message": "Saved",
+    "description": "Confirmation after saving"
+  },
+  "welcomeTitle": {
+    "message": "Welcome to InfoBlend",
+    "description": "Onboarding modal title"
+  },
+  "welcomeDesc": {
+    "message": "Your browsing, augmented.",
+    "description": "Onboarding modal subtitle"
+  },
+  "welcomeTip1": {
+    "message": "Double-click any word for an instant definition",
+    "description": "Onboarding tip 1"
+  },
+  "welcomeTip2": {
+    "message": "Press Ctrl+K to summarize any page",
+    "description": "Onboarding tip 2"
+  },
+  "welcomeTip3": {
+    "message": "Add an AI key for smarter results",
+    "description": "Onboarding tip 3"
+  },
+  "getStarted": {
+    "message": "Get started",
+    "description": "Onboarding CTA button"
+  },
+  "contextMenuSummarize": {
+    "message": "Summarize selection with InfoBlend",
+    "description": "Right-click context menu item"
+  },
+  "noDefinition": {
+    "message": "No definition found for \"$TERM$\".",
+    "description": "Shown when no definition is found",
+    "placeholders": {
+      "term": { "content": "$1", "example": "asdfg" }
+    }
+  },
+  "noContent": {
+    "message": "No readable content found on this page.",
+    "description": "Shown when page extraction finds nothing"
+  },
+  "selectionTooLong": {
+    "message": "Selection too long for definition. Try summarizing instead.",
+    "description": "Error when selection exceeds word limit"
+  },
+  "retrying": {
+    "message": "AI unavailable, falling back to local...",
+    "description": "Shown during AI fallback"
+  },
+  "connected": {
+    "message": "Connected",
+    "description": "Test connection success"
+  },
+  "connectionFailed": {
+    "message": "Connection failed",
+    "description": "Test connection failure"
+  },
+  "needEndpointAndKey": {
+    "message": "Need endpoint & key",
+    "description": "Test connection missing fields"
+  },
+  "invalidUrl": {
+    "message": "Must be a valid HTTP(S) URL",
+    "description": "URL validation error"
+  }
+}
