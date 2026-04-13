@@ -95,30 +95,49 @@ async function tryDictionary(term) {
     title: entry.word,
     phonetic,
     audioUrl,
-    meanings: entry.meanings.slice(0, 2).map(m => ({
+    meanings: entry.meanings.slice(0, 4).map(m => ({
       partOfSpeech: m.partOfSpeech,
       definitions: m.definitions.slice(0, 3).map(d => ({
         text: d.definition,
         example: d.example || null
-      }))
+      })),
+      synonyms: (m.synonyms || []).slice(0, 5),
+      antonyms: (m.antonyms || []).slice(0, 5)
     })),
+    // Collect top-level synonyms/antonyms too
+    synonyms: entry.meanings.flatMap(m => m.synonyms || []).slice(0, 8),
+    antonyms: entry.meanings.flatMap(m => m.antonyms || []).slice(0, 5),
     source: 'Dictionary API',
     isRich: true
   };
 }
 
 async function tryDatamuse(term) {
-  const resp = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d&max=1`);
-  if (!resp.ok) return null;
-  const data = await resp.json();
+  // Fetch definition + synonyms + antonyms in parallel
+  const [defResp, synResp, antResp] = await Promise.all([
+    fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d,p,s,f&max=1`),
+    fetch(`https://api.datamuse.com/words?rel_syn=${encodeURIComponent(term)}&max=6`),
+    fetch(`https://api.datamuse.com/words?rel_ant=${encodeURIComponent(term)}&max=4`)
+  ]);
+
+  if (!defResp.ok) return null;
+  const data = await defResp.json();
   if (!data?.[0]?.defs?.length || data[0].word?.toLowerCase() !== term.toLowerCase()) return null;
 
+  const synData = synResp.ok ? await synResp.json() : [];
+  const antData = antResp.ok ? await antResp.json() : [];
+
+  const entry = data[0];
   return {
     title: term,
-    meanings: data[0].defs.slice(0, 3).map(d => {
+    meanings: entry.defs.slice(0, 4).map(d => {
       const [pos, ...rest] = d.split('\t');
       return { partOfSpeech: pos, definitions: [{ text: rest.join('\t') }] };
     }),
+    synonyms: synData.map(w => w.word).slice(0, 8),
+    antonyms: antData.map(w => w.word).slice(0, 5),
+    frequency: entry.tags?.find(t => t.startsWith('f:'))?.replace('f:', '') || null,
+    syllables: entry.numSyllables || null,
     source: 'Datamuse',
     isRich: true
   };
@@ -129,7 +148,7 @@ async function tryWiktionary(term) {
   if (!resp.ok) return null;
   const data = await resp.json();
   if (!data.extract) return null;
-  return { title: term, content: data.extract, source: 'Wiktionary' };
+  return { title: data.title || term, content: data.extract, source: 'Wiktionary' };
 }
 
 async function tryWikipedia(term) {
@@ -137,11 +156,29 @@ async function tryWikipedia(term) {
   if (!resp.ok) return null;
   const data = await resp.json();
   if (!data.extract) return null;
+  // Show up to 3 sentences for richer context (not just the first)
+  const sentences = data.extract.match(/[^.!?]*[.!?]+/g) || [data.extract];
+  const content = sentences.slice(0, 3).join(' ').trim();
   return {
     title: data.title || term,
-    content: data.extract.split(/[.!?]\s/)[0].trim() + '.',
+    content,
+    thumbnail: data.thumbnail?.source || null,
     source: 'Wikipedia'
   };
+}
+
+/**
+ * For multi-word phrases that fail all APIs, try searching Wikipedia
+ * with the full phrase as a search query instead of a direct page lookup.
+ */
+async function tryWikipediaSearch(term) {
+  const resp = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(term)}&srnamespace=0&srlimit=1&format=json&origin=*`);
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  const hit = data?.query?.search?.[0];
+  if (!hit) return null;
+  // Get the summary for the top search result
+  return await tryWikipedia(hit.title);
 }
 
 // --- Main definition fetcher ---
@@ -157,15 +194,25 @@ export const fetchDefinition = async (word) => {
 
   // Route based on word count:
   // Single words: Dictionary (rich) → Datamuse → Wiktionary → Wikipedia
-  // Compound terms: Wikipedia (handles them best) → Wiktionary → Dictionary → Datamuse
+  // Compound terms: Wikipedia (handles them best) → Wiktionary → Dictionary → Datamuse → Wikipedia Search
   const chain = wordCount === 1
     ? [tryDictionary, tryDatamuse, tryWiktionary, tryWikipedia]
-    : [tryWikipedia, tryWiktionary, tryDictionary, tryDatamuse];
+    : [tryWikipedia, tryWiktionary, tryDictionary, tryDatamuse, tryWikipediaSearch];
 
   for (const fetcher of chain) {
     try {
       const result = await fetcher(term);
       if (result) {
+        // For single words with rich definitions, enrich with Datamuse synonyms if missing
+        if (wordCount === 1 && result.isRich && !result.synonyms?.length && fetcher !== tryDatamuse) {
+          try {
+            const synResp = await fetch(`https://api.datamuse.com/words?rel_syn=${encodeURIComponent(term)}&max=6`);
+            if (synResp.ok) {
+              const synData = await synResp.json();
+              result.synonyms = synData.map(w => w.word).slice(0, 8);
+            }
+          } catch { /* non-critical */ }
+        }
         await cacheDefinition(term, result);
         return result;
       }
@@ -184,8 +231,9 @@ export const fetchDefinition = async (word) => {
 /**
  * AI request adapter. Supports Gemini, OpenAI, and generic endpoints.
  * Retries transient failures (429, 5xx, network errors) up to 2 times with exponential backoff.
+ * @param {string} context - Optional surrounding text for context-aware definitions.
  */
-export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', promptType = 'define') => {
+export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', promptType = 'define', context = '') => {
   if (!endpoint?.startsWith('http')) throw new Error('Invalid API Endpoint. Please check your settings.');
 
   const headers = { 'Content-Type': 'application/json' };
@@ -197,9 +245,14 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
     headers['Authorization'] = `Bearer ${key}`;
   }
 
-  const prompt = promptType === 'summarize'
-    ? `Summarize the following text in 3-4 concise bullet points:\n\n${text.substring(0, 8000)}`
-    : `Define "${text}" in one clear sentence.`;
+  let prompt;
+  if (promptType === 'summarize') {
+    prompt = `Summarize the following text in 3-4 concise bullet points:\n\n${text.substring(0, 8000)}`;
+  } else if (context) {
+    prompt = `Define "${text}" as used in this context: "${context.substring(0, 300)}"\n\nGive the specific meaning that applies here in 1-2 clear sentences.`;
+  } else {
+    prompt = `Define "${text}" in one clear sentence.`;
+  }
 
   const body = {
     gemini: { contents: [{ parts: [{ text: prompt }] }] },
