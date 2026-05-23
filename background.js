@@ -10,12 +10,20 @@ import { trackEvent } from './utils/telemetry.js';
  */
 
 // --- Context Menu (selection summarization only; double-click handles definitions) ---
+// onInstalled + onStartup can both fire on service-worker spin-up. Without a
+// callback on create(), the second concurrent call races and emits
+// "Unchecked runtime.lastError: Cannot create item with duplicate id summarize-ib".
+// We pass a callback whose only job is to consume lastError silently — and we
+// also consume removeAll's lastError for the same reason.
 const setupContextMenus = () => {
   chrome.contextMenus.removeAll(() => {
+    void chrome.runtime.lastError;
     chrome.contextMenus.create({
       id: 'summarize-ib',
       title: chrome.i18n.getMessage('contextMenuSummarize') || 'Summarize selection with InfoBlend',
       contexts: ['selection']
+    }, () => {
+      void chrome.runtime.lastError;
     });
   });
 };
