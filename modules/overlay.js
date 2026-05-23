@@ -13,6 +13,7 @@
   let _anchor = null;
   let _dismissHandler = null;
   let _activeAudio = null;
+  let _prevFocus = null;
 
   // DOM helper — reduces createElement + className boilerplate
   const el = (tag, cls, text) => {
@@ -79,6 +80,9 @@
     if (_activeAudio) { _activeAudio.pause(); _activeAudio = null; }
     if (overlayHost) { overlayHost.remove(); overlayHost = null; }
     if (_dismissHandler) { document.removeEventListener('mousedown', _dismissHandler, true); _dismissHandler = null; }
+    // Save focus only on first open of a session — repeated overlay swaps should still
+    // restore to the user's original pre-overlay element, not to the previous overlay.
+    if (!_prevFocus) _prevFocus = document.activeElement;
     _anchor = anchor || { mode: 'panel' };
 
     const { host, shadow } = ib.createShadowHost('infoblend-shadow-host');
@@ -361,10 +365,17 @@
       _dismissHandler = null;
     }
     container.classList.add('ib-fade-out');
+    const restore = _prevFocus;
+    _prevFocus = null;
     setTimeout(() => {
       if (host.parentNode) host.remove();
       if (overlayHost === host) overlayHost = null;
       _anchor = null;
+      // Restore focus to wherever the user was before the overlay opened so screen-reader
+      // and keyboard users don't get stranded on document.body.
+      if (restore && typeof restore.focus === 'function' && document.contains(restore)) {
+        try { restore.focus(); } catch { /* element may be unfocusable now */ }
+      }
     }, 250);
   }
 

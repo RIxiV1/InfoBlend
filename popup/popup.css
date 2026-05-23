@@ -260,6 +260,34 @@ main {
 .input-group select:focus { border-color: rgba(94,156,255,0.4); }
 .input-group select { appearance: none; cursor: pointer; font-family: var(--font); }
 
+/* Password (API key) field with show/hide toggle */
+.password-wrap { position: relative; }
+.password-wrap input { padding-right: 32px; }
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color 0.1s, background 0.1s;
+}
+
+.password-toggle:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+.password-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.password-toggle .eye-hide { display: none; }
+.password-toggle[aria-pressed="true"] .eye-show { display: none; }
+.password-toggle[aria-pressed="true"] .eye-hide { display: block; }
+
 .select-wrap { position: relative; }
 .select-wrap select { padding-right: 24px; }
 .select-wrap::after {
@@ -468,3 +496,15 @@ footer span { font-size: 10px; color: var(--text-4); }
 }
 
 .modal-cta:hover { opacity: 0.9; }
+.modal-cta:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .hero-btn:hover { transform: none; }
+  .status-dot { animation: none; opacity: 1; }
+}

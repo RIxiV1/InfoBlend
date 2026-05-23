@@ -394,3 +394,17 @@
   .infoblend-overlay.ib-mode-tooltip { width: min(340px, 90vw); }
   .infoblend-overlay.ib-mode-panel { width: min(380px, calc(100vw - 32px)); right: 8px; }
 }
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .infoblend-overlay,
+  .infoblend-overlay *,
+  .infoblend-overlay *::before,
+  .infoblend-overlay *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .ib-skeleton { background: var(--ib-skel-a); }
+  .ib-retrying { opacity: 1; }
+}
