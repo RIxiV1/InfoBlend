@@ -114,6 +114,14 @@
     "message": "Connection failed",
     "description": "Test connection failure"
   },
+  "testing": {
+    "message": "Testing...",
+    "description": "Shown on the Test connection button while a test is in progress"
+  },
+  "timedOut": {
+    "message": "Timed out",
+    "description": "Shown on the Test connection button when the network request times out"
+  },
   "needEndpointAndKey": {
     "message": "Need endpoint & key",
     "description": "Test connection missing fields"
@@ -121,5 +129,17 @@
   "invalidUrl": {
     "message": "Must be a valid HTTP(S) URL",
     "description": "URL validation error"
+  },
+  "showApiKey": {
+    "message": "Show API key",
+    "description": "Accessible label for the show-password toggle on the API key field"
+  },
+  "hideApiKey": {
+    "message": "Hide API key",
+    "description": "Accessible label for the hide-password toggle on the API key field"
+  },
+  "closeWelcome": {
+    "message": "Close welcome",
+    "description": "Accessible label for closing the onboarding modal"
   }
 }
