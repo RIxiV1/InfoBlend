@@ -65,25 +65,13 @@
       && typeof window.__ib.handleMessage === 'function';
   }
 
+  // Modules now pre-load via the manifest's content_scripts.js array (alongside
+  // this bootstrap), so they should always be ready by the time any user event
+  // fires. The previous dynamic-injection path via background+scripting.executeScript
+  // required activeTab, which is granted only for extension actions (toolbar
+  // click, context menu, declared command) — never for DOM events like dblclick.
   function ensureModules() {
-    const ib = window.__ib;
-    if (ib.modulesLoaded && modulesReady()) return Promise.resolve(true);
-    if (ib._loadingPromise) return ib._loadingPromise;
-    ib._loadingPromise = new Promise((resolve) => {
-      sendMessage({ type: 'INJECT_MODULES' }, async (r) => {
-        if (!r?.success) { ib._loadingPromise = null; resolve(false); return; }
-        // Wait for injected IIFEs to execute and register functions
-        let tries = 0;
-        while (!modulesReady() && tries < 50) {
-          await new Promise(tick => setTimeout(tick, 20));
-          tries++;
-        }
-        ib.modulesLoaded = modulesReady();
-        ib._loadingPromise = null;
-        resolve(ib.modulesLoaded);
-      });
-    });
-    return ib._loadingPromise;
+    return Promise.resolve(modulesReady());
   }
 
   // Detect if the page area around the selection is light or dark
@@ -267,12 +255,17 @@
     });
   }
 
-  // Ctrl+K → Command Palette
+  // Ctrl+K → Command Palette. Skip when user is typing in an editor — Ctrl+K
+  // is the universal "insert link" shortcut in Google Docs, Slack, Notion,
+  // GitHub PR composer, etc. Hijacking it there breaks workflows.
   document.addEventListener('keydown', async (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      if (await ensureModules()) window.__ib.togglePalette();
-    }
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
+    const active = document.activeElement;
+    const tag = active?.tagName;
+    const inEditor = tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable;
+    if (inEditor) return; // let native Ctrl+K run
+    e.preventDefault();
+    if (await ensureModules()) window.__ib.togglePalette();
   });
 
   // Double-click → word definition (single or multi-word, with context)

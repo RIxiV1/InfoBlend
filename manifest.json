@@ -8,7 +8,6 @@
     "storage",
     "activeTab",
     "contextMenus",
-    "scripting",
     "alarms"
   ],
   "background": {
@@ -18,7 +17,12 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["contentScript.js"],
+      "js": [
+        "contentScript.js",
+        "modules/core.js",
+        "modules/overlay.js",
+        "modules/palette.js"
+      ],
       "run_at": "document_idle"
     }
   ],

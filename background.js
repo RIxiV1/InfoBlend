@@ -74,10 +74,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-// --- Module injection tracking ---
-const injectedTabs = new Set();
-chrome.tabs.onRemoved.addListener((tabId) => injectedTabs.delete(tabId));
-
 // --- Periodic cache cleanup (every 6 hours) ---
 chrome.alarms.create('ib-cache-cleanup', { periodInMinutes: 360 });
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -86,7 +82,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // --- Message validation ---
 const VALID_MESSAGES = {
-  'INJECT_MODULES': {},
   'FETCH_DEFINITION': { required: ['word'], optional: ['context'] },
   'FETCH_AUDIO': { required: ['url'] },
   'PERFORM_SUMMARIZATION': { required: ['text'] },
@@ -110,21 +105,6 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
   }
 
   switch (message.type) {
-    case 'INJECT_MODULES': {
-      const tabId = sender.tab?.id;
-      if (!tabId) return sendResponse({ success: false, error: 'No tab context' });
-
-      if (!injectedTabs.has(tabId)) {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['modules/core.js', 'modules/overlay.js', 'modules/palette.js']
-        });
-        injectedTabs.add(tabId);
-      }
-      sendResponse({ success: true });
-      return;
-    }
-
     case 'FETCH_DEFINITION':
       trackEvent('definition');
       sendResponse({ success: true, data: await handleDefinition(message.word, message.context) });

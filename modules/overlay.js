@@ -49,6 +49,19 @@
     }
   });
 
+  // --- Theme hot-reload ---
+  // If the user changes the theme setting in the popup while an overlay is
+  // open, update the open overlay in place rather than requiring a page
+  // refresh. Tooltips opt out because their theme is anchored to the page
+  // background, not the user's preference.
+  chrome.storage?.onChanged?.addListener((changes, area) => {
+    if (area !== 'local' || !('theme' in changes)) return;
+    _storedTheme = changes.theme.newValue || _storedTheme;
+    const container = overlayHost?.shadowRoot?.querySelector('.infoblend-overlay');
+    if (!container || _anchor?.mode === 'tooltip') return;
+    container.classList.toggle('ib-light-theme', resolveTheme() === 'light');
+  });
+
   // --- Position ---
   // Tooltip position is set once on open (below the word, anchor.y = rect.bottom + 8)
   // and then refined by repositionTooltip() any time the container's size changes
