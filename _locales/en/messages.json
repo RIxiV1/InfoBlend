@@ -137,5 +137,13 @@
   "hideApiKey": {
     "message": "Hide API key",
     "description": "Accessible label for the hide-password toggle on the API key field"
+  },
+  "cantSummarizeUrl": {
+    "message": "Can't summarize this page",
+    "description": "Inline error when the hero Summarize button is clicked on a restricted URL (chrome://, etc.)"
+  },
+  "refreshAndRetry": {
+    "message": "Refresh the page and retry",
+    "description": "Inline error when the hero Summarize button is clicked but the content script isn't reachable on the active tab"
   }
 }

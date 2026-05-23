@@ -126,6 +126,17 @@ header {
   box-shadow: var(--focus-ring), var(--rim-light);
 }
 
+.hero-btn.hero-error {
+  background: rgba(255, 69, 58, 0.12);
+  border-color: rgba(255, 69, 58, 0.35);
+}
+
+.hero-btn.hero-error .hero-content {
+  color: #ff453a;
+}
+
+.hero-btn.hero-error kbd { display: none; }
+
 .hero-content {
   display: flex;
   align-items: center;

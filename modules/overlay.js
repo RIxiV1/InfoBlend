@@ -199,9 +199,15 @@
 
     setTimeout(() => {
       container.classList.add('open');
-      // Move focus into the overlay for keyboard users
-      const firstBtn = container.querySelector('button');
-      if (firstBtn) firstBtn.focus();
+      // Only steal focus into the overlay when the user got here via the
+      // keyboard. Mouse-triggered opens (double-click word, "Define" button,
+      // right-click summarize) should leave focus where it was — otherwise
+      // a Tab/Arrow after a mouse-peek traps the user inside the tooltip
+      // instead of letting them keep scrolling the page.
+      if (_anchor?.viaKeyboard) {
+        const firstBtn = container.querySelector('button');
+        if (firstBtn) firstBtn.focus();
+      }
     }, 10);
 
     // Watch for size changes (skeleton → content load → synonym tap → ...)
@@ -268,13 +274,16 @@
             if (_activeAudio.parentNode) _activeAudio.remove();
             _activeAudio = null;
           }
-          // Distinct loading state — fetch can take ~1s via the background bypass.
-          // Previously the button jumped straight to the "playing" state, so a
-          // network hiccup looked like a silent failure.
+          // Capture the overlay host that owns this button. If the overlay
+          // is replaced or closed before the audio fetch returns, we abort
+          // the callback — otherwise the user got phantom audio playing
+          // after they'd already dismissed the tooltip.
+          const owningHost = overlayHost;
           audioBtn.classList.add('ib-audio-loading');
           audioBtn.setAttribute('aria-busy', 'true');
           // Fetch audio via background script to bypass page CSP
           ib.sendMessage({ type: 'FETCH_AUDIO', url: data.audioUrl }, (resp) => {
+            if (overlayHost !== owningHost) return; // overlay was replaced/closed
             audioBtn.classList.remove('ib-audio-loading');
             audioBtn.removeAttribute('aria-busy');
             if (!resp?.success || !resp.dataUrl) return;
@@ -413,23 +422,40 @@
       ? extra.meanings.map(m => `${m.partOfSpeech}: ${m.definitions.map(d => d.text).join('; ')}`).join('\n')
       : content;
 
-    copyBtn.onclick = (e) => {
+    copyBtn.onclick = async (e) => {
       e.stopPropagation();
+      let ok = false;
+      // Try modern clipboard API. writeText returns a Promise that rejects
+      // when the document isn't focused or the page denies clipboard access;
+      // we used to fire-and-forget it and unconditionally show success.
       try {
-        navigator.clipboard.writeText(copyText);
-      } catch {
-        // Fallback for Firefox or permission-denied contexts
-        const ta = document.createElement('textarea');
-        ta.value = copyText;
-        ta.style.cssText = 'position:fixed;opacity:0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
+        await navigator.clipboard.writeText(copyText);
+        ok = true;
+      } catch { /* fall through to execCommand */ }
+      // Fallback for Firefox / permission-denied / non-secure contexts
+      if (!ok) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = copyText;
+          ta.style.cssText = 'position:fixed;opacity:0';
+          document.body.appendChild(ta);
+          ta.select();
+          ok = document.execCommand('copy');
+          ta.remove();
+        } catch { ok = false; }
       }
-      copyBtn.innerHTML = checkIcon;
-      copyBtn.classList.add('ib-copied');
-      setTimeout(() => { copyBtn.innerHTML = copyIcon; copyBtn.classList.remove('ib-copied'); }, 2000);
+      if (ok) {
+        copyBtn.innerHTML = checkIcon;
+        copyBtn.classList.add('ib-copied');
+        setTimeout(() => { copyBtn.innerHTML = copyIcon; copyBtn.classList.remove('ib-copied'); }, 2000);
+      } else {
+        copyBtn.classList.add('ib-copy-failed');
+        copyBtn.setAttribute('aria-label', 'Copy failed — try selecting the text manually');
+        setTimeout(() => {
+          copyBtn.classList.remove('ib-copy-failed');
+          copyBtn.setAttribute('aria-label', 'Copy');
+        }, 2400);
+      }
     };
     controls.insertBefore(copyBtn, controls.firstChild);
   }
@@ -509,8 +535,8 @@
   }
 
   // --- Summarization ---
-  function handlePageSummarization() {
-    showLoadingOverlay({ mode: 'panel' });
+  function handlePageSummarization(opts = {}) {
+    showLoadingOverlay({ mode: 'panel', viaKeyboard: !!opts.viaKeyboard });
     const content = extractArticleContent();
     if (!content) return updateOverlay('Notice', 'No readable content found on this page.', 'InfoBlend');
     runSummarizer(content, 'Page Summary');
