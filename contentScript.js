@@ -204,15 +204,15 @@
           transition: background 0.1s, border-color 0.1s;
         }
         .ib-define-btn:hover {
-          background: ${isDark ? 'rgba(94, 156, 255, 0.15)' : 'rgba(94, 156, 255, 0.1)'};
-          border-color: rgba(94, 156, 255, 0.4);
+          background: ${isDark ? 'rgba(74, 144, 255, 0.15)' : 'rgba(74, 144, 255, 0.1)'};
+          border-color: rgba(74, 144, 255, 0.4);
         }
         .ib-define-btn:focus-visible {
-          outline: 2px solid #5e9cff;
-          outline-offset: 2px;
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(74, 144, 255, 0.35);
         }
         .ib-define-btn svg {
-          color: #5e9cff;
+          color: #4a90ff;
           flex-shrink: 0;
         }
         @keyframes ib-pop-in {
