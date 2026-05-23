@@ -173,6 +173,10 @@
 
 .infoblend-btn svg { color: inherit !important; }
 .infoblend-copy.ib-copied { background: var(--ib-accent-low) !important; }
+.infoblend-copy.ib-copy-failed {
+  background: rgba(255, 69, 58, 0.12) !important;
+  color: #ff453a !important;
+}
 
 /* ─── Content ─── */
 .infoblend-content {
