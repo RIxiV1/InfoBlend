@@ -23,14 +23,23 @@
     const overlayBg = document.createElement('div');
     overlayBg.className = 'ib-palette-overlay';
 
-    // Theme: apply system default immediately, then correct once storage loads
+    // Theme: read from the eager cache populated in contentScript.js. This avoids
+    // the FOUC where the palette flashed in the wrong theme for ~10-50ms while
+    // chrome.storage resolved. The cache is kept in sync via storage.onChanged.
     const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (!systemDark) overlayBg.classList.add('ib-light-theme');
-    ib.getStorage(['theme']).then(settings => {
-      const theme = settings.theme || 'system';
-      const isDark = theme === 'dark' || (theme === 'system' && systemDark);
-      overlayBg.classList.toggle('ib-light-theme', !isDark);
-    });
+    const cached = ib._settings?.theme;
+    const theme = cached || 'system';
+    const isDark = theme === 'dark' || (theme === 'system' && systemDark);
+    if (!isDark) overlayBg.classList.add('ib-light-theme');
+    // Belt-and-suspenders: if the cache wasn't populated yet (palette opened
+    // before the bootstrap storage call resolved), correct on next tick.
+    if (cached === undefined) {
+      ib.getStorage(['theme']).then(settings => {
+        const t = settings.theme || 'system';
+        const dark = t === 'dark' || (t === 'system' && systemDark);
+        overlayBg.classList.toggle('ib-light-theme', !dark);
+      });
+    }
 
     overlayBg.onclick = () => togglePalette();
 
