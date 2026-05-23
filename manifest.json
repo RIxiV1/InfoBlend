@@ -11,10 +11,6 @@
     "scripting",
     "alarms"
   ],
-  "host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -32,11 +28,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "utils/*.js",
-        "modules/*.js",
-        "styles/*.css",
-        "overlay/*.css",
-        "icons/*.png"
+        "styles/content.css",
+        "overlay/overlay.css"
       ],
       "matches": ["http://*/*", "https://*/*"]
     }
