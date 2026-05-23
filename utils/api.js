@@ -104,23 +104,21 @@ async function tryDictionary(term) {
         text: d.definition,
         example: d.example || null
       })),
-      synonyms: (m.synonyms || []).slice(0, 5),
-      antonyms: (m.antonyms || []).slice(0, 5)
+      synonyms: (m.synonyms || []).slice(0, 5)
     })),
-    // Collect top-level synonyms/antonyms too
     synonyms: entry.meanings.flatMap(m => m.synonyms || []).slice(0, 8),
-    antonyms: entry.meanings.flatMap(m => m.antonyms || []).slice(0, 5),
     source: 'Dictionary API',
     isRich: true
   };
 }
 
 async function tryDatamuse(term) {
-  // Fetch definition + synonyms + antonyms in parallel
-  const [defResp, synResp, antResp] = await Promise.all([
+  // Fetch definition + synonyms in parallel (antonyms previously fetched
+  // here too, but they're no longer displayed — dropping the request saves
+  // one network call per definition).
+  const [defResp, synResp] = await Promise.all([
     fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d,p,s,f&max=1`),
-    fetch(`https://api.datamuse.com/words?rel_syn=${encodeURIComponent(term)}&max=6`),
-    fetch(`https://api.datamuse.com/words?rel_ant=${encodeURIComponent(term)}&max=4`)
+    fetch(`https://api.datamuse.com/words?rel_syn=${encodeURIComponent(term)}&max=6`)
   ]);
 
   if (!defResp.ok) return null;
@@ -128,7 +126,6 @@ async function tryDatamuse(term) {
   if (!data?.[0]?.defs?.length || data[0].word?.toLowerCase() !== term.toLowerCase()) return null;
 
   const synData = synResp.ok ? await synResp.json() : [];
-  const antData = antResp.ok ? await antResp.json() : [];
 
   const entry = data[0];
   return {
@@ -138,7 +135,6 @@ async function tryDatamuse(term) {
       return { partOfSpeech: pos, definitions: [{ text: rest.join('\t') }] };
     }),
     synonyms: synData.map(w => w.word).slice(0, 8),
-    antonyms: antData.map(w => w.word).slice(0, 5),
     frequency: entry.tags?.find(t => t.startsWith('f:'))?.replace('f:', '') || null,
     syllables: entry.numSyllables || null,
     source: 'Datamuse',
