@@ -194,7 +194,25 @@
     row.appendChild(el('span', 'ib-def-tag-label', label));
     for (const w of words) {
       const tag = el('span', `ib-def-tag ib-tag-${type}`, w);
-      if (clickable) tag.onclick = () => ib.sendMessage({ type: 'FETCH_DEFINITION', word: w });
+      if (clickable) {
+        tag.setAttribute('role', 'button');
+        tag.setAttribute('tabindex', '0');
+        const lookup = (e) => {
+          e.stopPropagation();
+          // Reuse the existing anchor so the new definition stays positioned
+          // next to the original word, not somewhere random.
+          showLoadingOverlay(_anchor);
+          ib.sendMessage({ type: 'FETCH_DEFINITION', word: w }, (resp) => {
+            if (resp?.success && resp.data) {
+              updateOverlay(resp.data.title, resp.data.content, resp.data.source, resp.data);
+            } else {
+              updateOverlay('Notice', resp?.error || `No definition found for "${w}".`, 'InfoBlend');
+            }
+          });
+        };
+        tag.onclick = lookup;
+        tag.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); lookup(e); } };
+      }
       row.appendChild(tag);
     }
     return row;

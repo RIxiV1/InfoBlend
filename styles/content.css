@@ -347,6 +347,11 @@
   background: rgba(94,156,255,0.2) !important;
 }
 
+.ib-tag-syn:focus-visible {
+  outline: 2px solid var(--ib-accent);
+  outline-offset: 2px;
+}
+
 .ib-tag-ant {
   background: rgba(255,149,0,0.1) !important;
   color: #ff9500 !important;
