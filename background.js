@@ -3,7 +3,6 @@ import { fetchDefinition, fetchAIResponse, cleanupCache } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
 import { translateError } from './utils/errors.js';
-import { trackEvent } from './utils/telemetry.js';
 
 /**
  * Background Service Worker for InfoBlend.
@@ -68,7 +67,6 @@ const wrapAsync = (callback) => (message, sender, sendResponse) => {
 // --- Context menu trigger (summaries) ---
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!info.selectionText || info.menuItemId !== 'summarize-ib') return;
-  trackEvent('context_menu');
   try {
     await chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
     const summary = await handleSummarization(info.selectionText);
@@ -114,7 +112,6 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
 
   switch (message.type) {
     case 'FETCH_DEFINITION':
-      trackEvent('definition');
       sendResponse({ success: true, data: await handleDefinition(message.word, message.context) });
       return;
 
@@ -144,7 +141,6 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
         aiAttempted = true;
         try {
           const summary = await fetchAIResponse(message.text, aiEndpoint, aiKey, aiProvider, 'summarize');
-          trackEvent('summary_ai');
           return sendResponse({ success: true, summary, method: `AI (${aiProvider})` });
         } catch {
           // Notify the tab that AI failed and we're falling back
@@ -154,7 +150,6 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
           }
         }
       }
-      trackEvent('summary_local');
       sendResponse({
         success: true,
         summary: generateIntelligentSummary(message.text),

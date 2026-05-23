@@ -384,11 +384,6 @@
   box-shadow: 0 0 0 2px var(--ib-accent), 0 0 0 4px rgba(74,144,255,0.3);
 }
 
-.ib-tag-ant {
-  background: rgba(255,149,0,0.1) !important;
-  color: #ff9500 !important;
-}
-
 /* ─── Empty/Error ─── */
 .ib-empty-state {
   display: flex;

@@ -81,35 +81,6 @@ header {
   margin-top: 1px;
 }
 
-.status {
-  display: flex;
-  align-items: center;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--green);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 2px rgba(48, 209, 88, 0.18),
-    0 0 8px rgba(48, 209, 88, 0.55),
-    0 0 18px rgba(48, 209, 88, 0.35);
-  animation: pulse 2.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.4;
-  }
-}
-
 /* ─── Hero Button ─── */
 .hero-btn {
   margin: 0 16px;
@@ -732,10 +703,5 @@ footer span {
   .hero-btn:active,
   .modal-cta:active {
     transform: none;
-  }
-
-  .status-dot {
-    animation: none;
-    opacity: 1;
   }
 }
