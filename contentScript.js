@@ -103,9 +103,27 @@
     while (container && !blockEls.includes(container.tagName)) {
       container = container.parentElement;
     }
-    const fullText = (container || range.startContainer.parentElement)?.innerText || '';
-    // Return up to 300 chars of surrounding context
-    return fullText.substring(0, 300).trim();
+    const block = container || range.startContainer.parentElement;
+    if (!block) return '';
+    const fullText = block.innerText || '';
+    const MAX = 300;
+    if (fullText.length <= MAX) return fullText.trim();
+
+    // Center the context window around the selected text rather than taking
+    // chars 0..300 of the block — for long paragraphs (e.g., 800-char Wikipedia
+    // intros) the first 300 chars often don't even contain the word the user
+    // selected, making the "as used in this context" prompt useless.
+    const selected = selection.toString();
+    const idx = selected ? fullText.indexOf(selected) : -1;
+    if (idx < 0) return fullText.substring(0, MAX).trim();
+
+    const halfBudget = Math.max(80, Math.floor((MAX - selected.length) / 2));
+    const start = Math.max(0, idx - halfBudget);
+    const end = Math.min(fullText.length, idx + selected.length + halfBudget);
+    let snippet = fullText.substring(start, end).trim();
+    if (start > 0) snippet = '…' + snippet;
+    if (end < fullText.length) snippet = snippet + '…';
+    return snippet;
   }
 
   async function triggerDefinition(text, rect, context) {
