@@ -220,6 +220,37 @@
     return container;
   }
 
+  // Swap the overlay's content area to a loading skeleton without tearing
+  // down the host. Used by synonym-chip navigation so the user keeps the
+  // visual frame (and pre-restoration focus chain) of the open overlay
+  // instead of seeing it flicker away and rebuild.
+  // Returns true on success, false if no overlay is currently open.
+  function setOverlayLoading() {
+    const container = overlayHost?.shadowRoot?.querySelector('.infoblend-overlay');
+    if (!container) return false;
+
+    const titleEl = container.querySelector('.infoblend-title');
+    const oldContent = container.querySelector('.infoblend-content');
+    if (titleEl) titleEl.textContent = 'InfoBlend';
+    if (oldContent) oldContent.remove();
+
+    // Remove the stale copy button — it closes over the previous definition's
+    // copyText. updateOverlay will create a fresh one when the new content lands.
+    const controls = container.querySelector('.infoblend-controls');
+    controls?.querySelector('.infoblend-copy')?.remove();
+
+    if (!container.querySelector('.infoblend-loading')) {
+      const loading = el('div', 'infoblend-loading');
+      const group = el('div', 'ib-skeleton-group');
+      for (const c of ['ib-sk-title', 'ib-sk-line', 'ib-sk-line']) {
+        group.appendChild(el('div', `ib-skeleton ${c}`));
+      }
+      loading.appendChild(group);
+      container.appendChild(loading);
+    }
+    return true;
+  }
+
   // --- Tag row builder (synonyms) ---
   function buildTagRow(label, words, type, clickable = false) {
     const row = el('div', 'ib-def-tags');
@@ -231,9 +262,17 @@
         tag.setAttribute('tabindex', '0');
         const lookup = (e) => {
           e.stopPropagation();
-          // Reuse the existing anchor so the new definition stays positioned
-          // next to the original word, not somewhere random.
-          showLoadingOverlay(_anchor);
+          // In-place content swap. Previously this called showLoadingOverlay()
+          // which destroyed the entire shadow host and rebuilt it — losing
+          // the visual frame, focus chain, and any in-flight ResizeObserver
+          // state. setOverlayLoading keeps the container, swaps just the
+          // content to the skeleton, and updateOverlay then replaces the
+          // skeleton with the new definition.
+          if (!setOverlayLoading()) {
+            // Fallback: no overlay open (shouldn't normally happen since
+            // the chip is rendered inside an overlay, but be defensive).
+            showLoadingOverlay(_anchor);
+          }
           ib.sendMessage({ type: 'FETCH_DEFINITION', word: w }, (resp) => {
             if (resp?.success && resp.data) {
               updateOverlay(resp.data.title, resp.data.content, resp.data.source, resp.data);
