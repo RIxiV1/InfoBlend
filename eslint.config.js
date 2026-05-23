@@ -25,6 +25,7 @@ export default [
         FileReader: 'readonly',
         Uint8Array: 'readonly',
         URL: 'readonly',
+        ResizeObserver: 'readonly',
         // Browser extension globals
         chrome: 'readonly',
         browser: 'readonly',
