@@ -160,6 +160,15 @@
       if (e.key !== 'Tab') return;
       const focusable = Array.from(container.querySelectorAll('button, a, [tabindex]:not([tabindex="-1"])'));
       if (!focusable.length) return;
+      // Defensive: when there's only one focusable element (e.g., overlay is
+      // still loading and only the close button exists), any Tab/Shift+Tab
+      // should keep focus on it regardless of where document.activeElement
+      // currently is — otherwise focus can leak out to the page.
+      if (focusable.length === 1) {
+        e.preventDefault();
+        focusable[0].focus();
+        return;
+      }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (e.shiftKey && document.activeElement === first) {
@@ -461,9 +470,16 @@
     area = area || document.body;
 
     const junk = 'nav,footer,header,script,style,noscript,template,aside,[role="complementary"],[role="navigation"],[role="banner"],.sidebar,#sidebar,[class*="ad-"],[id*="ad-"],[class*="social"],[class*="share"],[class*="comment"],[class*="related"],[class*="recommend"],[class*="newsletter"],[class*="subscribe"],[class*="popup"],[class*="modal"],[class*="cookie"],[class*="banner"],.social-share,.comments-area,.related-posts,.breadcrumb,.pagination,.toc';
-    const prose = Array.from(area.querySelectorAll('p, h1, h2, h3, h4, li, blockquote, figcaption'))
+    const PROSE_SELECTOR = 'p, h1, h2, h3, h4, li, blockquote, figcaption';
+    const prose = Array.from(area.querySelectorAll(PROSE_SELECTOR))
       .filter(node => {
         if (node.closest(junk)) return false;
+        // Skip nodes nested inside another prose container. The outer container's
+        // innerText already includes the children, so keeping both produces
+        // duplicate text in the summarizer prompt (e.g., `<blockquote><p>foo</p><p>bar</p></blockquote>`
+        // would otherwise emit "foo\nbar", "foo", and "bar" — the Set dedup can't
+        // collapse them because the parent string is unique).
+        if (node.parentElement?.closest(PROSE_SELECTOR)) return false;
         if (node.offsetHeight === 0) return false; // hidden — cheaper than getComputedStyle
         const text = node.innerText;
         if (node.tagName === 'LI' && text.length < 15) return false;
