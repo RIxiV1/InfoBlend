@@ -137,9 +137,5 @@
   "hideApiKey": {
     "message": "Hide API key",
     "description": "Accessible label for the hide-password toggle on the API key field"
-  },
-  "closeWelcome": {
-    "message": "Close welcome",
-    "description": "Accessible label for closing the onboarding modal"
   }
 }

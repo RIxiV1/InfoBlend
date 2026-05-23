@@ -103,8 +103,15 @@
       if (!filtered.length) {
         const empty = document.createElement('div');
         empty.className = 'ib-palette-empty';
-        empty.textContent = 'No matching commands';
+        empty.innerHTML = `
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span>No matching commands</span>
+        `;
         resultsArea.appendChild(empty);
+        input.removeAttribute('aria-activedescendant');
         return filtered;
       }
 
@@ -169,6 +176,12 @@
     };
 
     input.onkeydown = (e) => {
+      // Escape must work even when results are empty — handle it before the length guard
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        togglePalette();
+        return;
+      }
       if (!currentFiltered.length) return;
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -180,8 +193,6 @@
         currentFiltered = renderResults(input.value);
       } else if (e.key === 'Enter') {
         if (currentFiltered[selectedIndex]) executeCommand(currentFiltered[selectedIndex]);
-      } else if (e.key === 'Escape') {
-        togglePalette();
       }
     };
 

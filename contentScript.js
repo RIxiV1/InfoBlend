@@ -210,11 +210,21 @@
     _defineBtnHost = host;
 
     const btn = shadow.querySelector('.ib-define-btn');
+    const activate = () => {
+      removeDefineBtn();
+      triggerDefinition(text, rect, context);
+    };
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      removeDefineBtn();
-      triggerDefinition(text, rect, context);
+      activate();
+    });
+    // Keyboard activation: button is focusable but mousedown-only handler missed Enter/Space
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activate();
+      }
     });
   }
 
