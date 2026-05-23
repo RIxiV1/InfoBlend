@@ -14,6 +14,7 @@
   let _dismissHandler = null;
   let _activeAudio = null;
   let _prevFocus = null;
+  let _resizeObserver = null;
 
   // DOM helper — reduces createElement + className boilerplate
   const el = (tag, cls, text) => {
@@ -49,6 +50,11 @@
   });
 
   // --- Position ---
+  // Tooltip position is set once on open (below the word, anchor.y = rect.bottom + 8)
+  // and then refined by repositionTooltip() any time the container's size changes
+  // (skeleton → content load, synonym tap re-fetch, etc.). The reflow handles the
+  // flip-above-the-word case correctly because we measure the actual rendered height
+  // rather than guessing.
   function positionOverlay(container) {
     if (!_anchor || _anchor.mode === 'panel') {
       container.classList.add('ib-mode-panel');
@@ -57,22 +63,41 @@
 
     container.classList.add('ib-mode-tooltip');
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
     const w = 320;
-
     const left = Math.max(8, Math.min(_anchor.x - w / 2, vw - w - 8));
-    let top = _anchor.y;
-
-    if (top + 200 > vh) {
-      top = _anchor.y - 56;
-      container.classList.add('ib-flip-up');
-    }
 
     container.style.position = 'fixed';
-    container.style.top = `${top}px`;
+    container.style.top = `${_anchor.y}px`;
     container.style.left = `${left}px`;
     container.style.right = 'auto';
     container.style.width = `${w}px`;
+  }
+
+  function repositionTooltip(container) {
+    if (!_anchor || _anchor.mode !== 'tooltip') return;
+    const vh = window.innerHeight;
+    const rect = container.getBoundingClientRect();
+    if (!rect.height) return;
+
+    const belowTop = _anchor.y; // already rect.bottom + 8
+    const fitsBelow = belowTop + rect.height <= vh - 8;
+    // rectTop is the top of the selected text. Fall back gracefully if older
+    // call sites don't pass it (no flip happens — same as current behavior).
+    const canFlip = typeof _anchor.rectTop === 'number';
+
+    if (fitsBelow) {
+      container.style.top = `${belowTop}px`;
+      container.classList.remove('ib-flip-up');
+      return;
+    }
+    if (canFlip) {
+      const aboveTop = Math.max(8, _anchor.rectTop - rect.height - 8);
+      container.style.top = `${aboveTop}px`;
+      container.classList.add('ib-flip-up');
+    } else {
+      // No rectTop — best we can do is clamp to viewport so we don't run off-screen
+      container.style.top = `${Math.max(8, vh - rect.height - 8)}px`;
+    }
   }
 
   // --- Loading ---
@@ -152,6 +177,14 @@
       const firstBtn = container.querySelector('button');
       if (firstBtn) firstBtn.focus();
     }, 10);
+
+    // Watch for size changes (skeleton → content load → synonym tap → ...)
+    // and re-evaluate whether the tooltip needs to flip above the word.
+    if (_anchor.mode === 'tooltip' && typeof ResizeObserver !== 'undefined') {
+      if (_resizeObserver) _resizeObserver.disconnect();
+      _resizeObserver = new ResizeObserver(() => repositionTooltip(container));
+      _resizeObserver.observe(container);
+    }
     return container;
   }
 
@@ -191,13 +224,17 @@
             if (_activeAudio.parentNode) _activeAudio.remove();
             _activeAudio = null;
           }
-          audioBtn.classList.add('ib-audio-playing');
+          // Distinct loading state — fetch can take ~1s via the background bypass.
+          // Previously the button jumped straight to the "playing" state, so a
+          // network hiccup looked like a silent failure.
+          audioBtn.classList.add('ib-audio-loading');
+          audioBtn.setAttribute('aria-busy', 'true');
           // Fetch audio via background script to bypass page CSP
           ib.sendMessage({ type: 'FETCH_AUDIO', url: data.audioUrl }, (resp) => {
-            if (!resp?.success || !resp.dataUrl) {
-              audioBtn.classList.remove('ib-audio-playing');
-              return;
-            }
+            audioBtn.classList.remove('ib-audio-loading');
+            audioBtn.removeAttribute('aria-busy');
+            if (!resp?.success || !resp.dataUrl) return;
+            audioBtn.classList.add('ib-audio-playing');
             const audio = document.createElement('audio');
             audio.src = resp.dataUrl;
             audio.style.display = 'none';
@@ -363,6 +400,10 @@
     if (_dismissHandler) {
       document.removeEventListener('mousedown', _dismissHandler, true);
       _dismissHandler = null;
+    }
+    if (_resizeObserver) {
+      _resizeObserver.disconnect();
+      _resizeObserver = null;
     }
     container.classList.add('ib-fade-out');
     const restore = _prevFocus;

@@ -258,6 +258,12 @@
   background: var(--ib-accent-low) !important;
 }
 
+.ib-def-audio.ib-audio-loading {
+  color: var(--ib-accent) !important;
+  background: var(--ib-accent-low) !important;
+  animation: ib-fade-pulse 1s ease-in-out infinite;
+}
+
 .ib-def-meaning { display: flex; flex-direction: column; gap: 6px; }
 
 .ib-def-pos {

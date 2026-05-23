@@ -38,8 +38,26 @@
   };
 
   let _defTimer = null;
+  let _selKbTimer = null;
 
   Object.assign(window.__ib, { sendMessage, getStorage });
+
+  // Eager settings cache. Sync UI paths (palette theme, floating Define button gating)
+  // read from this rather than awaiting storage on every interaction — which is what
+  // caused (1) the palette light/dark FOUC on first open and (2) made it impossible
+  // to gate the floating Define button on the auto-definitions toggle without a flicker.
+  window.__ib._settings = window.__ib._settings || {};
+  if (chrome.runtime?.id) {
+    chrome.storage.local.get(['definitionsEnabled', 'theme']).then(s => {
+      Object.assign(window.__ib._settings, s);
+    }).catch(() => { /* storage unavailable */ });
+    chrome.storage.onChanged?.addListener((changes, area) => {
+      if (area !== 'local') return;
+      for (const k of ['definitionsEnabled', 'theme']) {
+        if (k in changes) window.__ib._settings[k] = changes[k].newValue;
+      }
+    });
+  }
 
   function modulesReady() {
     return typeof window.__ib.showLoadingOverlay === 'function'
@@ -108,7 +126,9 @@
 
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const anchor = { x: cx, y: rect.bottom + 8, mode: 'tooltip', pageTheme: detectPageTheme(cx, cy) };
+    // rectTop lets the overlay flip ABOVE the word when the tooltip would overflow
+    // the viewport bottom. Without it, the overlay can only fall back to clamping.
+    const anchor = { x: cx, y: rect.bottom + 8, rectTop: rect.top, mode: 'tooltip', pageTheme: detectPageTheme(cx, cy) };
     if (await ensureModules()) {
       window.__ib.showLoadingOverlay(anchor);
       const msg = { type: 'FETCH_DEFINITION', word: text };
@@ -134,7 +154,26 @@
   }
 
   function showDefineBtn(rect, text, context) {
+    // Respect the same auto-definitions toggle that gates double-click in
+    // triggerDefinition. Previously the floating button ignored the setting,
+    // so toggling auto-definitions off still surfaced the button on every
+    // multi-word selection.
+    if (window.__ib._settings?.definitionsEnabled === false) return;
+
     removeDefineBtn();
+
+    // Approximate button dimensions for viewport clamping. The button is sized
+    // by its content; these are conservative upper bounds.
+    const BTN_W = 84;
+    const BTN_H = 26;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = Math.max(8, Math.min(rect.left + rect.width / 2 - BTN_W / 2, vw - BTN_W - 8));
+    // Prefer below the selection; flip above if it would overflow the bottom edge.
+    const wouldOverflowBelow = rect.bottom + 6 + BTN_H > vh - 8;
+    const top = wouldOverflowBelow
+      ? Math.max(8, rect.top - BTN_H - 6)
+      : rect.bottom + 6;
 
     // Create shadow-isolated host
     const host = document.createElement('div');
@@ -142,8 +181,8 @@
     Object.assign(host.style, {
       all: 'initial',
       position: 'fixed',
-      top: `${rect.bottom + 6}px`,
-      left: `${rect.left + rect.width / 2 - 42}px`,
+      top: `${top}px`,
+      left: `${left}px`,
       zIndex: '2147483647',
       pointerEvents: 'auto'
     });
@@ -252,29 +291,42 @@
     _defTimer = setTimeout(() => triggerDefinition(text, rect, context), 150);
   });
 
-  // Text selection → show floating "Define" button for multi-word selections
+  // Text selection → show floating "Define" button for multi-word selections.
+  // Triggered by mouseup (mouse selection) and keyup (keyboard selection via
+  // Shift+Arrow / Shift+Home/End). Both paths route through evaluateSelection.
+  function evaluateSelection() {
+    const sel = window.getSelection();
+    const text = sel.toString().trim();
+
+    // Only show for multi-word selections (2-5 words)
+    const wordCount = text ? text.split(/\s+/).length : 0;
+    if (!text || wordCount < 2 || wordCount > 5 || text.length > 120) {
+      removeDefineBtn();
+      return;
+    }
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) { removeDefineBtn(); return; }
+
+    const context = extractContext(sel);
+    showDefineBtn(rect, text, context);
+  }
+
   document.addEventListener('mouseup', (event) => {
-    // Skip if inside our own UI
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host' || el.id === 'infoblend-define-host')) return;
+    setTimeout(evaluateSelection, 10);
+  });
 
-    setTimeout(() => {
-      const sel = window.getSelection();
-      const text = sel.toString().trim();
-
-      // Only show for multi-word selections (2-5 words)
-      const wordCount = text ? text.split(/\s+/).length : 0;
-      if (!text || wordCount < 2 || wordCount > 5 || text.length > 120) {
-        removeDefineBtn();
-        return;
-      }
-
-      const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      if (rect.width === 0 && rect.height === 0) { removeDefineBtn(); return; }
-
-      const context = extractContext(sel);
-      showDefineBtn(rect, text, context);
-    }, 10);
+  document.addEventListener('keyup', (event) => {
+    // Selection-affecting keys only. Pressing arrows without Shift collapses
+    // the selection, in which case evaluateSelection will simply remove any
+    // visible button.
+    const isSelectionKey = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Shift'].includes(event.key);
+    if (!isSelectionKey) return;
+    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host' || el.id === 'infoblend-define-host')) return;
+    clearTimeout(_selKbTimer);
+    _selKbTimer = setTimeout(evaluateSelection, 200);
   });
 
   // Remove floating button on click elsewhere or scroll
