@@ -15,6 +15,11 @@
   let _activeAudio = null;
   let _prevFocus = null;
   let _resizeObserver = null;
+  // Synonym-chain back navigation. _currentDef is what's visible right now;
+  // _navHistory is the stack we can step back through. Cleared whenever the
+  // overlay opens fresh (showLoadingOverlay) or closes.
+  let _currentDef = null;
+  let _navHistory = [];
 
   // DOM helper — reduces createElement + className boilerplate
   const el = (tag, cls, text) => {
@@ -121,6 +126,11 @@
     // Save focus only on first open of a session — repeated overlay swaps should still
     // restore to the user's original pre-overlay element, not to the previous overlay.
     if (!_prevFocus) _prevFocus = document.activeElement;
+    // Fresh open = fresh navigation chain. (Synonym-chip clicks now route
+    // through setOverlayLoading + updateOverlay instead of showLoadingOverlay,
+    // so reaching this path means the user started a brand new lookup.)
+    _navHistory = [];
+    _currentDef = null;
     _anchor = anchor || { mode: 'panel' };
 
     const { host, shadow } = ib.createShadowHost('infoblend-shadow-host');
@@ -220,6 +230,32 @@
     return container;
   }
 
+  // Render (or remove) the back chevron in the overlay header based on
+  // whether there's anything to go back to. Idempotent — safe to call on
+  // every updateOverlay. Pop from _navHistory and re-render directly via
+  // updateOverlay; don't push the current entry onto history (going BACK
+  // shouldn't add to the forward stack).
+  function renderBackButton(container) {
+    const controls = container.querySelector('.infoblend-controls');
+    if (!controls) return;
+    let backBtn = controls.querySelector('.infoblend-back');
+    if (_navHistory.length === 0) {
+      if (backBtn) backBtn.remove();
+      return;
+    }
+    if (backBtn) return; // already rendered
+    backBtn = el('button', 'infoblend-btn infoblend-back');
+    backBtn.setAttribute('aria-label', 'Back to previous definition');
+    backBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+    backBtn.onclick = (e) => {
+      e.stopPropagation();
+      const prev = _navHistory.pop();
+      if (!prev) return;
+      updateOverlay(prev.title, prev.content, prev.source, prev.extra);
+    };
+    controls.insertBefore(backBtn, controls.firstChild);
+  }
+
   // Swap the overlay's content area to a loading skeleton without tearing
   // down the host. Used by synonym-chip navigation so the user keeps the
   // visual frame (and pre-restoration focus chain) of the open overlay
@@ -262,6 +298,10 @@
         tag.setAttribute('tabindex', '0');
         const lookup = (e) => {
           e.stopPropagation();
+          // Push the currently-visible definition onto the back stack BEFORE
+          // navigating forward. The back button on the new overlay header
+          // pops this entry to return here.
+          if (_currentDef) _navHistory.push(_currentDef);
           // In-place content swap. Previously this called showLoadingOverlay()
           // which destroyed the entire shadow host and rebuilt it — losing
           // the visual frame, focus chain, and any in-flight ResizeObserver
@@ -394,6 +434,14 @@
       setTimeout(() => container.classList.add('open'), 10);
     }
 
+    // Remember the visible navigable definition so synonym-chip clicks know
+    // what to push onto the back stack. Notice/Error overlays don't count.
+    const isNoticeNav = title === 'Notice' || title === 'Error';
+    if (!isNoticeNav) {
+      _currentDef = { title, content, source, extra };
+    }
+    renderBackButton(container);
+
     // Batch DOM queries
     const titleEl = container.querySelector('.infoblend-title');
     const oldContent = container.querySelector('.infoblend-content');
@@ -461,6 +509,8 @@
       ? extra.meanings.map(m => `${m.partOfSpeech}: ${m.definitions.map(d => d.text).join('; ')}`).join('\n')
       : content;
 
+    // Insert before the close button so the order stays [back?, copy, close]
+    // even when copy is recreated on every updateOverlay call.
     copyBtn.onclick = async (e) => {
       e.stopPropagation();
       let ok = false;
@@ -496,7 +546,8 @@
         }, 2400);
       }
     };
-    controls.insertBefore(copyBtn, controls.firstChild);
+    const closeRef = controls.querySelector('.infoblend-close');
+    controls.insertBefore(copyBtn, closeRef);
   }
 
   function closeOverlay(host, container) {
@@ -509,6 +560,8 @@
       _resizeObserver.disconnect();
       _resizeObserver = null;
     }
+    _navHistory = [];
+    _currentDef = null;
     container.classList.add('ib-fade-out');
     const restore = _prevFocus;
     _prevFocus = null;
