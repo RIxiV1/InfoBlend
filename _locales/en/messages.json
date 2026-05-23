@@ -72,7 +72,7 @@
     "description": "Onboarding tip 1"
   },
   "welcomeTip2": {
-    "message": "Press Ctrl+K to summarize any page",
+    "message": "Press Ctrl+K to open the command palette",
     "description": "Onboarding tip 2"
   },
   "welcomeTip3": {
