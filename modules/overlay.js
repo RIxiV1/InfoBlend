@@ -214,7 +214,7 @@
     return container;
   }
 
-  // --- Tag row builder (synonyms/antonyms) ---
+  // --- Tag row builder (synonyms) ---
   function buildTagRow(label, words, type, clickable = false) {
     const row = el('div', 'ib-def-tags');
     row.appendChild(el('span', 'ib-def-tag-label', label));
@@ -315,21 +315,16 @@
       }
       block.appendChild(list);
 
-      // Per-meaning synonyms / antonyms
+      // Per-meaning synonyms (antonyms were displayed but not clickable —
+      // visual filler for a 2-3 second glance. Removed.)
       if (meaning.synonyms?.length) block.appendChild(buildTagRow('Synonyms', meaning.synonyms, 'syn', true));
-      if (meaning.antonyms?.length) block.appendChild(buildTagRow('Antonyms', meaning.antonyms, 'ant'));
 
       def.appendChild(block);
     }
 
-    // Top-level synonyms / antonyms
+    // Top-level synonyms
     if (data.synonyms?.length) {
-      const row = buildTagRow('Similar', data.synonyms, 'syn');
-      row.classList.add('ib-def-tags-section');
-      def.appendChild(row);
-    }
-    if (data.antonyms?.length) {
-      const row = buildTagRow('Opposite', data.antonyms, 'ant');
+      const row = buildTagRow('Similar', data.synonyms, 'syn', true);
       row.classList.add('ib-def-tags-section');
       def.appendChild(row);
     }
