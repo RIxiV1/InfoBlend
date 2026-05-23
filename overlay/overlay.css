@@ -11,7 +11,7 @@
   --selected-border: rgba(94,156,255,0.3);
   --text: #f0f0f0;
   --text-2: #a1a1a6;
-  --text-3: #636366;
+  --text-3: #8e8e93;
   --accent: #5e9cff;
   --backdrop: rgba(0,0,0,0.4);
   --hint-bg: rgba(255,255,255,0.07);
@@ -173,10 +173,19 @@
 }
 
 .ib-palette-empty {
-  padding: 20px;
+  padding: 24px 20px;
   text-align: center;
   color: var(--text-3);
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ib-palette-empty svg {
+  color: var(--text-3);
+  opacity: 0.6;
 }
 
 /* ─── Reduced motion ─── */
