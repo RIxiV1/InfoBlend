@@ -169,10 +169,13 @@
       }
 
       togglePalette();
+      // Palette interactions are inherently keyboard-driven — pass the
+      // flag through so the resulting overlay auto-focuses its first
+      // button instead of leaving the user stranded after Ctrl+K → Enter.
       if (cmd.id === 'summarize') {
-        ib.handlePageSummarization();
+        ib.handlePageSummarization({ viaKeyboard: true });
       } else if (cmd.id === 'define-word') {
-        ib.showLoadingOverlay();
+        ib.showLoadingOverlay({ mode: 'panel', viaKeyboard: true });
         ib.sendMessage({ type: 'FETCH_DEFINITION', word: cmd.word }, (response) => {
           if (response?.success) ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
         });

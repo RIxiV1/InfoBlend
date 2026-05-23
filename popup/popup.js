@@ -228,14 +228,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   $('summarizeBtn')?.addEventListener('click', async () => {
+    const btn = $('summarizeBtn');
+    const heroLabel = btn.querySelector('.hero-content span');
+    const flashError = (msg) => {
+      // Surface the failure inline so the click isn't a silent no-op.
+      const original = heroLabel.textContent;
+      heroLabel.textContent = msg;
+      btn.classList.add('hero-error');
+      setTimeout(() => {
+        heroLabel.textContent = original;
+        btn.classList.remove('hero-error');
+      }, 2400);
+    };
+
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const url = tab?.url || '';
-    if (/^(chrome|edge|brave|about|chrome-extension):/.test(url)) return;
+    if (/^(chrome|edge|brave|about|chrome-extension):/.test(url)) {
+      flashError(i18n('cantSummarizeUrl', "Can't summarize this page"));
+      return;
+    }
     try {
       await chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' });
       window.close();
-    } catch (e) {
-      console.warn('[InfoBlend] Message failed:', e.message);
+    } catch {
+      // Common cause: content script wasn't injected (page loaded before
+      // the extension was installed/enabled). Refresh resolves it.
+      flashError(i18n('refreshAndRetry', 'Refresh the page and retry'));
     }
   });
 });
