@@ -67,10 +67,17 @@
     input.className = 'ib-palette-input';
     input.placeholder = 'Search commands or define a word...';
     input.spellcheck = false;
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-expanded', 'true');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-controls', 'ib-palette-listbox');
+    input.setAttribute('aria-label', 'Search commands or define a word');
     searchArea.appendChild(input);
 
     const resultsArea = document.createElement('div');
     resultsArea.className = 'ib-palette-results';
+    resultsArea.id = 'ib-palette-listbox';
+    resultsArea.setAttribute('role', 'listbox');
 
     const commands = [
       { id: 'summarize', label: 'Summarize Page', hint: 'Enter' },
@@ -103,7 +110,11 @@
 
       filtered.forEach((cmd, i) => {
         const item = document.createElement('div');
-        item.className = `ib-palette-item ${i === selectedIndex ? 'selected' : ''}`;
+        const isSelected = i === selectedIndex;
+        item.className = `ib-palette-item ${isSelected ? 'selected' : ''}`;
+        item.id = `ib-palette-opt-${i}`;
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', String(isSelected));
 
         const left = document.createElement('div');
         left.className = 'ib-palette-item-left';
@@ -121,8 +132,12 @@
         item.onclick = () => executeCommand(cmd);
         resultsArea.appendChild(item);
 
-        if (i === selectedIndex) item.scrollIntoView({ block: 'nearest' });
+        if (isSelected) {
+          item.scrollIntoView({ block: 'nearest' });
+          input.setAttribute('aria-activedescendant', item.id);
+        }
       });
+      if (!filtered.length) input.removeAttribute('aria-activedescendant');
       return filtered;
     };
 

@@ -180,6 +180,10 @@
           background: ${isDark ? 'rgba(94, 156, 255, 0.15)' : 'rgba(94, 156, 255, 0.1)'};
           border-color: rgba(94, 156, 255, 0.4);
         }
+        .ib-define-btn:focus-visible {
+          outline: 2px solid #5e9cff;
+          outline-offset: 2px;
+        }
         .ib-define-btn svg {
           color: #5e9cff;
           flex-shrink: 0;
@@ -187,9 +191,17 @@
         @keyframes ib-pop-in {
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .ib-define-btn {
+            animation: none;
+            opacity: 1;
+            transform: none;
+            transition: none;
+          }
+        }
       </style>
       <button class="ib-define-btn" aria-label="Define selection">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Define
       </button>
     `;
