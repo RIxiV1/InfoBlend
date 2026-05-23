@@ -155,12 +155,16 @@
     container.appendChild(loading);
     shadow.appendChild(container);
 
-    // Click-outside dismiss for tooltips
+    // Click-outside dismiss for tooltips.
+    // Direct reference comparison (includes(host)) is more robust than ID
+    // matching against 'infoblend-shadow-host' — the old check could fail
+    // in edge cases (multiple hosts during re-injection, retargeting
+    // quirks in capture phase) and dismiss the overlay on legitimate
+    // in-overlay clicks like Copy.
     if (_anchor.mode === 'tooltip') {
       _dismissHandler = (e) => {
-        if (!e.composedPath().some(el => el.id === 'infoblend-shadow-host')) {
-          closeOverlay(host, container);
-        }
+        if (e.composedPath().includes(host)) return;
+        closeOverlay(host, container);
       };
       setTimeout(() => document.addEventListener('mousedown', _dismissHandler, true), 150);
     }
