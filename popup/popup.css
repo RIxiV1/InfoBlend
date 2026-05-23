@@ -363,6 +363,7 @@ main {
 .input-group input:focus,
 .input-group select:focus {
   border-color: var(--accent-md);
+  box-shadow: 0 0 0 3px rgba(74, 144, 255, 0.14);
 }
 
 .input-group input:focus-visible,
@@ -410,8 +411,8 @@ main {
 }
 
 .password-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .password-toggle .eye-hide {

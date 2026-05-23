@@ -9,6 +9,7 @@
 
   /* Dark (default) */
   --ib-bg: #1c1c1e;
+  --ib-bg-glass: rgba(28, 28, 30, 0.82);
   --ib-bg-raised: #2c2c2e;
   --ib-text: #f0f0f0;
   --ib-text-2: #a1a1a6;
@@ -39,6 +40,7 @@
 /* Light */
 .infoblend-overlay.ib-light-theme {
   --ib-bg: #ffffff;
+  --ib-bg-glass: rgba(255, 255, 255, 0.86);
   --ib-bg-raised: #f5f5f7;
   --ib-text: #1d1d1f;
   --ib-text-2: #86868b;
@@ -77,7 +79,9 @@
 /* ─── Container ─── */
 .infoblend-overlay {
   position: fixed;
-  background: var(--ib-bg) !important;
+  background: var(--ib-bg-glass) !important;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid var(--ib-border) !important;
   border-radius: var(--ib-radius);
   box-shadow: var(--ib-shadow);
@@ -97,7 +101,7 @@
 .infoblend-overlay.ib-mode-tooltip {
   width: 340px;
   max-height: 380px;
-  animation: ibIn 0.15s ease both;
+  animation: ibIn 0.2s ease both;
 }
 .infoblend-overlay.ib-mode-tooltip .infoblend-content { max-height: 300px; }
 
@@ -105,17 +109,17 @@
 .infoblend-overlay.ib-mode-panel {
   top: 16px; right: 16px;
   width: 380px;
-  animation: ibIn 0.2s ease both;
+  animation: ibIn 0.22s ease both;
 }
 
 @keyframes ibIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .infoblend-overlay.ib-mode-tooltip.ib-flip-up { animation-name: ibInUp; }
 @keyframes ibInUp {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .infoblend-overlay.ib-fade-out {
@@ -163,8 +167,8 @@
 }
 
 .infoblend-btn:focus-visible {
-  outline: 2px solid var(--ib-focus);
-  outline-offset: -2px;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ib-focus);
 }
 
 .infoblend-btn svg { color: inherit !important; }
@@ -366,12 +370,14 @@
   cursor: pointer;
 }
 
+/* Translate up (not scale) on hover — chips are in flex-wrap rows, and
+   scaling can shift sibling chips. translateY avoids the reflow. */
 .ib-tag-syn:hover {
   background: var(--ib-accent-mid) !important;
-  transform: scale(1.06);
+  transform: translateY(-1px);
 }
 
-.ib-tag-syn:active { transform: scale(0.97); }
+.ib-tag-syn:active { transform: translateY(0); }
 
 .ib-tag-syn:focus-visible {
   outline: none;
