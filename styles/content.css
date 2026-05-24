@@ -191,6 +191,17 @@
 .infoblend-content::-webkit-scrollbar-thumb { background: var(--ib-border); border-radius: 4px; }
 .infoblend-content::-webkit-scrollbar-track { background: transparent; }
 
+/* ─── Wikipedia thumbnail ─── */
+.ib-thumbnail {
+  display: block;
+  max-width: 100%;
+  max-height: 140px;
+  margin: 0 auto 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ib-border) !important;
+  object-fit: cover;
+}
+
 /* ─── Bento (summaries) ─── */
 .ib-bento-grid { display: flex; flex-direction: column; gap: 8px; }
 

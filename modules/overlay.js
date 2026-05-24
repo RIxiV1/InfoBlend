@@ -313,7 +313,7 @@
             // the chip is rendered inside an overlay, but be defensive).
             showLoadingOverlay(_anchor);
           }
-          ib.sendMessage({ type: 'FETCH_DEFINITION', word: w }, (resp) => {
+          ib.sendMessage({ type: ib.MSG.FETCH_DEFINITION, word: w }, (resp) => {
             if (resp?.success && resp.data) {
               updateOverlay(resp.data.title, resp.data.content, resp.data.source, resp.data);
             } else {
@@ -361,7 +361,7 @@
           audioBtn.classList.add('ib-audio-loading');
           audioBtn.setAttribute('aria-busy', 'true');
           // Fetch audio via background script to bypass page CSP
-          ib.sendMessage({ type: 'FETCH_AUDIO', url: data.audioUrl }, (resp) => {
+          ib.sendMessage({ type: ib.MSG.FETCH_AUDIO, url: data.audioUrl }, (resp) => {
             if (overlayHost !== owningHost) return; // overlay was replaced/closed
             audioBtn.classList.remove('ib-audio-loading');
             audioBtn.removeAttribute('aria-busy');
@@ -463,6 +463,14 @@
       renderDefinition(extra, contentDiv);
     } else {
       // Plain text (summaries, Wiktionary/Wikipedia fallback, AI context definitions)
+      if (extra.thumbnail) {
+        const thumb = document.createElement('img');
+        thumb.className = 'ib-thumbnail';
+        thumb.src = extra.thumbnail;
+        thumb.alt = '';
+        thumb.loading = 'lazy';
+        contentDiv.appendChild(thumb);
+      }
       ib.BentoRenderer.render(content, contentDiv);
     }
 
@@ -499,7 +507,7 @@
     controls.querySelector('.infoblend-copy')?.remove();
 
     const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-    const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     const copyBtn = el('button', 'infoblend-btn infoblend-copy');
     copyBtn.setAttribute('aria-label', 'Copy');
     copyBtn.innerHTML = copyIcon;
@@ -577,66 +585,19 @@
     }, 250);
   }
 
-  // --- Page Extraction (Readability-inspired heuristics) ---
-  function extractArticleContent() {
-    // Phase 1: Try semantic selectors (most precise)
-    let area = document.querySelector('article, main, [role="main"], .post-content, .entry-content, #content, .article-body, .story-body');
-
-    // Phase 2: Score candidate containers by text density (limit depth for perf)
-    if (!area) {
-      let bestScore = 0;
-      for (const cand of document.querySelectorAll('div, section')) {
-        // Skip deeply nested or tiny containers
-        const pCount = cand.querySelectorAll(':scope > p, :scope > * > p').length;
-        if (pCount < 2) continue;
-        const textLen = cand.textContent.length;
-        if (textLen < 200) continue;
-        const linkDensity = (cand.querySelectorAll('a').length + 1) / (pCount + 1);
-        const score = (pCount * 10 + textLen / 100) / (linkDensity + 1);
-        if (score > bestScore) { bestScore = score; area = cand; }
-      }
-    }
-
-    area = area || document.body;
-
-    const junk = 'nav,footer,header,script,style,noscript,template,aside,[role="complementary"],[role="navigation"],[role="banner"],.sidebar,#sidebar,[class*="ad-"],[id*="ad-"],[class*="social"],[class*="share"],[class*="comment"],[class*="related"],[class*="recommend"],[class*="newsletter"],[class*="subscribe"],[class*="popup"],[class*="modal"],[class*="cookie"],[class*="banner"],.social-share,.comments-area,.related-posts,.breadcrumb,.pagination,.toc';
-    const PROSE_SELECTOR = 'p, h1, h2, h3, h4, li, blockquote, figcaption';
-    const prose = Array.from(area.querySelectorAll(PROSE_SELECTOR))
-      .filter(node => {
-        if (node.closest(junk)) return false;
-        // Skip nodes nested inside another prose container. The outer container's
-        // innerText already includes the children, so keeping both produces
-        // duplicate text in the summarizer prompt (e.g., `<blockquote><p>foo</p><p>bar</p></blockquote>`
-        // would otherwise emit "foo\nbar", "foo", and "bar" — the Set dedup can't
-        // collapse them because the parent string is unique).
-        if (node.parentElement?.closest(PROSE_SELECTOR)) return false;
-        if (node.offsetHeight === 0) return false; // hidden — cheaper than getComputedStyle
-        const text = node.innerText;
-        if (node.tagName === 'LI' && text.length < 15) return false;
-        if (node.tagName === 'LI') {
-          const linkLen = node.querySelectorAll('a').length ? Array.from(node.querySelectorAll('a')).reduce((s, a) => s + a.textContent.length, 0) : 0;
-          if (linkLen > text.length * 0.6) return false;
-        }
-        return true;
-      })
-      .map(node => node.innerText.trim())
-      .filter(t => t.length > 25 && !t.includes('function(') && !t.includes('var ') && t.split('|').length <= 3);
-
-    const content = Array.from(new Set(prose)).join('\n\n');
-    return content.length > 100 ? content.substring(0, 12000) : null;
-  }
-
   // --- Summarization ---
+  // Article extraction lives in modules/article.js (loaded earlier in the
+  // content_scripts array, so ib.extractArticleContent is always available here).
   function handlePageSummarization(opts = {}) {
     showLoadingOverlay({ mode: 'panel', viaKeyboard: !!opts.viaKeyboard });
-    const content = extractArticleContent();
+    const content = ib.extractArticleContent();
     if (!content) return updateOverlay('Notice', 'No readable content found on this page.', 'InfoBlend');
     runSummarizer(content, 'Page Summary');
   }
 
   function runSummarizer(text, title = 'Summary') {
     if (!text?.trim()) return updateOverlay('Notice', 'No readable content found.', 'InfoBlend');
-    ib.sendMessage({ type: 'PERFORM_SUMMARIZATION', text }, (r) => {
+    ib.sendMessage({ type: ib.MSG.PERFORM_SUMMARIZATION, text }, (r) => {
       if (r?.success) updateOverlay(title, r.summary, r.method || 'InfoBlend');
       else updateOverlay('Notice', r?.error || 'Summarization failed.', 'InfoBlend');
     });
@@ -650,12 +611,12 @@
 
   function handleMessage(message) {
     switch (message.type) {
-      case 'SHOW_DEFINITION': updateOverlay(message.data.title, message.data.content, message.data.source, message.data); break;
-      case 'SHOW_ERROR': updateOverlay('Error', message.message, 'InfoBlend'); break;
-      case 'SHOW_LOADING': showLoadingOverlay({ mode: 'panel' }); break;
-      case 'SHOW_RETRYING': showRetryingStatus(); break;
-      case 'SUMMARIZE_PAGE': handlePageSummarization(); break;
-      case 'SUMMARIZE_SELECTION': showLoadingOverlay({ mode: 'panel' }); runSummarizer(message.text, 'Selection Summary'); break;
+      case ib.MSG.SHOW_DEFINITION: updateOverlay(message.data.title, message.data.content, message.data.source, message.data); break;
+      case ib.MSG.SHOW_ERROR: updateOverlay('Error', message.message, 'InfoBlend'); break;
+      case ib.MSG.SHOW_LOADING: showLoadingOverlay({ mode: 'panel' }); break;
+      case ib.MSG.SHOW_RETRYING: showRetryingStatus(); break;
+      case ib.MSG.SUMMARIZE_PAGE: handlePageSummarization(); break;
+      case ib.MSG.SUMMARIZE_SELECTION: showLoadingOverlay({ mode: 'panel' }); runSummarizer(message.text, 'Selection Summary'); break;
     }
   }
 

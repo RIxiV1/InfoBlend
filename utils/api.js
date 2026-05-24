@@ -117,7 +117,7 @@ async function tryDatamuse(term) {
   // here too, but they're no longer displayed — dropping the request saves
   // one network call per definition).
   const [defResp, synResp] = await Promise.all([
-    fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d,p,s,f&max=1`),
+    fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d,p&max=1`),
     fetch(`https://api.datamuse.com/words?rel_syn=${encodeURIComponent(term)}&max=6`)
   ]);
 
@@ -135,8 +135,6 @@ async function tryDatamuse(term) {
       return { partOfSpeech: pos, definitions: [{ text: rest.join('\t') }] };
     }),
     synonyms: synData.map(w => w.word).slice(0, 8),
-    frequency: entry.tags?.find(t => t.startsWith('f:'))?.replace('f:', '') || null,
-    syllables: entry.numSyllables || null,
     source: 'Datamuse',
     isRich: true
   };

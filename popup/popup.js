@@ -4,6 +4,7 @@
  */
 import '../utils/compat.js';
 import { getStorageData, setStorageData } from '../utils/storage.js';
+import { MSG } from '../utils/constants.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -95,29 +96,28 @@ async function closeOnboarding() {
   await setStorageData({ onboardingDone: true });
 }
 
-async function saveSettings() {
-  clearFieldErrors();
-
-  const endpoint = $('aiEndpoint')?.value || '';
-  if (!isValidUrl(endpoint)) {
-    showFieldError('aiEndpoint', i18n('invalidUrl', 'Must be a valid HTTP(S) URL'));
-    return;
-  }
-
-  await setStorageData({
-    definitionsEnabled: $('definitionsEnabled')?.checked ?? true,
-    aiEndpoint: endpoint,
-    aiProvider: $('aiProvider')?.value || 'gemini',
-    aiKey: $('aiKey')?.value || '',
-    theme: $('theme')?.value || 'dark'
-  });
-
-  const btn = $('saveBtn');
-  const originalLabel = i18n('saveSettings', 'Save settings');
-  btn.textContent = i18n('saved', 'Saved');
-  btn.classList.add('saved');
-  setTimeout(() => { btn.textContent = originalLabel; btn.classList.remove('saved'); }, 2000);
+// Auto-save infrastructure: each setting persists on its own change/input so
+// the user never has to remember to click Save. Text inputs are debounced so
+// fast typing doesn't fire a write per keystroke.
+let _saveStatusTimer = null;
+function flashSavedStatus() {
+  const el = $('saveStatus');
+  if (!el) return;
+  el.textContent = i18n('saved', 'Saved');
+  el.classList.add('visible');
+  clearTimeout(_saveStatusTimer);
+  _saveStatusTimer = setTimeout(() => el.classList.remove('visible'), 1400);
 }
+
+async function persist(patch) {
+  await setStorageData(patch);
+  flashSavedStatus();
+}
+
+const debounce = (fn, ms) => {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+};
 
 // --- Test Connection ---
 async function testConnection() {
@@ -217,15 +217,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupPasswordToggle();
 
   $('closeOnboarding')?.addEventListener('click', closeOnboarding);
-
-  $('saveBtn')?.addEventListener('click', saveSettings);
   $('testBtn')?.addEventListener('click', testConnection);
 
-  // Clear errors on input
-  $('aiEndpoint')?.addEventListener('input', () => {
-    $('aiEndpoint').classList.remove('input-error');
-    $('aiEndpoint').parentElement.querySelector('.field-error')?.remove();
-  });
+  // --- Auto-save wiring ---
+  // Immediate save on toggle/select change
+  $('definitionsEnabled')?.addEventListener('change', () => persist({ definitionsEnabled: $('definitionsEnabled').checked }));
+  $('theme')?.addEventListener('change', () => persist({ theme: $('theme').value }));
+  $('aiProvider')?.addEventListener('change', () => persist({ aiProvider: $('aiProvider').value }));
+
+  // Debounced save on text input. URL is validated first; invalid input shows
+  // an inline error and is not persisted, so a half-typed URL doesn't overwrite
+  // a previously saved good one — but the user can also clear the field entirely
+  // (empty is valid and persists, matching the original Save-button behavior).
+  const saveKey = debounce(() => persist({ aiKey: $('aiKey').value }), 500);
+  const saveEndpoint = debounce(() => {
+    const value = $('aiEndpoint').value;
+    if (!isValidUrl(value)) {
+      showFieldError('aiEndpoint', i18n('invalidUrl', 'Must be a valid HTTP(S) URL'));
+      return;
+    }
+    clearFieldErrors();
+    persist({ aiEndpoint: value });
+  }, 500);
+  $('aiKey')?.addEventListener('input', saveKey);
+  $('aiEndpoint')?.addEventListener('input', saveEndpoint);
 
   $('summarizeBtn')?.addEventListener('click', async () => {
     const btn = $('summarizeBtn');
@@ -248,7 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     try {
-      await chrome.tabs.sendMessage(tab.id, { type: 'SUMMARIZE_PAGE' });
+      await chrome.tabs.sendMessage(tab.id, { type: MSG.SUMMARIZE_PAGE });
       window.close();
     } catch {
       // Common cause: content script wasn't injected (page loaded before

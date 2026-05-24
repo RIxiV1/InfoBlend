@@ -3,27 +3,31 @@ import { fetchDefinition, fetchAIResponse, cleanupCache } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
 import { translateError } from './utils/errors.js';
+import { MSG } from './utils/constants.js';
 
 /**
  * Background Service Worker for InfoBlend.
  */
 
-// --- Context Menu (selection summarization only; double-click handles definitions) ---
+// --- Context Menu (define + summarize on selection) ---
 // onInstalled + onStartup can both fire on service-worker spin-up. Without a
 // callback on create(), the second concurrent call races and emits
-// "Unchecked runtime.lastError: Cannot create item with duplicate id summarize-ib".
+// "Unchecked runtime.lastError: Cannot create item with duplicate id ...".
 // We pass a callback whose only job is to consume lastError silently — and we
 // also consume removeAll's lastError for the same reason.
 const setupContextMenus = () => {
   chrome.contextMenus.removeAll(() => {
     void chrome.runtime.lastError;
     chrome.contextMenus.create({
+      id: 'define-ib',
+      title: chrome.i18n.getMessage('contextMenuDefine') || 'Define selection with InfoBlend',
+      contexts: ['selection']
+    }, () => { void chrome.runtime.lastError; });
+    chrome.contextMenus.create({
       id: 'summarize-ib',
       title: chrome.i18n.getMessage('contextMenuSummarize') || 'Summarize selection with InfoBlend',
       contexts: ['selection']
-    }, () => {
-      void chrome.runtime.lastError;
-    });
+    }, () => { void chrome.runtime.lastError; });
   });
 };
 
@@ -47,12 +51,22 @@ const handleDefinition = async (word, context) => {
   return result;
 };
 
-const handleSummarization = async (text) => {
+// Single source of truth for "summarize this text" — used by both the
+// right-click context menu and the in-page PERFORM_SUMMARIZATION message.
+// onAIFailure is invoked when AI was attempted but threw, so callers can
+// surface a "falling back to local" indicator before the local summary lands.
+const handleSummarization = async (text, onAIFailure) => {
   const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
   if (aiKey && aiEndpoint) {
-    return await fetchAIResponse(text, aiEndpoint, aiKey, aiProvider, 'summarize');
+    try {
+      const summary = await fetchAIResponse(text, aiEndpoint, aiKey, aiProvider, 'summarize');
+      return { summary, method: `AI (${aiProvider})` };
+    } catch (e) {
+      await onAIFailure?.(e);
+      return { summary: generateIntelligentSummary(text), method: 'InfoBlend Local (Fallback)' };
+    }
   }
-  return generateIntelligentSummary(text);
+  return { summary: generateIntelligentSummary(text), method: 'InfoBlend Local' };
 };
 
 // --- Async message wrapper ---
@@ -64,18 +78,37 @@ const wrapAsync = (callback) => (message, sender, sendResponse) => {
   return true; // keep channel open
 };
 
-// --- Context menu trigger (summaries) ---
+// --- Context menu trigger (define + summarize) ---
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (!info.selectionText || info.menuItemId !== 'summarize-ib') return;
+  if (!info.selectionText) return;
+  const text = info.selectionText.trim();
+
   try {
-    await chrome.tabs.sendMessage(tab.id, { type: 'SHOW_LOADING' });
-    const summary = await handleSummarization(info.selectionText);
-    await chrome.tabs.sendMessage(tab.id, {
-      type: 'SHOW_DEFINITION',
-      data: { title: 'Selection Summary', content: summary, source: 'InfoBlend' }
-    });
+    if (info.menuItemId === 'summarize-ib') {
+      await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_LOADING });
+      const { summary, method } = await handleSummarization(text, async () => {
+        try { await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_RETRYING }); } catch {}
+      });
+      await chrome.tabs.sendMessage(tab.id, {
+        type: MSG.SHOW_DEFINITION,
+        data: { title: 'Selection Summary', content: summary, source: method }
+      });
+    } else if (info.menuItemId === 'define-ib') {
+      // Context menu has no surrounding-paragraph context (browser doesn't expose
+      // it), so we look up the bare term. Length cap matches fetchDefinition's.
+      if (text.split(/\s+/).length > 5) {
+        await chrome.tabs.sendMessage(tab.id, {
+          type: MSG.SHOW_DEFINITION,
+          data: { title: 'Notice', content: 'Selection too long for definition. Try summarizing instead.', source: 'InfoBlend' }
+        });
+        return;
+      }
+      await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_LOADING });
+      const data = await handleDefinition(text);
+      await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_DEFINITION, data });
+    }
   } catch (err) {
-    try { await chrome.tabs.sendMessage(tab.id, { type: 'SHOW_ERROR', message: err.message }); }
+    try { await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_ERROR, message: err.message }); }
     catch { /* tab may have closed */ }
   }
 });
@@ -88,10 +121,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 // --- Message validation ---
 const VALID_MESSAGES = {
-  'FETCH_DEFINITION': { required: ['word'], optional: ['context'] },
-  'FETCH_AUDIO': { required: ['url'] },
-  'PERFORM_SUMMARIZATION': { required: ['text'] },
-  'SHOW_RETRYING': {}
+  [MSG.FETCH_DEFINITION]: { required: ['word'], optional: ['context'] },
+  [MSG.FETCH_AUDIO]: { required: ['url'] },
+  [MSG.PERFORM_SUMMARIZATION]: { required: ['text'] }
 };
 
 function validateMessage(message) {
@@ -111,11 +143,11 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
   }
 
   switch (message.type) {
-    case 'FETCH_DEFINITION':
+    case MSG.FETCH_DEFINITION:
       sendResponse({ success: true, data: await handleDefinition(message.word, message.context) });
       return;
 
-    case 'FETCH_AUDIO': {
+    case MSG.FETCH_AUDIO: {
       // Fetch audio in background to bypass page CSP restrictions
       try {
         const resp = await fetch(message.url);
@@ -134,27 +166,14 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
       return;
     }
 
-    case 'PERFORM_SUMMARIZATION': {
-      const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
-      let aiAttempted = false;
-      if (aiKey && aiEndpoint) {
-        aiAttempted = true;
-        try {
-          const summary = await fetchAIResponse(message.text, aiEndpoint, aiKey, aiProvider, 'summarize');
-          return sendResponse({ success: true, summary, method: `AI (${aiProvider})` });
-        } catch {
-          // Notify the tab that AI failed and we're falling back
-          const tabId = sender.tab?.id;
-          if (tabId) {
-            try { await chrome.tabs.sendMessage(tabId, { type: 'SHOW_RETRYING' }); } catch {}
-          }
+    case MSG.PERFORM_SUMMARIZATION: {
+      const { summary, method } = await handleSummarization(message.text, async () => {
+        const tabId = sender.tab?.id;
+        if (tabId) {
+          try { await chrome.tabs.sendMessage(tabId, { type: MSG.SHOW_RETRYING }); } catch {}
         }
-      }
-      sendResponse({
-        success: true,
-        summary: generateIntelligentSummary(message.text),
-        method: aiAttempted ? 'InfoBlend Local (Fallback)' : 'InfoBlend Local'
       });
+      sendResponse({ success: true, summary, method });
       return;
     }
 

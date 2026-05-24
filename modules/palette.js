@@ -176,7 +176,7 @@
         ib.handlePageSummarization({ viaKeyboard: true });
       } else if (cmd.id === 'define-word') {
         ib.showLoadingOverlay({ mode: 'panel', viaKeyboard: true });
-        ib.sendMessage({ type: 'FETCH_DEFINITION', word: cmd.word }, (response) => {
+        ib.sendMessage({ type: ib.MSG.FETCH_DEFINITION, word: cmd.word }, (response) => {
           if (response?.success) ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
         });
       }

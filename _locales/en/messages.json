@@ -51,33 +51,9 @@
     "message": "Summary theme",
     "description": "Label for theme selector"
   },
-  "saveSettings": {
-    "message": "Save settings",
-    "description": "Save button label"
-  },
   "saved": {
     "message": "Saved",
     "description": "Confirmation after saving"
-  },
-  "welcomeTitle": {
-    "message": "Welcome to InfoBlend",
-    "description": "Onboarding modal title"
-  },
-  "welcomeDesc": {
-    "message": "Your browsing, augmented.",
-    "description": "Onboarding modal subtitle"
-  },
-  "welcomeTip1": {
-    "message": "Double-click any word for an instant definition",
-    "description": "Onboarding tip 1"
-  },
-  "welcomeTip2": {
-    "message": "Press Ctrl+K to open the command palette",
-    "description": "Onboarding tip 2"
-  },
-  "welcomeTip3": {
-    "message": "Add an AI key for smarter results",
-    "description": "Onboarding tip 3"
   },
   "getStarted": {
     "message": "Get started",
@@ -87,24 +63,9 @@
     "message": "Summarize selection with InfoBlend",
     "description": "Right-click context menu item"
   },
-  "noDefinition": {
-    "message": "No definition found for \"$TERM$\".",
-    "description": "Shown when no definition is found",
-    "placeholders": {
-      "term": { "content": "$1", "example": "asdfg" }
-    }
-  },
-  "noContent": {
-    "message": "No readable content found on this page.",
-    "description": "Shown when page extraction finds nothing"
-  },
-  "selectionTooLong": {
-    "message": "Selection too long for definition. Try summarizing instead.",
-    "description": "Error when selection exceeds word limit"
-  },
-  "retrying": {
-    "message": "AI unavailable, falling back to local...",
-    "description": "Shown during AI fallback"
+  "contextMenuDefine": {
+    "message": "Define selection with InfoBlend",
+    "description": "Right-click context menu item for definitions"
   },
   "connected": {
     "message": "Connected",
