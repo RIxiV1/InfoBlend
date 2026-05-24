@@ -1,6 +1,6 @@
 /**
  * InfoBlend — Core Module
- * Shared utilities. Loaded once via chrome.scripting.executeScript.
+ * Shared utilities. Loaded via manifest content_scripts alongside the bootstrap.
  */
 (() => {
   // Re-injection guard: only skip if functions are actually present
@@ -20,7 +20,9 @@
       all: 'initial', position: 'fixed', top: '0', left: '0',
       width: '0', height: '0', overflow: 'visible', zIndex: '2147483647'
     });
-    document.body.appendChild(host);
+    // Fall back to documentElement for non-HTML documents (.svg, .xml,
+    // standalone PDFs in some renderers, framesets) where document.body is null.
+    (document.body || document.documentElement).appendChild(host);
     const shadow = host.attachShadow({ mode: 'open' });
 
     for (const file of cssFiles) {

@@ -13,6 +13,13 @@
   let _anchor = null;
   let _dismissHandler = null;
   let _activeAudio = null;
+  let _prevFocus = null;
+  let _resizeObserver = null;
+  // Synonym-chain back navigation. _currentDef is what's visible right now;
+  // _navHistory is the stack we can step back through. Cleared whenever the
+  // overlay opens fresh (showLoadingOverlay) or closes.
+  let _currentDef = null;
+  let _navHistory = [];
 
   // DOM helper — reduces createElement + className boilerplate
   const el = (tag, cls, text) => {
@@ -47,7 +54,25 @@
     }
   });
 
+  // --- Theme hot-reload ---
+  // If the user changes the theme setting in the popup while an overlay is
+  // open, update the open overlay in place rather than requiring a page
+  // refresh. Tooltips opt out because their theme is anchored to the page
+  // background, not the user's preference.
+  chrome.storage?.onChanged?.addListener((changes, area) => {
+    if (area !== 'local' || !('theme' in changes)) return;
+    _storedTheme = changes.theme.newValue || _storedTheme;
+    const container = overlayHost?.shadowRoot?.querySelector('.infoblend-overlay');
+    if (!container || _anchor?.mode === 'tooltip') return;
+    container.classList.toggle('ib-light-theme', resolveTheme() === 'light');
+  });
+
   // --- Position ---
+  // Tooltip position is set once on open (below the word, anchor.y = rect.bottom + 8)
+  // and then refined by repositionTooltip() any time the container's size changes
+  // (skeleton → content load, synonym tap re-fetch, etc.). The reflow handles the
+  // flip-above-the-word case correctly because we measure the actual rendered height
+  // rather than guessing.
   function positionOverlay(container) {
     if (!_anchor || _anchor.mode === 'panel') {
       container.classList.add('ib-mode-panel');
@@ -56,22 +81,41 @@
 
     container.classList.add('ib-mode-tooltip');
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
     const w = 320;
-
     const left = Math.max(8, Math.min(_anchor.x - w / 2, vw - w - 8));
-    let top = _anchor.y;
-
-    if (top + 200 > vh) {
-      top = _anchor.y - 56;
-      container.classList.add('ib-flip-up');
-    }
 
     container.style.position = 'fixed';
-    container.style.top = `${top}px`;
+    container.style.top = `${_anchor.y}px`;
     container.style.left = `${left}px`;
     container.style.right = 'auto';
     container.style.width = `${w}px`;
+  }
+
+  function repositionTooltip(container) {
+    if (!_anchor || _anchor.mode !== 'tooltip') return;
+    const vh = window.innerHeight;
+    const rect = container.getBoundingClientRect();
+    if (!rect.height) return;
+
+    const belowTop = _anchor.y; // already rect.bottom + 8
+    const fitsBelow = belowTop + rect.height <= vh - 8;
+    // rectTop is the top of the selected text. Fall back gracefully if older
+    // call sites don't pass it (no flip happens — same as current behavior).
+    const canFlip = typeof _anchor.rectTop === 'number';
+
+    if (fitsBelow) {
+      container.style.top = `${belowTop}px`;
+      container.classList.remove('ib-flip-up');
+      return;
+    }
+    if (canFlip) {
+      const aboveTop = Math.max(8, _anchor.rectTop - rect.height - 8);
+      container.style.top = `${aboveTop}px`;
+      container.classList.add('ib-flip-up');
+    } else {
+      // No rectTop — best we can do is clamp to viewport so we don't run off-screen
+      container.style.top = `${Math.max(8, vh - rect.height - 8)}px`;
+    }
   }
 
   // --- Loading ---
@@ -79,6 +123,14 @@
     if (_activeAudio) { _activeAudio.pause(); _activeAudio = null; }
     if (overlayHost) { overlayHost.remove(); overlayHost = null; }
     if (_dismissHandler) { document.removeEventListener('mousedown', _dismissHandler, true); _dismissHandler = null; }
+    // Save focus only on first open of a session — repeated overlay swaps should still
+    // restore to the user's original pre-overlay element, not to the previous overlay.
+    if (!_prevFocus) _prevFocus = document.activeElement;
+    // Fresh open = fresh navigation chain. (Synonym-chip clicks now route
+    // through setOverlayLoading + updateOverlay instead of showLoadingOverlay,
+    // so reaching this path means the user started a brand new lookup.)
+    _navHistory = [];
+    _currentDef = null;
     _anchor = anchor || { mode: 'panel' };
 
     const { host, shadow } = ib.createShadowHost('infoblend-shadow-host');
@@ -113,12 +165,16 @@
     container.appendChild(loading);
     shadow.appendChild(container);
 
-    // Click-outside dismiss for tooltips
+    // Click-outside dismiss for tooltips.
+    // Direct reference comparison (includes(host)) is more robust than ID
+    // matching against 'infoblend-shadow-host' — the old check could fail
+    // in edge cases (multiple hosts during re-injection, retargeting
+    // quirks in capture phase) and dismiss the overlay on legitimate
+    // in-overlay clicks like Copy.
     if (_anchor.mode === 'tooltip') {
       _dismissHandler = (e) => {
-        if (!e.composedPath().some(el => el.id === 'infoblend-shadow-host')) {
-          closeOverlay(host, container);
-        }
+        if (e.composedPath().includes(host)) return;
+        closeOverlay(host, container);
       };
       setTimeout(() => document.addEventListener('mousedown', _dismissHandler, true), 150);
     }
@@ -131,6 +187,15 @@
       if (e.key !== 'Tab') return;
       const focusable = Array.from(container.querySelectorAll('button, a, [tabindex]:not([tabindex="-1"])'));
       if (!focusable.length) return;
+      // Defensive: when there's only one focusable element (e.g., overlay is
+      // still loading and only the close button exists), any Tab/Shift+Tab
+      // should keep focus on it regardless of where document.activeElement
+      // currently is — otherwise focus can leak out to the page.
+      if (focusable.length === 1) {
+        e.preventDefault();
+        focusable[0].focus();
+        return;
+      }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (e.shiftKey && document.activeElement === first) {
@@ -144,20 +209,121 @@
 
     setTimeout(() => {
       container.classList.add('open');
-      // Move focus into the overlay for keyboard users
-      const firstBtn = container.querySelector('button');
-      if (firstBtn) firstBtn.focus();
+      // Only steal focus into the overlay when the user got here via the
+      // keyboard. Mouse-triggered opens (double-click word, "Define" button,
+      // right-click summarize) should leave focus where it was — otherwise
+      // a Tab/Arrow after a mouse-peek traps the user inside the tooltip
+      // instead of letting them keep scrolling the page.
+      if (_anchor?.viaKeyboard) {
+        const firstBtn = container.querySelector('button');
+        if (firstBtn) firstBtn.focus();
+      }
     }, 10);
+
+    // Watch for size changes (skeleton → content load → synonym tap → ...)
+    // and re-evaluate whether the tooltip needs to flip above the word.
+    if (_anchor.mode === 'tooltip' && typeof ResizeObserver !== 'undefined') {
+      if (_resizeObserver) _resizeObserver.disconnect();
+      _resizeObserver = new ResizeObserver(() => repositionTooltip(container));
+      _resizeObserver.observe(container);
+    }
     return container;
   }
 
-  // --- Tag row builder (synonyms/antonyms) ---
+  // Render (or remove) the back chevron in the overlay header based on
+  // whether there's anything to go back to. Idempotent — safe to call on
+  // every updateOverlay. Pop from _navHistory and re-render directly via
+  // updateOverlay; don't push the current entry onto history (going BACK
+  // shouldn't add to the forward stack).
+  function renderBackButton(container) {
+    const controls = container.querySelector('.infoblend-controls');
+    if (!controls) return;
+    let backBtn = controls.querySelector('.infoblend-back');
+    if (_navHistory.length === 0) {
+      if (backBtn) backBtn.remove();
+      return;
+    }
+    if (backBtn) return; // already rendered
+    backBtn = el('button', 'infoblend-btn infoblend-back');
+    backBtn.setAttribute('aria-label', 'Back to previous definition');
+    backBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`;
+    backBtn.onclick = (e) => {
+      e.stopPropagation();
+      const prev = _navHistory.pop();
+      if (!prev) return;
+      updateOverlay(prev.title, prev.content, prev.source, prev.extra);
+    };
+    controls.insertBefore(backBtn, controls.firstChild);
+  }
+
+  // Swap the overlay's content area to a loading skeleton without tearing
+  // down the host. Used by synonym-chip navigation so the user keeps the
+  // visual frame (and pre-restoration focus chain) of the open overlay
+  // instead of seeing it flicker away and rebuild.
+  // Returns true on success, false if no overlay is currently open.
+  function setOverlayLoading() {
+    const container = overlayHost?.shadowRoot?.querySelector('.infoblend-overlay');
+    if (!container) return false;
+
+    const titleEl = container.querySelector('.infoblend-title');
+    const oldContent = container.querySelector('.infoblend-content');
+    if (titleEl) titleEl.textContent = 'InfoBlend';
+    if (oldContent) oldContent.remove();
+
+    // Remove the stale copy button — it closes over the previous definition's
+    // copyText. updateOverlay will create a fresh one when the new content lands.
+    const controls = container.querySelector('.infoblend-controls');
+    controls?.querySelector('.infoblend-copy')?.remove();
+
+    if (!container.querySelector('.infoblend-loading')) {
+      const loading = el('div', 'infoblend-loading');
+      const group = el('div', 'ib-skeleton-group');
+      for (const c of ['ib-sk-title', 'ib-sk-line', 'ib-sk-line']) {
+        group.appendChild(el('div', `ib-skeleton ${c}`));
+      }
+      loading.appendChild(group);
+      container.appendChild(loading);
+    }
+    return true;
+  }
+
+  // --- Tag row builder (synonyms) ---
   function buildTagRow(label, words, type, clickable = false) {
     const row = el('div', 'ib-def-tags');
     row.appendChild(el('span', 'ib-def-tag-label', label));
     for (const w of words) {
       const tag = el('span', `ib-def-tag ib-tag-${type}`, w);
-      if (clickable) tag.onclick = () => ib.sendMessage({ type: 'FETCH_DEFINITION', word: w });
+      if (clickable) {
+        tag.setAttribute('role', 'button');
+        tag.setAttribute('tabindex', '0');
+        const lookup = (e) => {
+          e.stopPropagation();
+          // Push the currently-visible definition onto the back stack BEFORE
+          // navigating forward. The back button on the new overlay header
+          // pops this entry to return here.
+          if (_currentDef) _navHistory.push(_currentDef);
+          // In-place content swap. Previously this called showLoadingOverlay()
+          // which destroyed the entire shadow host and rebuilt it — losing
+          // the visual frame, focus chain, and any in-flight ResizeObserver
+          // state. setOverlayLoading keeps the container, swaps just the
+          // content to the skeleton, and updateOverlay then replaces the
+          // skeleton with the new definition.
+          if (!setOverlayLoading()) {
+            // Fallback: no overlay open (shouldn't normally happen since
+            // the chip is rendered inside an overlay, but be defensive).
+            showLoadingOverlay(_anchor);
+          }
+          ib.sendMessage({ type: ib.MSG.FETCH_DEFINITION, word: w }, (resp) => {
+            if (resp?.success && resp.data) {
+              updateOverlay(resp.data.title, resp.data.content, resp.data.source, resp.data);
+            } else {
+              updateOverlay('Notice', resp?.error || `No definition found for "${w}".`, 'InfoBlend');
+            }
+          });
+        };
+        tag.onclick = lookup;
+        tag.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); lookup(e); } };
+      }
       row.appendChild(tag);
     }
     return row;
@@ -187,13 +353,20 @@
             if (_activeAudio.parentNode) _activeAudio.remove();
             _activeAudio = null;
           }
-          audioBtn.classList.add('ib-audio-playing');
+          // Capture the overlay host that owns this button. If the overlay
+          // is replaced or closed before the audio fetch returns, we abort
+          // the callback — otherwise the user got phantom audio playing
+          // after they'd already dismissed the tooltip.
+          const owningHost = overlayHost;
+          audioBtn.classList.add('ib-audio-loading');
+          audioBtn.setAttribute('aria-busy', 'true');
           // Fetch audio via background script to bypass page CSP
-          ib.sendMessage({ type: 'FETCH_AUDIO', url: data.audioUrl }, (resp) => {
-            if (!resp?.success || !resp.dataUrl) {
-              audioBtn.classList.remove('ib-audio-playing');
-              return;
-            }
+          ib.sendMessage({ type: ib.MSG.FETCH_AUDIO, url: data.audioUrl }, (resp) => {
+            if (overlayHost !== owningHost) return; // overlay was replaced/closed
+            audioBtn.classList.remove('ib-audio-loading');
+            audioBtn.removeAttribute('aria-busy');
+            if (!resp?.success || !resp.dataUrl) return;
+            audioBtn.classList.add('ib-audio-playing');
             const audio = document.createElement('audio');
             audio.src = resp.dataUrl;
             audio.style.display = 'none';
@@ -230,21 +403,16 @@
       }
       block.appendChild(list);
 
-      // Per-meaning synonyms / antonyms
+      // Per-meaning synonyms (antonyms were displayed but not clickable —
+      // visual filler for a 2-3 second glance. Removed.)
       if (meaning.synonyms?.length) block.appendChild(buildTagRow('Synonyms', meaning.synonyms, 'syn', true));
-      if (meaning.antonyms?.length) block.appendChild(buildTagRow('Antonyms', meaning.antonyms, 'ant'));
 
       def.appendChild(block);
     }
 
-    // Top-level synonyms / antonyms
+    // Top-level synonyms
     if (data.synonyms?.length) {
-      const row = buildTagRow('Similar', data.synonyms, 'syn');
-      row.classList.add('ib-def-tags-section');
-      def.appendChild(row);
-    }
-    if (data.antonyms?.length) {
-      const row = buildTagRow('Opposite', data.antonyms, 'ant');
+      const row = buildTagRow('Similar', data.synonyms, 'syn', true);
       row.classList.add('ib-def-tags-section');
       def.appendChild(row);
     }
@@ -265,6 +433,14 @@
     if (!container.classList.contains('open')) {
       setTimeout(() => container.classList.add('open'), 10);
     }
+
+    // Remember the visible navigable definition so synonym-chip clicks know
+    // what to push onto the back stack. Notice/Error overlays don't count.
+    const isNoticeNav = title === 'Notice' || title === 'Error';
+    if (!isNoticeNav) {
+      _currentDef = { title, content, source, extra };
+    }
+    renderBackButton(container);
 
     // Batch DOM queries
     const titleEl = container.querySelector('.infoblend-title');
@@ -287,6 +463,14 @@
       renderDefinition(extra, contentDiv);
     } else {
       // Plain text (summaries, Wiktionary/Wikipedia fallback, AI context definitions)
+      if (extra.thumbnail) {
+        const thumb = document.createElement('img');
+        thumb.className = 'ib-thumbnail';
+        thumb.src = extra.thumbnail;
+        thumb.alt = '';
+        thumb.loading = 'lazy';
+        contentDiv.appendChild(thumb);
+      }
       ib.BentoRenderer.render(content, contentDiv);
     }
 
@@ -323,7 +507,7 @@
     controls.querySelector('.infoblend-copy')?.remove();
 
     const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-    const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent-color)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     const copyBtn = el('button', 'infoblend-btn infoblend-copy');
     copyBtn.setAttribute('aria-label', 'Copy');
     copyBtn.innerHTML = copyIcon;
@@ -333,25 +517,45 @@
       ? extra.meanings.map(m => `${m.partOfSpeech}: ${m.definitions.map(d => d.text).join('; ')}`).join('\n')
       : content;
 
-    copyBtn.onclick = (e) => {
+    // Insert before the close button so the order stays [back?, copy, close]
+    // even when copy is recreated on every updateOverlay call.
+    copyBtn.onclick = async (e) => {
       e.stopPropagation();
+      let ok = false;
+      // Try modern clipboard API. writeText returns a Promise that rejects
+      // when the document isn't focused or the page denies clipboard access;
+      // we used to fire-and-forget it and unconditionally show success.
       try {
-        navigator.clipboard.writeText(copyText);
-      } catch {
-        // Fallback for Firefox or permission-denied contexts
-        const ta = document.createElement('textarea');
-        ta.value = copyText;
-        ta.style.cssText = 'position:fixed;opacity:0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
+        await navigator.clipboard.writeText(copyText);
+        ok = true;
+      } catch { /* fall through to execCommand */ }
+      // Fallback for Firefox / permission-denied / non-secure contexts
+      if (!ok) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = copyText;
+          ta.style.cssText = 'position:fixed;opacity:0';
+          document.body.appendChild(ta);
+          ta.select();
+          ok = document.execCommand('copy');
+          ta.remove();
+        } catch { ok = false; }
       }
-      copyBtn.innerHTML = checkIcon;
-      copyBtn.classList.add('ib-copied');
-      setTimeout(() => { copyBtn.innerHTML = copyIcon; copyBtn.classList.remove('ib-copied'); }, 2000);
+      if (ok) {
+        copyBtn.innerHTML = checkIcon;
+        copyBtn.classList.add('ib-copied');
+        setTimeout(() => { copyBtn.innerHTML = copyIcon; copyBtn.classList.remove('ib-copied'); }, 2000);
+      } else {
+        copyBtn.classList.add('ib-copy-failed');
+        copyBtn.setAttribute('aria-label', 'Copy failed — try selecting the text manually');
+        setTimeout(() => {
+          copyBtn.classList.remove('ib-copy-failed');
+          copyBtn.setAttribute('aria-label', 'Copy');
+        }, 2400);
+      }
     };
-    controls.insertBefore(copyBtn, controls.firstChild);
+    const closeRef = controls.querySelector('.infoblend-close');
+    controls.insertBefore(copyBtn, closeRef);
   }
 
   function closeOverlay(host, container) {
@@ -360,67 +564,40 @@
       document.removeEventListener('mousedown', _dismissHandler, true);
       _dismissHandler = null;
     }
+    if (_resizeObserver) {
+      _resizeObserver.disconnect();
+      _resizeObserver = null;
+    }
+    _navHistory = [];
+    _currentDef = null;
     container.classList.add('ib-fade-out');
+    const restore = _prevFocus;
+    _prevFocus = null;
     setTimeout(() => {
       if (host.parentNode) host.remove();
       if (overlayHost === host) overlayHost = null;
       _anchor = null;
+      // Restore focus to wherever the user was before the overlay opened so screen-reader
+      // and keyboard users don't get stranded on document.body.
+      if (restore && typeof restore.focus === 'function' && document.contains(restore)) {
+        try { restore.focus(); } catch { /* element may be unfocusable now */ }
+      }
     }, 250);
   }
 
-  // --- Page Extraction (Readability-inspired heuristics) ---
-  function extractArticleContent() {
-    // Phase 1: Try semantic selectors (most precise)
-    let area = document.querySelector('article, main, [role="main"], .post-content, .entry-content, #content, .article-body, .story-body');
-
-    // Phase 2: Score candidate containers by text density (limit depth for perf)
-    if (!area) {
-      let bestScore = 0;
-      for (const cand of document.querySelectorAll('div, section')) {
-        // Skip deeply nested or tiny containers
-        const pCount = cand.querySelectorAll(':scope > p, :scope > * > p').length;
-        if (pCount < 2) continue;
-        const textLen = cand.textContent.length;
-        if (textLen < 200) continue;
-        const linkDensity = (cand.querySelectorAll('a').length + 1) / (pCount + 1);
-        const score = (pCount * 10 + textLen / 100) / (linkDensity + 1);
-        if (score > bestScore) { bestScore = score; area = cand; }
-      }
-    }
-
-    area = area || document.body;
-
-    const junk = 'nav,footer,header,script,style,noscript,template,aside,[role="complementary"],[role="navigation"],[role="banner"],.sidebar,#sidebar,[class*="ad-"],[id*="ad-"],[class*="social"],[class*="share"],[class*="comment"],[class*="related"],[class*="recommend"],[class*="newsletter"],[class*="subscribe"],[class*="popup"],[class*="modal"],[class*="cookie"],[class*="banner"],.social-share,.comments-area,.related-posts,.breadcrumb,.pagination,.toc';
-    const prose = Array.from(area.querySelectorAll('p, h1, h2, h3, h4, li, blockquote, figcaption'))
-      .filter(node => {
-        if (node.closest(junk)) return false;
-        if (node.offsetHeight === 0) return false; // hidden — cheaper than getComputedStyle
-        const text = node.innerText;
-        if (node.tagName === 'LI' && text.length < 15) return false;
-        if (node.tagName === 'LI') {
-          const linkLen = node.querySelectorAll('a').length ? Array.from(node.querySelectorAll('a')).reduce((s, a) => s + a.textContent.length, 0) : 0;
-          if (linkLen > text.length * 0.6) return false;
-        }
-        return true;
-      })
-      .map(node => node.innerText.trim())
-      .filter(t => t.length > 25 && !t.includes('function(') && !t.includes('var ') && t.split('|').length <= 3);
-
-    const content = Array.from(new Set(prose)).join('\n\n');
-    return content.length > 100 ? content.substring(0, 12000) : null;
-  }
-
   // --- Summarization ---
-  function handlePageSummarization() {
-    showLoadingOverlay({ mode: 'panel' });
-    const content = extractArticleContent();
+  // Article extraction lives in modules/article.js (loaded earlier in the
+  // content_scripts array, so ib.extractArticleContent is always available here).
+  function handlePageSummarization(opts = {}) {
+    showLoadingOverlay({ mode: 'panel', viaKeyboard: !!opts.viaKeyboard });
+    const content = ib.extractArticleContent();
     if (!content) return updateOverlay('Notice', 'No readable content found on this page.', 'InfoBlend');
     runSummarizer(content, 'Page Summary');
   }
 
   function runSummarizer(text, title = 'Summary') {
     if (!text?.trim()) return updateOverlay('Notice', 'No readable content found.', 'InfoBlend');
-    ib.sendMessage({ type: 'PERFORM_SUMMARIZATION', text }, (r) => {
+    ib.sendMessage({ type: ib.MSG.PERFORM_SUMMARIZATION, text }, (r) => {
       if (r?.success) updateOverlay(title, r.summary, r.method || 'InfoBlend');
       else updateOverlay('Notice', r?.error || 'Summarization failed.', 'InfoBlend');
     });
@@ -434,12 +611,12 @@
 
   function handleMessage(message) {
     switch (message.type) {
-      case 'SHOW_DEFINITION': updateOverlay(message.data.title, message.data.content, message.data.source, message.data); break;
-      case 'SHOW_ERROR': updateOverlay('Error', message.message, 'InfoBlend'); break;
-      case 'SHOW_LOADING': showLoadingOverlay({ mode: 'panel' }); break;
-      case 'SHOW_RETRYING': showRetryingStatus(); break;
-      case 'SUMMARIZE_PAGE': handlePageSummarization(); break;
-      case 'SUMMARIZE_SELECTION': showLoadingOverlay({ mode: 'panel' }); runSummarizer(message.text, 'Selection Summary'); break;
+      case ib.MSG.SHOW_DEFINITION: updateOverlay(message.data.title, message.data.content, message.data.source, message.data); break;
+      case ib.MSG.SHOW_ERROR: updateOverlay('Error', message.message, 'InfoBlend'); break;
+      case ib.MSG.SHOW_LOADING: showLoadingOverlay({ mode: 'panel' }); break;
+      case ib.MSG.SHOW_RETRYING: showRetryingStatus(); break;
+      case ib.MSG.SUMMARIZE_PAGE: handlePageSummarization(); break;
+      case ib.MSG.SUMMARIZE_SELECTION: showLoadingOverlay({ mode: 'panel' }); runSummarizer(message.text, 'Selection Summary'); break;
     }
   }
 

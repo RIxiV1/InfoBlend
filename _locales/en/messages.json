@@ -51,33 +51,9 @@
     "message": "Summary theme",
     "description": "Label for theme selector"
   },
-  "saveSettings": {
-    "message": "Save settings",
-    "description": "Save button label"
-  },
   "saved": {
     "message": "Saved",
     "description": "Confirmation after saving"
-  },
-  "welcomeTitle": {
-    "message": "Welcome to InfoBlend",
-    "description": "Onboarding modal title"
-  },
-  "welcomeDesc": {
-    "message": "Your browsing, augmented.",
-    "description": "Onboarding modal subtitle"
-  },
-  "welcomeTip1": {
-    "message": "Double-click any word for an instant definition",
-    "description": "Onboarding tip 1"
-  },
-  "welcomeTip2": {
-    "message": "Press Ctrl+K to summarize any page",
-    "description": "Onboarding tip 2"
-  },
-  "welcomeTip3": {
-    "message": "Add an AI key for smarter results",
-    "description": "Onboarding tip 3"
   },
   "getStarted": {
     "message": "Get started",
@@ -87,24 +63,9 @@
     "message": "Summarize selection with InfoBlend",
     "description": "Right-click context menu item"
   },
-  "noDefinition": {
-    "message": "No definition found for \"$TERM$\".",
-    "description": "Shown when no definition is found",
-    "placeholders": {
-      "term": { "content": "$1", "example": "asdfg" }
-    }
-  },
-  "noContent": {
-    "message": "No readable content found on this page.",
-    "description": "Shown when page extraction finds nothing"
-  },
-  "selectionTooLong": {
-    "message": "Selection too long for definition. Try summarizing instead.",
-    "description": "Error when selection exceeds word limit"
-  },
-  "retrying": {
-    "message": "AI unavailable, falling back to local...",
-    "description": "Shown during AI fallback"
+  "contextMenuDefine": {
+    "message": "Define selection with InfoBlend",
+    "description": "Right-click context menu item for definitions"
   },
   "connected": {
     "message": "Connected",
@@ -114,6 +75,14 @@
     "message": "Connection failed",
     "description": "Test connection failure"
   },
+  "testing": {
+    "message": "Testing...",
+    "description": "Shown on the Test connection button while a test is in progress"
+  },
+  "timedOut": {
+    "message": "Timed out",
+    "description": "Shown on the Test connection button when the network request times out"
+  },
   "needEndpointAndKey": {
     "message": "Need endpoint & key",
     "description": "Test connection missing fields"
@@ -121,5 +90,21 @@
   "invalidUrl": {
     "message": "Must be a valid HTTP(S) URL",
     "description": "URL validation error"
+  },
+  "showApiKey": {
+    "message": "Show API key",
+    "description": "Accessible label for the show-password toggle on the API key field"
+  },
+  "hideApiKey": {
+    "message": "Hide API key",
+    "description": "Accessible label for the hide-password toggle on the API key field"
+  },
+  "cantSummarizeUrl": {
+    "message": "Can't summarize this page",
+    "description": "Inline error when the hero Summarize button is clicked on a restricted URL (chrome://, etc.)"
+  },
+  "refreshAndRetry": {
+    "message": "Refresh the page and retry",
+    "description": "Inline error when the hero Summarize button is clicked but the content script isn't reachable on the active tab"
   }
 }

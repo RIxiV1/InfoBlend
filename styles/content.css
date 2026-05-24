@@ -9,24 +9,30 @@
 
   /* Dark (default) */
   --ib-bg: #1c1c1e;
+  --ib-bg-glass: rgba(28, 28, 30, 0.82);
   --ib-bg-raised: #2c2c2e;
   --ib-text: #f0f0f0;
   --ib-text-2: #a1a1a6;
-  --ib-text-3: #636366;
+  --ib-text-3: #8e8e93;
   --ib-border: rgba(255,255,255,0.1);
   --ib-card-bg: #252528;
   --ib-card-hover: rgba(255,255,255,0.04);
   --ib-card-hover-border: rgba(255,255,255,0.14);
-  --ib-skel-a: rgba(255,255,255,0.04);
-  --ib-skel-b: rgba(255,255,255,0.1);
-  --ib-accent: #5e9cff;
-  --ib-accent-low: rgba(94,156,255,0.12);
+  --ib-skel-a: rgba(255,255,255,0.03);
+  --ib-skel-b: rgba(255,255,255,0.14);
+  --ib-accent: #4a90ff;
+  --ib-accent-low: rgba(74,144,255,0.14);
+  --ib-accent-mid: rgba(74,144,255,0.28);
   --ib-btn-hover: rgba(255,255,255,0.08);
-  --ib-focus: rgba(94,156,255,0.5);
+  --ib-focus: rgba(74,144,255,0.55);
+  --ib-rim-light: inset 0 1px 0 rgba(255,255,255,0.06);
   --ib-shadow:
-    0 8px 32px rgba(0,0,0,0.4),
-    0 2px 8px rgba(0,0,0,0.2);
-  --ib-radius: 12px;
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 12px 40px rgba(0,0,0,0.5),
+    0 4px 12px rgba(0,0,0,0.28),
+    0 0 0 1px rgba(255,255,255,0.04);
+  --ib-radius: 14px;
+  --ib-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ib-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --ib-font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
 }
@@ -34,6 +40,7 @@
 /* Light */
 .infoblend-overlay.ib-light-theme {
   --ib-bg: #ffffff;
+  --ib-bg-glass: rgba(255, 255, 255, 0.86);
   --ib-bg-raised: #f5f5f7;
   --ib-text: #1d1d1f;
   --ib-text-2: #86868b;
@@ -42,14 +49,17 @@
   --ib-card-bg: #f9f9fb;
   --ib-card-hover: rgba(0,0,0,0.02);
   --ib-card-hover-border: rgba(0,0,0,0.1);
-  --ib-skel-a: rgba(0,0,0,0.04);
-  --ib-skel-b: rgba(0,0,0,0.08);
-  --ib-accent: #0071e3;
-  --ib-accent-low: rgba(0,113,227,0.08);
+  --ib-skel-a: rgba(0,0,0,0.03);
+  --ib-skel-b: rgba(0,0,0,0.1);
+  --ib-accent: #0066e0;
+  --ib-accent-low: rgba(0,102,224,0.08);
+  --ib-accent-mid: rgba(0,102,224,0.22);
   --ib-btn-hover: rgba(0,0,0,0.05);
+  --ib-rim-light: inset 0 1px 0 rgba(255,255,255,0.9);
   --ib-shadow:
-    0 8px 24px rgba(0,0,0,0.08),
-    0 2px 8px rgba(0,0,0,0.04),
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    0 12px 32px rgba(0,0,0,0.1),
+    0 4px 10px rgba(0,0,0,0.06),
     0 0 0 1px rgba(0,0,0,0.06);
 }
 
@@ -69,7 +79,9 @@
 /* ─── Container ─── */
 .infoblend-overlay {
   position: fixed;
-  background: var(--ib-bg) !important;
+  background: var(--ib-bg-glass) !important;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid var(--ib-border) !important;
   border-radius: var(--ib-radius);
   box-shadow: var(--ib-shadow);
@@ -89,7 +101,7 @@
 .infoblend-overlay.ib-mode-tooltip {
   width: 340px;
   max-height: 380px;
-  animation: ibIn 0.15s ease both;
+  animation: ibIn 0.2s ease both;
 }
 .infoblend-overlay.ib-mode-tooltip .infoblend-content { max-height: 300px; }
 
@@ -97,17 +109,17 @@
 .infoblend-overlay.ib-mode-panel {
   top: 16px; right: 16px;
   width: 380px;
-  animation: ibIn 0.2s ease both;
+  animation: ibIn 0.22s ease both;
 }
 
 @keyframes ibIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .infoblend-overlay.ib-mode-tooltip.ib-flip-up { animation-name: ibInUp; }
 @keyframes ibInUp {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .infoblend-overlay.ib-fade-out {
@@ -155,16 +167,20 @@
 }
 
 .infoblend-btn:focus-visible {
-  outline: 2px solid var(--ib-focus);
-  outline-offset: -2px;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ib-focus);
 }
 
 .infoblend-btn svg { color: inherit !important; }
 .infoblend-copy.ib-copied { background: var(--ib-accent-low) !important; }
+.infoblend-copy.ib-copy-failed {
+  background: rgba(255, 69, 58, 0.12) !important;
+  color: #ff453a !important;
+}
 
 /* ─── Content ─── */
 .infoblend-content {
-  padding: 12px 14px;
+  padding: 14px 16px 16px;
   overflow-y: auto;
   max-height: 60vh;
   scrollbar-width: thin;
@@ -175,17 +191,29 @@
 .infoblend-content::-webkit-scrollbar-thumb { background: var(--ib-border); border-radius: 4px; }
 .infoblend-content::-webkit-scrollbar-track { background: transparent; }
 
+/* ─── Wikipedia thumbnail ─── */
+.ib-thumbnail {
+  display: block;
+  max-width: 100%;
+  max-height: 140px;
+  margin: 0 auto 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ib-border) !important;
+  object-fit: cover;
+}
+
 /* ─── Bento (summaries) ─── */
 .ib-bento-grid { display: flex; flex-direction: column; gap: 8px; }
 
 .ib-bento-card {
   background: var(--ib-card-bg) !important;
-  padding: 12px 14px;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border-radius: 10px;
   font-size: 13px !important;
   line-height: 1.6 !important;
   border: 1px solid var(--ib-border) !important;
-  transition: background 0.1s, border-color 0.1s;
+  box-shadow: var(--ib-rim-light);
+  transition: background 0.14s ease, border-color 0.14s ease;
 }
 
 .ib-bento-card:hover {
@@ -220,10 +248,15 @@
 .ib-skeleton-group { display: flex; flex-direction: column; gap: 10px; }
 
 .ib-skeleton {
-  background: linear-gradient(90deg, var(--ib-skel-a) 25%, var(--ib-skel-b) 50%, var(--ib-skel-a) 75%);
-  background-size: 200% 100%;
-  animation: ib-shimmer 1.5s ease-in-out infinite;
-  border-radius: 4px;
+  background: linear-gradient(
+    100deg,
+    var(--ib-skel-a) 20%,
+    var(--ib-skel-b) 50%,
+    var(--ib-skel-a) 80%
+  );
+  background-size: 220% 100%;
+  animation: ib-shimmer 1.4s ease-in-out infinite;
+  border-radius: 5px;
   height: 12px;
 }
 
@@ -250,12 +283,25 @@
   color: var(--ib-text-3) !important;
   padding: 4px !important;
   border-radius: 50% !important;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    transform 0.2s var(--ib-spring) !important;
 }
 
 .ib-def-audio:hover,
 .ib-def-audio.ib-audio-playing {
   color: var(--ib-accent) !important;
   background: var(--ib-accent-low) !important;
+}
+
+.ib-def-audio:hover { transform: scale(1.1); }
+.ib-def-audio:active { transform: scale(0.95); }
+
+.ib-def-audio.ib-audio-loading {
+  color: var(--ib-accent) !important;
+  background: var(--ib-accent-low) !important;
+  animation: ib-fade-pulse 1s ease-in-out infinite;
 }
 
 .ib-def-meaning { display: flex; flex-direction: column; gap: 6px; }
@@ -325,10 +371,12 @@
 .ib-def-tag {
   display: inline-block;
   font-size: 11px !important;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 9px;
+  border-radius: 5px;
   cursor: default;
-  transition: background 0.1s;
+  transition:
+    background 0.12s ease,
+    transform 0.2s var(--ib-spring);
 }
 
 .ib-tag-syn {
@@ -337,13 +385,18 @@
   cursor: pointer;
 }
 
+/* Translate up (not scale) on hover — chips are in flex-wrap rows, and
+   scaling can shift sibling chips. translateY avoids the reflow. */
 .ib-tag-syn:hover {
-  background: rgba(94,156,255,0.2) !important;
+  background: var(--ib-accent-mid) !important;
+  transform: translateY(-1px);
 }
 
-.ib-tag-ant {
-  background: rgba(255,149,0,0.1) !important;
-  color: #ff9500 !important;
+.ib-tag-syn:active { transform: translateY(0); }
+
+.ib-tag-syn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ib-accent), 0 0 0 4px rgba(74,144,255,0.3);
 }
 
 /* ─── Empty/Error ─── */
@@ -393,4 +446,22 @@
 @media (max-width: 480px) {
   .infoblend-overlay.ib-mode-tooltip { width: min(340px, 90vw); }
   .infoblend-overlay.ib-mode-panel { width: min(380px, calc(100vw - 32px)); right: 8px; }
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .infoblend-overlay,
+  .infoblend-overlay *,
+  .infoblend-overlay *::before,
+  .infoblend-overlay *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .ib-skeleton { background: var(--ib-skel-a); }
+  .ib-retrying { opacity: 1; }
+  .ib-tag-syn:hover,
+  .ib-tag-syn:active,
+  .ib-def-audio:hover,
+  .ib-def-audio:active { transform: none !important; }
 }

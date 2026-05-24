@@ -23,14 +23,23 @@
     const overlayBg = document.createElement('div');
     overlayBg.className = 'ib-palette-overlay';
 
-    // Theme: apply system default immediately, then correct once storage loads
+    // Theme: read from the eager cache populated in contentScript.js. This avoids
+    // the FOUC where the palette flashed in the wrong theme for ~10-50ms while
+    // chrome.storage resolved. The cache is kept in sync via storage.onChanged.
     const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (!systemDark) overlayBg.classList.add('ib-light-theme');
-    ib.getStorage(['theme']).then(settings => {
-      const theme = settings.theme || 'system';
-      const isDark = theme === 'dark' || (theme === 'system' && systemDark);
-      overlayBg.classList.toggle('ib-light-theme', !isDark);
-    });
+    const cached = ib._settings?.theme;
+    const theme = cached || 'system';
+    const isDark = theme === 'dark' || (theme === 'system' && systemDark);
+    if (!isDark) overlayBg.classList.add('ib-light-theme');
+    // Belt-and-suspenders: if the cache wasn't populated yet (palette opened
+    // before the bootstrap storage call resolved), correct on next tick.
+    if (cached === undefined) {
+      ib.getStorage(['theme']).then(settings => {
+        const t = settings.theme || 'system';
+        const dark = t === 'dark' || (t === 'system' && systemDark);
+        overlayBg.classList.toggle('ib-light-theme', !dark);
+      });
+    }
 
     overlayBg.onclick = () => togglePalette();
 
@@ -67,10 +76,17 @@
     input.className = 'ib-palette-input';
     input.placeholder = 'Search commands or define a word...';
     input.spellcheck = false;
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-expanded', 'true');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-controls', 'ib-palette-listbox');
+    input.setAttribute('aria-label', 'Search commands or define a word');
     searchArea.appendChild(input);
 
     const resultsArea = document.createElement('div');
     resultsArea.className = 'ib-palette-results';
+    resultsArea.id = 'ib-palette-listbox';
+    resultsArea.setAttribute('role', 'listbox');
 
     const commands = [
       { id: 'summarize', label: 'Summarize Page', hint: 'Enter' },
@@ -96,14 +112,25 @@
       if (!filtered.length) {
         const empty = document.createElement('div');
         empty.className = 'ib-palette-empty';
-        empty.textContent = 'No matching commands';
+        empty.innerHTML = `
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span>No matching commands</span>
+        `;
         resultsArea.appendChild(empty);
+        input.removeAttribute('aria-activedescendant');
         return filtered;
       }
 
       filtered.forEach((cmd, i) => {
         const item = document.createElement('div');
-        item.className = `ib-palette-item ${i === selectedIndex ? 'selected' : ''}`;
+        const isSelected = i === selectedIndex;
+        item.className = `ib-palette-item ${isSelected ? 'selected' : ''}`;
+        item.id = `ib-palette-opt-${i}`;
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', String(isSelected));
 
         const left = document.createElement('div');
         left.className = 'ib-palette-item-left';
@@ -121,8 +148,12 @@
         item.onclick = () => executeCommand(cmd);
         resultsArea.appendChild(item);
 
-        if (i === selectedIndex) item.scrollIntoView({ block: 'nearest' });
+        if (isSelected) {
+          item.scrollIntoView({ block: 'nearest' });
+          input.setAttribute('aria-activedescendant', item.id);
+        }
       });
+      if (!filtered.length) input.removeAttribute('aria-activedescendant');
       return filtered;
     };
 
@@ -138,11 +169,14 @@
       }
 
       togglePalette();
+      // Palette interactions are inherently keyboard-driven — pass the
+      // flag through so the resulting overlay auto-focuses its first
+      // button instead of leaving the user stranded after Ctrl+K → Enter.
       if (cmd.id === 'summarize') {
-        ib.handlePageSummarization();
+        ib.handlePageSummarization({ viaKeyboard: true });
       } else if (cmd.id === 'define-word') {
-        ib.showLoadingOverlay();
-        ib.sendMessage({ type: 'FETCH_DEFINITION', word: cmd.word }, (response) => {
+        ib.showLoadingOverlay({ mode: 'panel', viaKeyboard: true });
+        ib.sendMessage({ type: ib.MSG.FETCH_DEFINITION, word: cmd.word }, (response) => {
           if (response?.success) ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
         });
       }
@@ -154,6 +188,12 @@
     };
 
     input.onkeydown = (e) => {
+      // Escape must work even when results are empty — handle it before the length guard
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        togglePalette();
+        return;
+      }
       if (!currentFiltered.length) return;
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -165,8 +205,6 @@
         currentFiltered = renderResults(input.value);
       } else if (e.key === 'Enter') {
         if (currentFiltered[selectedIndex]) executeCommand(currentFiltered[selectedIndex]);
-      } else if (e.key === 'Escape') {
-        togglePalette();
       }
     };
 

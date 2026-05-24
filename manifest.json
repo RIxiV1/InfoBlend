@@ -8,12 +8,7 @@
     "storage",
     "activeTab",
     "contextMenus",
-    "scripting",
     "alarms"
-  ],
-  "host_permissions": [
-    "http://*/*",
-    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -22,7 +17,13 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["contentScript.js"],
+      "js": [
+        "contentScript.js",
+        "modules/core.js",
+        "modules/article.js",
+        "modules/overlay.js",
+        "modules/palette.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -32,11 +33,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "utils/*.js",
-        "modules/*.js",
-        "styles/*.css",
-        "overlay/*.css",
-        "icons/*.png"
+        "styles/content.css",
+        "overlay/overlay.css"
       ],
       "matches": ["http://*/*", "https://*/*"]
     }

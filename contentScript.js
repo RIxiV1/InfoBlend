@@ -5,7 +5,8 @@
  * Ctrl+K → command palette.
  */
 (() => {
-  // Firefox compatibility
+  // Firefox compatibility — duplicates utils/compat.js because content scripts
+  // are not ES modules and can't import. Keep both in sync.
   if (typeof globalThis.chrome === 'undefined' && typeof globalThis.browser !== 'undefined') {
     globalThis.chrome = globalThis.browser;
   }
@@ -19,6 +20,21 @@
     window.__ib._loadingPromise = null;
   }
   window.__ib = window.__ib || { modulesLoaded: false, _loadingPromise: null };
+
+  // Mirror of utils/constants.js (content scripts can't import ES modules).
+  // Keep both in sync — divergence becomes a silent send/listen mismatch.
+  window.__ib.MSG = Object.freeze({
+    FETCH_DEFINITION: 'FETCH_DEFINITION',
+    FETCH_AUDIO: 'FETCH_AUDIO',
+    PERFORM_SUMMARIZATION: 'PERFORM_SUMMARIZATION',
+    SHOW_DEFINITION: 'SHOW_DEFINITION',
+    SHOW_ERROR: 'SHOW_ERROR',
+    SHOW_LOADING: 'SHOW_LOADING',
+    SHOW_RETRYING: 'SHOW_RETRYING',
+    SUMMARIZE_PAGE: 'SUMMARIZE_PAGE',
+    SUMMARIZE_SELECTION: 'SUMMARIZE_SELECTION'
+  });
+  const MSG = window.__ib.MSG;
 
   const sendMessage = async (msg, cb) => {
     try {
@@ -38,34 +54,37 @@
   };
 
   let _defTimer = null;
+  let _selKbTimer = null;
+  let _selMouseTimer = null;
 
   Object.assign(window.__ib, { sendMessage, getStorage });
 
+  // Eager settings cache. Sync UI paths (palette theme, floating Define button gating)
+  // read from this rather than awaiting storage on every interaction — which is what
+  // caused (1) the palette light/dark FOUC on first open and (2) made it impossible
+  // to gate the floating Define button on the auto-definitions toggle without a flicker.
+  window.__ib._settings = window.__ib._settings || {};
+  if (chrome.runtime?.id) {
+    chrome.storage.local.get(['definitionsEnabled', 'theme']).then(s => {
+      Object.assign(window.__ib._settings, s);
+    }).catch(() => { /* storage unavailable */ });
+    chrome.storage.onChanged?.addListener((changes, area) => {
+      if (area !== 'local') return;
+      for (const k of ['definitionsEnabled', 'theme']) {
+        if (k in changes) window.__ib._settings[k] = changes[k].newValue;
+      }
+    });
+  }
+
+  // Modules pre-load via the manifest's content_scripts.js array (alongside
+  // this bootstrap), so they should always be ready by the time any user event
+  // fires. The previous dynamic-injection path via background+scripting.executeScript
+  // required activeTab, which is granted only for extension actions (toolbar
+  // click, context menu, declared command) — never for DOM events like dblclick.
   function modulesReady() {
     return typeof window.__ib.showLoadingOverlay === 'function'
       && typeof window.__ib.togglePalette === 'function'
       && typeof window.__ib.handleMessage === 'function';
-  }
-
-  function ensureModules() {
-    const ib = window.__ib;
-    if (ib.modulesLoaded && modulesReady()) return Promise.resolve(true);
-    if (ib._loadingPromise) return ib._loadingPromise;
-    ib._loadingPromise = new Promise((resolve) => {
-      sendMessage({ type: 'INJECT_MODULES' }, async (r) => {
-        if (!r?.success) { ib._loadingPromise = null; resolve(false); return; }
-        // Wait for injected IIFEs to execute and register functions
-        let tries = 0;
-        while (!modulesReady() && tries < 50) {
-          await new Promise(tick => setTimeout(tick, 20));
-          tries++;
-        }
-        ib.modulesLoaded = modulesReady();
-        ib._loadingPromise = null;
-        resolve(ib.modulesLoaded);
-      });
-    });
-    return ib._loadingPromise;
   }
 
   // Detect if the page area around the selection is light or dark
@@ -97,9 +116,27 @@
     while (container && !blockEls.includes(container.tagName)) {
       container = container.parentElement;
     }
-    const fullText = (container || range.startContainer.parentElement)?.innerText || '';
-    // Return up to 300 chars of surrounding context
-    return fullText.substring(0, 300).trim();
+    const block = container || range.startContainer.parentElement;
+    if (!block) return '';
+    const fullText = block.innerText || '';
+    const MAX = 300;
+    if (fullText.length <= MAX) return fullText.trim();
+
+    // Center the context window around the selected text rather than taking
+    // chars 0..300 of the block — for long paragraphs (e.g., 800-char Wikipedia
+    // intros) the first 300 chars often don't even contain the word the user
+    // selected, making the "as used in this context" prompt useless.
+    const selected = selection.toString();
+    const idx = selected ? fullText.indexOf(selected) : -1;
+    if (idx < 0) return fullText.substring(0, MAX).trim();
+
+    const halfBudget = Math.max(80, Math.floor((MAX - selected.length) / 2));
+    const start = Math.max(0, idx - halfBudget);
+    const end = Math.min(fullText.length, idx + selected.length + halfBudget);
+    let snippet = fullText.substring(start, end).trim();
+    if (start > 0) snippet = '…' + snippet;
+    if (end < fullText.length) snippet = snippet + '…';
+    return snippet;
   }
 
   async function triggerDefinition(text, rect, context) {
@@ -108,19 +145,20 @@
 
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const anchor = { x: cx, y: rect.bottom + 8, mode: 'tooltip', pageTheme: detectPageTheme(cx, cy) };
-    if (await ensureModules()) {
-      window.__ib.showLoadingOverlay(anchor);
-      const msg = { type: 'FETCH_DEFINITION', word: text };
-      if (context) msg.context = context;
-      sendMessage(msg, (response) => {
-        if (response?.success) {
-          window.__ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
-        } else {
-          window.__ib.updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
-        }
-      });
-    }
+    // rectTop lets the overlay flip ABOVE the word when the tooltip would overflow
+    // the viewport bottom. Without it, the overlay can only fall back to clamping.
+    const anchor = { x: cx, y: rect.bottom + 8, rectTop: rect.top, mode: 'tooltip', pageTheme: detectPageTheme(cx, cy) };
+    if (!modulesReady()) return;
+    window.__ib.showLoadingOverlay(anchor);
+    const msg = { type: MSG.FETCH_DEFINITION, word: text };
+    if (context) msg.context = context;
+    sendMessage(msg, (response) => {
+      if (response?.success) {
+        window.__ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
+      } else {
+        window.__ib.updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
+      }
+    });
   }
 
   // --- Floating "Define" button (Shadow DOM isolated) ---
@@ -134,7 +172,26 @@
   }
 
   function showDefineBtn(rect, text, context) {
+    // Respect the same auto-definitions toggle that gates double-click in
+    // triggerDefinition. Previously the floating button ignored the setting,
+    // so toggling auto-definitions off still surfaced the button on every
+    // multi-word selection.
+    if (window.__ib._settings?.definitionsEnabled === false) return;
+
     removeDefineBtn();
+
+    // Approximate button dimensions for viewport clamping. The button is sized
+    // by its content; these are conservative upper bounds.
+    const BTN_W = 84;
+    const BTN_H = 26;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = Math.max(8, Math.min(rect.left + rect.width / 2 - BTN_W / 2, vw - BTN_W - 8));
+    // Prefer below the selection; flip above if it would overflow the bottom edge.
+    const wouldOverflowBelow = rect.bottom + 6 + BTN_H > vh - 8;
+    const top = wouldOverflowBelow
+      ? Math.max(8, rect.top - BTN_H - 6)
+      : rect.bottom + 6;
 
     // Create shadow-isolated host
     const host = document.createElement('div');
@@ -142,8 +199,8 @@
     Object.assign(host.style, {
       all: 'initial',
       position: 'fixed',
-      top: `${rect.bottom + 6}px`,
-      left: `${rect.left + rect.width / 2 - 42}px`,
+      top: `${top}px`,
+      left: `${left}px`,
       zIndex: '2147483647',
       pointerEvents: 'auto'
     });
@@ -177,19 +234,31 @@
           transition: background 0.1s, border-color 0.1s;
         }
         .ib-define-btn:hover {
-          background: ${isDark ? 'rgba(94, 156, 255, 0.15)' : 'rgba(94, 156, 255, 0.1)'};
-          border-color: rgba(94, 156, 255, 0.4);
+          background: ${isDark ? 'rgba(74, 144, 255, 0.15)' : 'rgba(74, 144, 255, 0.1)'};
+          border-color: rgba(74, 144, 255, 0.4);
+        }
+        .ib-define-btn:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(74, 144, 255, 0.35);
         }
         .ib-define-btn svg {
-          color: #5e9cff;
+          color: #4a90ff;
           flex-shrink: 0;
         }
         @keyframes ib-pop-in {
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .ib-define-btn {
+            animation: none;
+            opacity: 1;
+            transform: none;
+            transition: none;
+          }
+        }
       </style>
       <button class="ib-define-btn" aria-label="Define selection">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Define
       </button>
     `;
@@ -198,26 +267,47 @@
     _defineBtnHost = host;
 
     const btn = shadow.querySelector('.ib-define-btn');
+    const activate = () => {
+      removeDefineBtn();
+      triggerDefinition(text, rect, context);
+    };
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      removeDefineBtn();
-      triggerDefinition(text, rect, context);
+      activate();
+    });
+    // Keyboard activation: button is focusable but mousedown-only handler missed Enter/Space
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activate();
+      }
     });
   }
 
-  // Ctrl+K → Command Palette
-  document.addEventListener('keydown', async (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      if (await ensureModules()) window.__ib.togglePalette();
-    }
+  // Ctrl+K → Command Palette. Skip when user is typing in an editor — Ctrl+K
+  // is the universal "insert link" shortcut in Google Docs, Slack, Notion,
+  // GitHub PR composer, etc. Hijacking it there breaks workflows.
+  document.addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
+    const active = document.activeElement;
+    const tag = active?.tagName;
+    const inEditor = tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable;
+    if (inEditor) return; // let native Ctrl+K run
+    e.preventDefault();
+    if (modulesReady()) window.__ib.togglePalette();
   });
 
   // Double-click → word definition (single or multi-word, with context)
-  document.addEventListener('dblclick', async (event) => {
+  document.addEventListener('dblclick', (event) => {
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
     removeDefineBtn();
+    // mouseup fires synchronously before dblclick and queues evaluateSelection
+    // on a 10ms timer. For 2-word double-clicks the wordCount check inside
+    // evaluateSelection would still match, briefly flashing the floating
+    // "Define" button at the same time the tooltip is being prepared. Cancel
+    // that pending evaluation here.
+    clearTimeout(_selMouseTimer);
     const sel = window.getSelection();
     const text = sel.toString().trim();
     if (!text || text.length > 80) return;
@@ -230,29 +320,43 @@
     _defTimer = setTimeout(() => triggerDefinition(text, rect, context), 150);
   });
 
-  // Text selection → show floating "Define" button for multi-word selections
+  // Text selection → show floating "Define" button for multi-word selections.
+  // Triggered by mouseup (mouse selection) and keyup (keyboard selection via
+  // Shift+Arrow / Shift+Home/End). Both paths route through evaluateSelection.
+  function evaluateSelection() {
+    const sel = window.getSelection();
+    const text = sel.toString().trim();
+
+    // Only show for multi-word selections (2-5 words)
+    const wordCount = text ? text.split(/\s+/).length : 0;
+    if (!text || wordCount < 2 || wordCount > 5 || text.length > 120) {
+      removeDefineBtn();
+      return;
+    }
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) { removeDefineBtn(); return; }
+
+    const context = extractContext(sel);
+    showDefineBtn(rect, text, context);
+  }
+
   document.addEventListener('mouseup', (event) => {
-    // Skip if inside our own UI
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host' || el.id === 'infoblend-define-host')) return;
+    clearTimeout(_selMouseTimer);
+    _selMouseTimer = setTimeout(evaluateSelection, 10);
+  });
 
-    setTimeout(() => {
-      const sel = window.getSelection();
-      const text = sel.toString().trim();
-
-      // Only show for multi-word selections (2-5 words)
-      const wordCount = text ? text.split(/\s+/).length : 0;
-      if (!text || wordCount < 2 || wordCount > 5 || text.length > 120) {
-        removeDefineBtn();
-        return;
-      }
-
-      const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      if (rect.width === 0 && rect.height === 0) { removeDefineBtn(); return; }
-
-      const context = extractContext(sel);
-      showDefineBtn(rect, text, context);
-    }, 10);
+  document.addEventListener('keyup', (event) => {
+    // Selection-affecting keys only. Pressing arrows without Shift collapses
+    // the selection, in which case evaluateSelection will simply remove any
+    // visible button.
+    const isSelectionKey = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Shift'].includes(event.key);
+    if (!isSelectionKey) return;
+    if (event.composedPath().some(el => el.id === 'infoblend-shadow-host' || el.id === 'infoblend-define-host')) return;
+    clearTimeout(_selKbTimer);
+    _selKbTimer = setTimeout(evaluateSelection, 200);
   });
 
   // Remove floating button on click elsewhere or scroll
@@ -262,10 +366,13 @@
   document.addEventListener('scroll', removeDefineBtn, true);
 
   // Messages from background / popup
+  const ROUTABLE = new Set([
+    MSG.SHOW_DEFINITION, MSG.SHOW_ERROR, MSG.SHOW_LOADING, MSG.SHOW_RETRYING,
+    MSG.SUMMARIZE_PAGE, MSG.SUMMARIZE_SELECTION
+  ]);
   chrome.runtime.onMessage.addListener((message) => {
-    const routable = ['SHOW_DEFINITION', 'SHOW_ERROR', 'SHOW_LOADING', 'SHOW_RETRYING', 'SUMMARIZE_PAGE', 'SUMMARIZE_SELECTION'];
-    if (routable.includes(message.type)) {
-      ensureModules().then(ok => { if (ok) window.__ib.handleMessage(message); });
+    if (ROUTABLE.has(message.type) && modulesReady()) {
+      window.__ib.handleMessage(message);
     }
   });
 })();
