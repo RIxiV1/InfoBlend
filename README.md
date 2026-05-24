@@ -20,7 +20,6 @@
 ### Summaries
 - **Ctrl+K** — command palette to summarize the current page or define any word
 - **Right-click** — select text and choose "Summarize selection with InfoBlend"
-- **YouTube** — automatically extracts video transcripts and summarizes them
 - Works offline with a local TF-IDF extractive algorithm; optionally upgrade to AI (Gemini, OpenAI, or any custom endpoint)
 
 ### Design
@@ -93,20 +92,19 @@ User Interaction
                                     background.js (service worker)
                                     ├── Message validation
                                     ├── Module injection (once per tab)
-                                    ├── Usage telemetry (local-only)
                                     └── Route to handler:
                                             │
-                        ┌───────────────────┼───────────────────┐
-                        ▼                   ▼                   ▼
-                  Definition           Summarization       YouTube
-                        │                   │                   │
-                  ┌─────┴─────┐      ┌──────┴──────┐    youtubeInsight.js
-                  │ AI config?│      │  AI config? │    (multi-strategy
-                  └─┬───────┬─┘      └──┬───────┬──┘     transcript
-                  yes       no        yes       no        extraction)
-                    │       │           │       │
-              fetchAIResponse  Fallback Chain  fetchAIResponse  Local TF-IDF
-              (context-aware)       │         (with retry)    summarizer.js
+                        ┌───────────────────┴───────────────────┐
+                        ▼                                       ▼
+                  Definition                              Summarization
+                        │                                       │
+                  ┌─────┴─────┐                          ┌──────┴──────┐
+                  │ AI config?│                          │  AI config? │
+                  └─┬───────┬─┘                          └──┬───────┬──┘
+                  yes       no                            yes       no
+                    │       │                              │       │
+              fetchAIResponse  Fallback Chain        fetchAIResponse  Local TF-IDF
+              (context-aware)       │               (with retry)    summarizer.js
                               ┌─────┴─────┐
                               │ Word count │
                               └──┬─────┬──┘
@@ -148,16 +146,16 @@ infoblend/
 │
 ├── modules/
 │   ├── core.js                    Shadow DOM host, text highlighting, BentoRenderer
+│   ├── article.js                 Readability-inspired page prose extraction
 │   ├── overlay.js                 Tooltip + panel: definitions, summaries, a11y, context notes
 │   └── palette.js                 Ctrl+K command palette
 │
 ├── utils/
 │   ├── api.js                     Definition chain + AI adapter (retry, cache, TTL)
 │   ├── summarizer.js              Local extractive summarizer (TF-IDF + U-curve)
-│   ├── youtubeInsight.js          YouTube transcript extraction (multi-strategy)
+│   ├── constants.js               Shared message-type constants
 │   ├── encryption.js              AES-GCM encryption for API key storage
 │   ├── storage.js                 chrome.storage wrapper with auto-encrypt
-│   ├── telemetry.js               Local-only usage counters (never transmitted)
 │   └── errors.js                  Error → user-friendly message translation
 │
 ├── styles/content.css             Overlay, tooltip, tags, animations
@@ -206,7 +204,6 @@ infoblend/
 | Multi-word selection + Define button | Yes | Yes | Yes |
 | Ctrl+K command palette | Yes | Yes | Yes |
 | Context menu summarization | Yes | Yes | Yes |
-| YouTube transcript extraction | Yes | Yes | Yes |
 | Shadow DOM isolation | Yes | Yes | Yes |
 | `AbortSignal.timeout()` | 103+ | 103+ | 100+ |
 | `Intl.Segmenter` | 87+ | 87+ | No* |
@@ -261,9 +258,6 @@ Very specific phrases (e.g. proper sentences) may not match any API. Try selecti
 **AI features not working?**
 Click "Test connection" in the popup settings to verify your endpoint and key. Check that the endpoint URL starts with `https://`.
 
-**YouTube transcript not available?**
-Some videos have no captions. Videos with auto-generated English captions will work. The extension tries multiple extraction strategies but YouTube's page format changes may temporarily break parsing.
-
 ---
 
 ## Privacy
@@ -271,7 +265,6 @@ Some videos have no captions. Videos with auto-generated English captions will w
 - **No data collection.** All processing happens locally in your browser.
 - **No external servers.** Definitions come from public APIs (Dictionary API, Datamuse, Wiktionary, Wikipedia). Summaries are generated locally unless you explicitly configure an AI provider.
 - **API keys are encrypted** at rest using AES-GCM with a PBKDF2-derived key (600,000 iterations). The encryption salt is generated per-device and never leaves your browser.
-- **Usage telemetry is local-only.** Feature counters are stored in `chrome.storage.local` and never transmitted anywhere.
 
 ---
 

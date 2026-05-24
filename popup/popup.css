@@ -508,50 +508,28 @@ main {
   box-shadow: var(--focus-ring);
 }
 
-/* ─── Save ─── */
-.save-btn {
-  width: 100%;
-  padding: 11px;
-  margin-top: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-2);
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-
-.save-btn:hover {
-  background: var(--accent-lo);
-  border-color: var(--accent-md);
-  color: var(--accent);
-}
-
-.save-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.save-btn.saved {
-  background: rgba(48, 209, 88, 0.08);
-  border-color: rgba(48, 209, 88, 0.25);
-  color: var(--green);
-}
-
 /* ─── Footer ─── */
 footer {
   padding: 10px 16px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 
 footer span {
   font-size: 10px;
   color: var(--text-4);
 }
+
+.save-status {
+  flex: 1;
+  text-align: center;
+  color: var(--green) !important;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.save-status.visible { opacity: 1; }
 
 /* ─── Modal ─── */
 .modal {

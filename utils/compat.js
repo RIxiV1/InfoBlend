@@ -2,7 +2,8 @@
  * Cross-browser compatibility and shared utilities.
  */
 
-// Firefox namespace shim
+// Firefox namespace shim — duplicated inline in contentScript.js because
+// content scripts can't import ES modules. Keep both in sync.
 if (typeof globalThis.chrome === 'undefined' && typeof globalThis.browser !== 'undefined') {
   globalThis.chrome = globalThis.browser;
 }

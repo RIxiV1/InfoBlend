@@ -5,7 +5,8 @@
  * Ctrl+K → command palette.
  */
 (() => {
-  // Firefox compatibility
+  // Firefox compatibility — duplicates utils/compat.js because content scripts
+  // are not ES modules and can't import. Keep both in sync.
   if (typeof globalThis.chrome === 'undefined' && typeof globalThis.browser !== 'undefined') {
     globalThis.chrome = globalThis.browser;
   }
@@ -19,6 +20,21 @@
     window.__ib._loadingPromise = null;
   }
   window.__ib = window.__ib || { modulesLoaded: false, _loadingPromise: null };
+
+  // Mirror of utils/constants.js (content scripts can't import ES modules).
+  // Keep both in sync — divergence becomes a silent send/listen mismatch.
+  window.__ib.MSG = Object.freeze({
+    FETCH_DEFINITION: 'FETCH_DEFINITION',
+    FETCH_AUDIO: 'FETCH_AUDIO',
+    PERFORM_SUMMARIZATION: 'PERFORM_SUMMARIZATION',
+    SHOW_DEFINITION: 'SHOW_DEFINITION',
+    SHOW_ERROR: 'SHOW_ERROR',
+    SHOW_LOADING: 'SHOW_LOADING',
+    SHOW_RETRYING: 'SHOW_RETRYING',
+    SUMMARIZE_PAGE: 'SUMMARIZE_PAGE',
+    SUMMARIZE_SELECTION: 'SUMMARIZE_SELECTION'
+  });
+  const MSG = window.__ib.MSG;
 
   const sendMessage = async (msg, cb) => {
     try {
@@ -39,6 +55,7 @@
 
   let _defTimer = null;
   let _selKbTimer = null;
+  let _selMouseTimer = null;
 
   Object.assign(window.__ib, { sendMessage, getStorage });
 
@@ -59,19 +76,15 @@
     });
   }
 
-  function modulesReady() {
-    return typeof window.__ib.showLoadingOverlay === 'function'
-      && typeof window.__ib.togglePalette === 'function'
-      && typeof window.__ib.handleMessage === 'function';
-  }
-
-  // Modules now pre-load via the manifest's content_scripts.js array (alongside
+  // Modules pre-load via the manifest's content_scripts.js array (alongside
   // this bootstrap), so they should always be ready by the time any user event
   // fires. The previous dynamic-injection path via background+scripting.executeScript
   // required activeTab, which is granted only for extension actions (toolbar
   // click, context menu, declared command) — never for DOM events like dblclick.
-  function ensureModules() {
-    return Promise.resolve(modulesReady());
+  function modulesReady() {
+    return typeof window.__ib.showLoadingOverlay === 'function'
+      && typeof window.__ib.togglePalette === 'function'
+      && typeof window.__ib.handleMessage === 'function';
   }
 
   // Detect if the page area around the selection is light or dark
@@ -135,18 +148,17 @@
     // rectTop lets the overlay flip ABOVE the word when the tooltip would overflow
     // the viewport bottom. Without it, the overlay can only fall back to clamping.
     const anchor = { x: cx, y: rect.bottom + 8, rectTop: rect.top, mode: 'tooltip', pageTheme: detectPageTheme(cx, cy) };
-    if (await ensureModules()) {
-      window.__ib.showLoadingOverlay(anchor);
-      const msg = { type: 'FETCH_DEFINITION', word: text };
-      if (context) msg.context = context;
-      sendMessage(msg, (response) => {
-        if (response?.success) {
-          window.__ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
-        } else {
-          window.__ib.updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
-        }
-      });
-    }
+    if (!modulesReady()) return;
+    window.__ib.showLoadingOverlay(anchor);
+    const msg = { type: MSG.FETCH_DEFINITION, word: text };
+    if (context) msg.context = context;
+    sendMessage(msg, (response) => {
+      if (response?.success) {
+        window.__ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
+      } else {
+        window.__ib.updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
+      }
+    });
   }
 
   // --- Floating "Define" button (Shadow DOM isolated) ---
@@ -276,20 +288,26 @@
   // Ctrl+K → Command Palette. Skip when user is typing in an editor — Ctrl+K
   // is the universal "insert link" shortcut in Google Docs, Slack, Notion,
   // GitHub PR composer, etc. Hijacking it there breaks workflows.
-  document.addEventListener('keydown', async (e) => {
+  document.addEventListener('keydown', (e) => {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
     const active = document.activeElement;
     const tag = active?.tagName;
     const inEditor = tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable;
     if (inEditor) return; // let native Ctrl+K run
     e.preventDefault();
-    if (await ensureModules()) window.__ib.togglePalette();
+    if (modulesReady()) window.__ib.togglePalette();
   });
 
   // Double-click → word definition (single or multi-word, with context)
-  document.addEventListener('dblclick', async (event) => {
+  document.addEventListener('dblclick', (event) => {
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
     removeDefineBtn();
+    // mouseup fires synchronously before dblclick and queues evaluateSelection
+    // on a 10ms timer. For 2-word double-clicks the wordCount check inside
+    // evaluateSelection would still match, briefly flashing the floating
+    // "Define" button at the same time the tooltip is being prepared. Cancel
+    // that pending evaluation here.
+    clearTimeout(_selMouseTimer);
     const sel = window.getSelection();
     const text = sel.toString().trim();
     if (!text || text.length > 80) return;
@@ -326,7 +344,8 @@
 
   document.addEventListener('mouseup', (event) => {
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host' || el.id === 'infoblend-define-host')) return;
-    setTimeout(evaluateSelection, 10);
+    clearTimeout(_selMouseTimer);
+    _selMouseTimer = setTimeout(evaluateSelection, 10);
   });
 
   document.addEventListener('keyup', (event) => {
@@ -347,10 +366,13 @@
   document.addEventListener('scroll', removeDefineBtn, true);
 
   // Messages from background / popup
+  const ROUTABLE = new Set([
+    MSG.SHOW_DEFINITION, MSG.SHOW_ERROR, MSG.SHOW_LOADING, MSG.SHOW_RETRYING,
+    MSG.SUMMARIZE_PAGE, MSG.SUMMARIZE_SELECTION
+  ]);
   chrome.runtime.onMessage.addListener((message) => {
-    const routable = ['SHOW_DEFINITION', 'SHOW_ERROR', 'SHOW_LOADING', 'SHOW_RETRYING', 'SUMMARIZE_PAGE', 'SUMMARIZE_SELECTION'];
-    if (routable.includes(message.type)) {
-      ensureModules().then(ok => { if (ok) window.__ib.handleMessage(message); });
+    if (ROUTABLE.has(message.type) && modulesReady()) {
+      window.__ib.handleMessage(message);
     }
   });
 })();
