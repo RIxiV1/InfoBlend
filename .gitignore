@@ -18,9 +18,19 @@ node_modules/
 .vscode/
 .idea/
 *.swp
+*~
+*.bak
 
 # Claude Code
 .claude/
+
+# Build output
+dist/
+build/
+
+# Test coverage
+coverage/
+.nyc_output/
 
 # Logs & temp
 *.log
