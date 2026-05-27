@@ -464,12 +464,16 @@
     } else {
       // Plain text (summaries, Wiktionary/Wikipedia fallback, AI context definitions)
       if (extra.thumbnail) {
+        // Wrap in a masked container so hover-zoom on the img is clipped
+        const thumbWrap = document.createElement('div');
+        thumbWrap.className = 'ib-thumbnail-wrap';
         const thumb = document.createElement('img');
         thumb.className = 'ib-thumbnail';
         thumb.src = extra.thumbnail;
         thumb.alt = '';
         thumb.loading = 'lazy';
-        contentDiv.appendChild(thumb);
+        thumbWrap.appendChild(thumb);
+        contentDiv.appendChild(thumbWrap);
       }
       ib.BentoRenderer.render(content, contentDiv);
     }

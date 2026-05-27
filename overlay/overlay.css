@@ -17,7 +17,7 @@
   --text-2: #a1a1a6;
   --text-3: #8e8e93;
   --accent: #4a90ff;
-  --backdrop: rgba(8,8,12,0.45);
+  --backdrop: rgba(0,0,0,0.5);
   --hint-bg: rgba(255,255,255,0.08);
   --focus-ring: 0 0 0 3px rgba(74,144,255,0.32), 0 0 0 1px rgba(74,144,255,0.6);
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -39,7 +39,7 @@
   --text-2: #86868b;
   --text-3: #aeaeb2;
   --accent: #0066e0;
-  --backdrop: rgba(0,0,0,0.18);
+  --backdrop: rgba(0,0,0,0.2);
   --hint-bg: rgba(0,0,0,0.05);
   --focus-ring: 0 0 0 3px rgba(0,102,224,0.28), 0 0 0 1px rgba(0,102,224,0.5);
 }
@@ -49,8 +49,8 @@
   inset: 0;
   background: var(--backdrop);
   /* Capped at 16px — higher values caused visible scroll jank on mid-range HW */
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   z-index: 2147483647;
   display: flex;
   justify-content: center;
@@ -76,11 +76,11 @@
   display: flex;
   flex-direction: column;
   max-height: 70vh;
-  animation: paletteIn 0.28s var(--spring);
+  animation: paletteIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes paletteIn {
-  from { transform: scale(0.94) translateY(-8px); opacity: 0; }
+  from { transform: scale(0.93) translateY(-8px); opacity: 0; }
   to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 
@@ -140,7 +140,8 @@
 
 .ib-palette-item.selected {
   background: var(--selected-bg);
-  border-color: var(--selected-border);
+  border-color: transparent;
+  box-shadow: 0 0 0 1px var(--selected-border);
 }
 
 .ib-palette-item.selected .ib-palette-label { font-weight: 500; }
@@ -187,6 +188,38 @@
   color: var(--text-3);
   font-size: 10px;
   font-weight: 600;
+  /* Subtle rim light gives the key a tactile, embossed feel */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    text-shadow 0.2s ease,
+    transform 0.12s ease,
+    box-shadow 0.2s ease;
+}
+
+/* Pressed effect when the palette item is hovered or selected */
+.ib-palette-item:hover .ib-key-box {
+  background: rgba(74, 144, 255, 0.12);
+  border-color: var(--selected-border);
+  color: var(--text);
+}
+
+.ib-palette-item.selected .ib-key-box {
+  background: rgba(74, 144, 255, 0.2);
+  border-color: var(--selected-border);
+  color: var(--text);
+  /* Soft glow on the letter inside selected items */
+  text-shadow: 0 0 6px rgba(74, 144, 255, 0.55);
+  /* Pressed-in shadow + outer rim light */
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(74, 144, 255, 0.18),
+    0 0 8px rgba(74, 144, 255, 0.22);
+  /* Tiny press translate */
+  transform: translateY(1px);
+  border-bottom-width: 1px;
 }
 
 .ib-palette-empty {
@@ -209,8 +242,13 @@
 @media (prefers-reduced-motion: reduce) {
   .ib-palette-overlay,
   .ib-palette,
-  .ib-palette-item {
+  .ib-palette-item,
+  .ib-key-box {
     animation: none !important;
     transition: none !important;
+  }
+  .ib-palette-item.selected .ib-key-box {
+    transform: none !important;
+    text-shadow: none !important;
   }
 }

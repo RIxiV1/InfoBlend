@@ -113,7 +113,7 @@ header {
   transform: translateY(-1px);
   box-shadow:
     var(--rim-light),
-    0 6px 18px rgba(74, 144, 255, 0.22),
+    0 4px 20px rgba(74, 144, 255, 0.18),
     0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -135,7 +135,9 @@ header {
   color: #ff453a;
 }
 
-.hero-btn.hero-error kbd { display: none; }
+.hero-btn.hero-error kbd {
+  display: none;
+}
 
 .hero-content {
   display: flex;
@@ -173,11 +175,25 @@ main {
   padding: 12px 14px;
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.1s;
+  border: 1px solid transparent;
+  transition:
+    background 0.2s var(--ease),
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    transform 0.2s var(--spring);
 }
 
 .setting-row:hover {
   background: var(--surface);
+  border-color: var(--border-hi);
+  transform: translateY(-1px);
+  box-shadow:
+    var(--rim-light),
+    0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.setting-row:active {
+  transform: translateY(0);
 }
 
 .setting-info {
@@ -217,7 +233,9 @@ main {
   border-radius: 22px;
   background: var(--surface-3);
   cursor: pointer;
-  transition: background 0.2s var(--ease);
+  transition:
+    background 0.25s var(--ease),
+    box-shadow 0.3s var(--ease);
 }
 
 .toggle-track::after {
@@ -229,16 +247,28 @@ main {
   left: 2px;
   background: white;
   border-radius: 50%;
-  transition: transform 0.2s var(--ease);
+  /* Spring easing gives the knob a "squash-and-stretch" feel during transit
+     — the bezier overshoots slightly past the target before settling. */
+  transition:
+    transform 0.32s cubic-bezier(0.68, -0.55, 0.265, 1.55),
+    box-shadow 0.25s var(--ease);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .toggle input:checked~.toggle-track {
   background: var(--accent);
+  /* Radial aura around the active track */
+  box-shadow:
+    0 0 0 1px var(--accent-hi),
+    0 0 14px rgba(74, 144, 255, 0.28);
 }
 
 .toggle input:checked~.toggle-track::after {
   transform: translateX(16px);
+  /* Soft inner glow on the active knob */
+  box-shadow:
+    0 0 0 4px rgba(74, 144, 255, 0.18),
+    0 1px 6px rgba(0, 0, 0, 0.35);
 }
 
 .toggle input:focus-visible~.toggle-track {
@@ -345,7 +375,7 @@ main {
 .input-group input:focus,
 .input-group select:focus {
   border-color: var(--accent-md);
-  box-shadow: 0 0 0 3px rgba(74, 144, 255, 0.14);
+  box-shadow: 0 0 0 3px rgba(74, 144, 255, 0.15);
 }
 
 .input-group input:focus-visible,
@@ -529,7 +559,9 @@ footer span {
   transition: opacity 0.18s ease;
 }
 
-.save-status.visible { opacity: 1; }
+.save-status.visible {
+  opacity: 1;
+}
 
 /* ─── Modal ─── */
 .modal {
@@ -561,13 +593,13 @@ footer span {
     var(--rim-light),
     0 24px 56px rgba(0, 0, 0, 0.55),
     0 2px 8px rgba(0, 0, 0, 0.3);
-  animation: modalIn 0.32s var(--spring) both;
+  animation: modalIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @keyframes modalIn {
   from {
     opacity: 0;
-    transform: scale(0.94) translateY(10px);
+    transform: scale(0.88) translateY(14px);
   }
 
   to {
@@ -671,9 +703,7 @@ footer span {
 
 .modal-cta:focus-visible {
   outline: none;
-  box-shadow:
-    var(--rim-light),
-    0 0 0 3px rgba(255, 255, 255, 0.6);
+  box-shadow: var(--focus-ring), var(--rim-light);
 }
 
 /* ─── Reduced motion ─── */
@@ -690,7 +720,9 @@ footer span {
   .hero-btn:hover,
   .modal-cta:hover,
   .hero-btn:active,
-  .modal-cta:active {
+  .modal-cta:active,
+  .setting-row:hover,
+  .setting-row:active {
     transform: none;
   }
 }
