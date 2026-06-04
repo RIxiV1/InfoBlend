@@ -21,6 +21,7 @@
         "contentScript.js",
         "modules/core.js",
         "modules/article.js",
+        "modules/tts.js",
         "modules/overlay.js",
         "modules/palette.js"
       ],

@@ -41,7 +41,9 @@ const handleDefinition = async (word, context) => {
   const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
   if (aiKey && aiEndpoint) {
     const content = await fetchAIResponse(word, aiEndpoint, aiKey, aiProvider, 'define', context);
-    return { title: word, content, source: `AI (${aiProvider})` };
+    // term is the user's original selection — used for TTS pronunciation
+    // when no recorded audio is available.
+    return { term: word, title: word, content, source: `AI (${aiProvider})` };
   }
   // For non-AI definitions, get standard definition and append context note if available
   const result = await fetchDefinition(word);

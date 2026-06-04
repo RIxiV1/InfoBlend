@@ -120,7 +120,7 @@
 
   // --- Loading ---
   function showLoadingOverlay(anchor) {
-    if (_activeAudio) { _activeAudio.pause(); _activeAudio = null; }
+    stopAllAudio();
     if (overlayHost) { overlayHost.remove(); overlayHost = null; }
     if (_dismissHandler) { document.removeEventListener('mousedown', _dismissHandler, true); _dismissHandler = null; }
     // Save focus only on first open of a session — repeated overlay swaps should still
@@ -329,64 +329,123 @@
     return row;
   }
 
+  // --- Pronunciation: audio file with TTS fallback ---
+  // Source priority is recorded audio (Dictionary API) → Web Speech TTS.
+  // TTS is the universal fallback: works for any selected word, in any
+  // language voice the browser has installed, even when every dictionary
+  // source whiffed.
+  function stopAllAudio() {
+    if (_activeAudio) {
+      _activeAudio.pause();
+      if (_activeAudio.parentNode) _activeAudio.remove();
+      _activeAudio = null;
+    }
+    if (ib.tts?.isSpeaking?.()) ib.tts.cancel();
+  }
+
+  function playPronunciation(spokenText, audioUrl, btn) {
+    stopAllAudio();
+
+    // Snapshot the overlay host. If it changes mid-flight (new lookup, close,
+    // navigation), every callback below short-circuits — otherwise the user
+    // gets ghost audio from a definition they already dismissed.
+    const owningHost = overlayHost;
+
+    const cleanupBtn = () => {
+      btn.classList.remove('ib-audio-loading', 'ib-audio-playing');
+      btn.removeAttribute('aria-busy');
+    };
+
+    const useTTS = () => {
+      if (overlayHost !== owningHost) { cleanupBtn(); return; }
+      if (!ib.tts?.isSupported() || !spokenText) { cleanupBtn(); return; }
+      btn.classList.remove('ib-audio-loading');
+      btn.removeAttribute('aria-busy');
+      btn.classList.add('ib-audio-playing');
+      const issued = ib.tts.speak(spokenText, {
+        onEnd: () => {
+          if (overlayHost !== owningHost) return;
+          btn.classList.remove('ib-audio-playing');
+        }
+      });
+      if (!issued) cleanupBtn();
+    };
+
+    // Pure-TTS path: no audio URL on this entry.
+    if (!audioUrl) { useTTS(); return; }
+
+    // Recorded-audio path: fetch via background (page CSP blocks direct fetch
+    // of cross-origin audio in many contexts) then play, with TTS fallback on
+    // any failure along the way.
+    btn.classList.add('ib-audio-loading');
+    btn.setAttribute('aria-busy', 'true');
+    ib.sendMessage({ type: ib.MSG.FETCH_AUDIO, url: audioUrl }, (resp) => {
+      if (overlayHost !== owningHost) { cleanupBtn(); return; }
+      if (!resp?.success || !resp.dataUrl) { useTTS(); return; }
+
+      btn.classList.remove('ib-audio-loading');
+      btn.removeAttribute('aria-busy');
+      btn.classList.add('ib-audio-playing');
+
+      const audio = document.createElement('audio');
+      audio.src = resp.dataUrl;
+      audio.style.display = 'none';
+      document.body.appendChild(audio);
+      _activeAudio = audio;
+
+      audio.play().catch(() => {
+        btn.classList.remove('ib-audio-playing');
+        if (audio.parentNode) audio.remove();
+        if (_activeAudio === audio) _activeAudio = null;
+        // Recorded clip exists but won't play (autoplay policy, codec, etc.)
+        // — fall back to TTS so the user still hears something.
+        useTTS();
+      });
+      audio.onended = () => {
+        btn.classList.remove('ib-audio-playing');
+        if (audio.parentNode) audio.remove();
+        if (_activeAudio === audio) _activeAudio = null;
+      };
+      audio.onerror = () => {
+        btn.classList.remove('ib-audio-playing');
+        if (audio.parentNode) audio.remove();
+        if (_activeAudio === audio) _activeAudio = null;
+        useTTS();
+      };
+    });
+  }
+
+  // Returns null if there's literally nothing playable — no audioUrl AND no
+  // (TTS-supported + non-empty spokenText). Callers should treat null as
+  // "skip the button entirely" rather than rendering disabled UI.
+  function buildAudioBtn(spokenText, audioUrl) {
+    const canTTS = !!(spokenText && ib.tts?.isSupported());
+    if (!audioUrl && !canTTS) return null;
+    const btn = el('button', 'infoblend-btn ib-def-audio');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Play pronunciation');
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      playPronunciation(spokenText, audioUrl, btn);
+    };
+    return btn;
+  }
+
   // --- Render Definition (rich structured data) ---
   function renderDefinition(data, container) {
     if (!data.meanings?.length) return;
     const def = el('div', 'ib-definition');
 
-    // Phonetic + audio
-    if (data.phonetic || data.audioUrl) {
+    // Phonetic + audio. Always try to render the speaker — if the source
+    // gave us a real audio URL we'll use it (best quality), otherwise TTS
+    // speaks the term. buildAudioBtn returns null only when both paths
+    // are unavailable (no term to speak AND no audioUrl AND no TTS).
+    const audioBtn = buildAudioBtn(data.term || data.title, data.audioUrl);
+    if (data.phonetic || audioBtn) {
       const row = el('div', 'ib-def-phonetic-row');
-
-      if (data.phonetic) {
-        row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
-      }
-
-      if (data.audioUrl) {
-        const audioBtn = el('button', 'infoblend-btn ib-def-audio');
-        audioBtn.setAttribute('aria-label', 'Play pronunciation');
-        audioBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
-        audioBtn.onclick = (e) => {
-          e.stopPropagation();
-          if (_activeAudio) {
-            _activeAudio.pause();
-            if (_activeAudio.parentNode) _activeAudio.remove();
-            _activeAudio = null;
-          }
-          // Capture the overlay host that owns this button. If the overlay
-          // is replaced or closed before the audio fetch returns, we abort
-          // the callback — otherwise the user got phantom audio playing
-          // after they'd already dismissed the tooltip.
-          const owningHost = overlayHost;
-          audioBtn.classList.add('ib-audio-loading');
-          audioBtn.setAttribute('aria-busy', 'true');
-          // Fetch audio via background script to bypass page CSP
-          ib.sendMessage({ type: ib.MSG.FETCH_AUDIO, url: data.audioUrl }, (resp) => {
-            if (overlayHost !== owningHost) return; // overlay was replaced/closed
-            audioBtn.classList.remove('ib-audio-loading');
-            audioBtn.removeAttribute('aria-busy');
-            if (!resp?.success || !resp.dataUrl) return;
-            audioBtn.classList.add('ib-audio-playing');
-            const audio = document.createElement('audio');
-            audio.src = resp.dataUrl;
-            audio.style.display = 'none';
-            document.body.appendChild(audio);
-            _activeAudio = audio;
-            audio.play().catch(() => {
-              audioBtn.classList.remove('ib-audio-playing');
-              if (audio.parentNode) audio.remove();
-              _activeAudio = null;
-            });
-            audio.onended = () => {
-              audioBtn.classList.remove('ib-audio-playing');
-              if (audio.parentNode) audio.remove();
-              _activeAudio = null;
-            };
-          });
-        };
-        row.appendChild(audioBtn);
-      }
-
+      if (data.phonetic) row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
+      if (audioBtn) row.appendChild(audioBtn);
       def.appendChild(row);
     }
 
@@ -462,7 +521,19 @@
       // Structured definition
       renderDefinition(extra, contentDiv);
     } else {
-      // Plain text (summaries, Wiktionary/Wikipedia fallback, AI context definitions)
+      // Plain text (summaries, Wiktionary/Wikipedia fallback, AI context definitions,
+      // Not Found). Show a pronunciation button whenever we have the original
+      // selection term — summaries don't carry one, so they correctly skip.
+      // Discriminator is `extra.term`, not a title regex: summary titles are
+      // user-customizable via i18n down the road.
+      if (extra.term) {
+        const audioBtn = buildAudioBtn(extra.term, null);
+        if (audioBtn) {
+          const audioRow = el('div', 'ib-def-audio-row');
+          audioRow.appendChild(audioBtn);
+          contentDiv.appendChild(audioRow);
+        }
+      }
       if (extra.thumbnail) {
         // Wrap in a masked container so hover-zoom on the img is clipped
         const thumbWrap = document.createElement('div');
@@ -563,7 +634,7 @@
   }
 
   function closeOverlay(host, container) {
-    if (_activeAudio) { _activeAudio.pause(); _activeAudio = null; }
+    stopAllAudio();
     if (_dismissHandler) {
       document.removeEventListener('mousedown', _dismissHandler, true);
       _dismissHandler = null;

@@ -187,7 +187,7 @@ export const fetchDefinition = async (word) => {
 
   // Check cache first
   const cached = await getCachedDefinition(term);
-  if (cached) return { ...cached, fromCache: true };
+  if (cached) return { ...cached, term, fromCache: true };
 
   // Route based on word count:
   // Single words: Dictionary (rich) → Datamuse → Wiktionary → Wikipedia
@@ -210,6 +210,11 @@ export const fetchDefinition = async (word) => {
             }
           } catch { /* non-critical */ }
         }
+        // Stamp the user's original selection on every result so the overlay
+        // can pronounce it via TTS regardless of which fetcher won. (Some
+        // sources normalize casing — e.g. Wikipedia returns "Machine learning"
+        // even when the user selected "machine learning".)
+        result.term = term;
         await cacheDefinition(term, result);
         return result;
       }
@@ -217,6 +222,7 @@ export const fetchDefinition = async (word) => {
   }
 
   return {
+    term,
     title: 'Not Found',
     content: `No definition found for "${term}".`,
     source: 'Merriam-Webster',

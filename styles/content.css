@@ -205,6 +205,13 @@
 .infoblend-content::-webkit-scrollbar-thumb { background: var(--ib-border); border-radius: 4px; }
 .infoblend-content::-webkit-scrollbar-track { background: transparent; }
 
+/* ─── Plain-text pronunciation row (Wikipedia/Wiktionary/AI/Not Found) ─── */
+.ib-def-audio-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 /* ─── Wikipedia thumbnail ─── */
 .ib-thumbnail-wrap {
   display: block;
