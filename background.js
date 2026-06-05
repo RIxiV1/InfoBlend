@@ -1,5 +1,5 @@
 import './utils/compat.js';
-import { fetchDefinition, fetchAIResponse, cleanupCache } from './utils/api.js';
+import { fetchDefinition, fetchAIResponse, fetchMyMemoryTranslation, cleanupCache } from './utils/api.js';
 import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
 import { translateError } from './utils/errors.js';
@@ -28,6 +28,11 @@ const setupContextMenus = () => {
       title: chrome.i18n.getMessage('contextMenuSummarize') || 'Summarize selection with InfoBlend',
       contexts: ['selection']
     }, () => { void chrome.runtime.lastError; });
+    chrome.contextMenus.create({
+      id: 'translate-ib',
+      title: chrome.i18n.getMessage('contextMenuTranslate') || 'Translate selection with InfoBlend',
+      contexts: ['selection']
+    }, () => { void chrome.runtime.lastError; });
   });
 };
 
@@ -35,7 +40,31 @@ chrome.runtime.onInstalled.addListener(setupContextMenus);
 chrome.runtime.onStartup.addListener(setupContextMenus);
 
 // --- Handlers ---
-const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider', 'summaryStyle']);
+const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider', 'summaryStyle', 'targetLanguage']);
+
+// Translation handler — AI when available (context-aware, idiom-preserving),
+// MyMemory free tier otherwise. Returns { translated, source, error? }.
+// Caller passes optional surrounding-paragraph context for AI disambiguation.
+const handleTranslation = async (text, context = '') => {
+  const { aiEndpoint, aiKey, aiProvider, targetLanguage } = await getAISettings();
+  const target = targetLanguage || 'en';
+  if (aiKey && aiEndpoint) {
+    try {
+      const translated = await fetchAIResponse(text, aiEndpoint, aiKey, aiProvider, 'translate', context, 'bullets', target);
+      return { translated, source: `AI (${aiProvider}) → ${target}`, targetLanguage: target };
+    } catch (e) {
+      // Fall through to free-tier on AI failure
+      const fallback = await fetchMyMemoryTranslation(text, target);
+      if (fallback) return { translated: fallback, source: `MyMemory → ${target}`, targetLanguage: target };
+      throw e;
+    }
+  }
+  const translated = await fetchMyMemoryTranslation(text, target);
+  if (!translated) {
+    throw new Error('Translation unavailable. Add an AI key in the popup for higher-quality translations.');
+  }
+  return { translated, source: `MyMemory → ${target}`, targetLanguage: target };
+};
 
 const handleDefinition = async (word, context) => {
   const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
@@ -95,6 +124,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         type: MSG.SHOW_DEFINITION,
         data: { title: 'Selection Summary', content: summary, source: method }
       });
+    } else if (info.menuItemId === 'translate-ib') {
+      await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_LOADING });
+      const { translated, source } = await handleTranslation(text);
+      await chrome.tabs.sendMessage(tab.id, {
+        type: MSG.SHOW_DEFINITION,
+        data: { title: 'Translation', content: translated, source, term: text }
+      });
     } else if (info.menuItemId === 'define-ib') {
       // Context menu has no surrounding-paragraph context (browser doesn't expose
       // it), so we look up the bare term. Length cap matches fetchDefinition's.
@@ -125,7 +161,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 const VALID_MESSAGES = {
   [MSG.FETCH_DEFINITION]: { required: ['word'], optional: ['context'] },
   [MSG.FETCH_AUDIO]: { required: ['url'] },
-  [MSG.PERFORM_SUMMARIZATION]: { required: ['text'] }
+  [MSG.PERFORM_SUMMARIZATION]: { required: ['text'] },
+  [MSG.PERFORM_TRANSLATION]: { required: ['text'], optional: ['context'] },
+  [MSG.PERFORM_PAGE_QA]: { required: ['text', 'question'] }
 };
 
 function validateMessage(message) {
@@ -176,6 +214,23 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
         }
       });
       sendResponse({ success: true, summary, method });
+      return;
+    }
+
+    case MSG.PERFORM_TRANSLATION: {
+      const { translated, source, targetLanguage } = await handleTranslation(message.text, message.context || '');
+      sendResponse({ success: true, translated, source, targetLanguage });
+      return;
+    }
+
+    case MSG.PERFORM_PAGE_QA: {
+      const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
+      if (!aiKey || !aiEndpoint) {
+        sendResponse({ success: false, error: 'Page Q&A needs an AI key. Add one in the popup.' });
+        return;
+      }
+      const answer = await fetchAIResponse(message.text, aiEndpoint, aiKey, aiProvider, 'pageqa', '', 'bullets', message.question);
+      sendResponse({ success: true, answer, source: `AI (${aiProvider})` });
       return;
     }
 

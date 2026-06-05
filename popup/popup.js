@@ -94,6 +94,7 @@ async function loadSettings() {
   if (settings.theme) $('theme').value = settings.theme;
   if (settings.summaryStyle) $('summaryStyle').value = settings.summaryStyle;
   if (settings.triggerModifier) $('triggerModifier').value = settings.triggerModifier;
+  if (settings.targetLanguage) $('targetLanguage').value = settings.targetLanguage;
   if (Array.isArray(settings.disabledSites)) $('disabledSites').value = settings.disabledSites.join('\n');
 
   applyTheme(settings.theme);
@@ -280,6 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('aiProvider')?.addEventListener('change', () => persist({ aiProvider: $('aiProvider').value }));
   $('summaryStyle')?.addEventListener('change', () => persist({ summaryStyle: $('summaryStyle').value }));
   $('triggerModifier')?.addEventListener('change', () => persist({ triggerModifier: $('triggerModifier').value }));
+  $('targetLanguage')?.addEventListener('change', () => persist({ targetLanguage: $('targetLanguage').value }));
 
   // Debounced save on text input. URL is validated first; invalid input shows
   // an inline error and is not persisted, so a half-typed URL doesn't overwrite

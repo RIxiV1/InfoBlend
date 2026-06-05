@@ -83,6 +83,22 @@
     "message": "Define selection with InfoBlend",
     "description": "Right-click context menu item for definitions"
   },
+  "contextMenuTranslate": {
+    "message": "Translate selection with InfoBlend",
+    "description": "Right-click context menu item for translations"
+  },
+  "targetLanguage": {
+    "message": "Translate to",
+    "description": "Label for target language selector"
+  },
+  "triggerModifier": {
+    "message": "Require modifier",
+    "description": "Label for the modifier-key trigger gate setting"
+  },
+  "triggerModifierHint": {
+    "message": "Only trigger when holding a key",
+    "description": "Hint under the modifier-key trigger setting"
+  },
   "connected": {
     "message": "Connected",
     "description": "Test connection success"

@@ -35,3 +35,4 @@ coverage/
 # Logs & temp
 *.log
 /tmp/
+.commitmsg.tmp

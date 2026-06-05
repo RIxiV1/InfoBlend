@@ -269,6 +269,36 @@ async function tryUrbanDictionary(term) {
   };
 }
 
+/**
+ * Free-tier translation fallback when the user hasn't configured an AI key.
+ * MyMemory allows ~5000 anonymous chars/day per IP — fine for occasional use.
+ * For idiomatic accuracy the AI path is always preferred; this exists so the
+ * feature isn't dead for keyless users.
+ *
+ * @param {string} text - Text to translate (capped at 500 chars).
+ * @param {string} targetLang - BCP-47 / ISO 639-1 code (e.g. 'es', 'fr', 'ja').
+ * @param {string} [sourceLang='auto'] - Source code or 'auto' for detection.
+ * @returns {Promise<string|null>} - The translated text, or null on failure.
+ */
+export async function fetchMyMemoryTranslation(text, targetLang, sourceLang = 'auto') {
+  const clipped = String(text || '').slice(0, 500);
+  if (!clipped) return null;
+  // MyMemory's free path uses langpair like "en|es"; "auto" works as source.
+  const langpair = `${sourceLang || 'auto'}|${targetLang}`;
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clipped)}&langpair=${encodeURIComponent(langpair)}`;
+  try {
+    const resp = await fetchWithTimeout(url, {}, 8000);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const translated = data?.responseData?.translatedText;
+    if (!translated || typeof translated !== 'string') return null;
+    // MyMemory occasionally echoes the source verbatim when it can't translate
+    // — guard against pretending we did something.
+    if (translated.trim().toLowerCase() === clipped.trim().toLowerCase()) return null;
+    return translated.trim();
+  } catch { return null; }
+}
+
 // --- Main definition fetcher ---
 
 export const fetchDefinition = async (word) => {
@@ -336,7 +366,10 @@ export const fetchDefinition = async (word) => {
  * Retries transient failures (429, 5xx, network errors) up to 2 times with exponential backoff.
  * @param {string} context - Optional surrounding text for context-aware definitions.
  */
-export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', promptType = 'define', context = '', summaryStyle = 'bullets') => {
+// promptType: 'define' | 'summarize' | 'translate' | 'pageqa'
+// For 'translate', pass the target language code (e.g. 'es', 'fr') in `extra`.
+// For 'pageqa', pass the user's question in `extra`.
+export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', promptType = 'define', context = '', summaryStyle = 'bullets', extra = '') => {
   if (!endpoint?.startsWith('http')) throw new Error('Invalid API Endpoint. Please check your settings.');
 
   const headers = { 'Content-Type': 'application/json' };
@@ -349,12 +382,31 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
   }
 
   let prompt;
+  let maxTokens = 100;
   if (promptType === 'summarize') {
     // Bullets read fine for technical/listy content; prose flows better for
     // narrative articles. User picks via the popup; default is bullets.
     prompt = summaryStyle === 'prose'
       ? `Summarize the following text in a single concise paragraph of 3-4 sentences. Use flowing prose, not bullets or lists:\n\n${text.substring(0, 8000)}`
       : `Summarize the following text in 3-4 concise bullet points:\n\n${text.substring(0, 8000)}`;
+    maxTokens = 300;
+  } else if (promptType === 'translate') {
+    // Context-aware translation: passing the surrounding paragraph lets the
+    // model resolve idioms, polysemes ("bank" = riverbank vs financial), and
+    // pronoun referents that context-free translators get wrong.
+    const targetLang = String(extra || 'en');
+    if (context) {
+      prompt = `Translate "${text}" to ${targetLang}. The text appears in this context (do not translate the context, just use it to disambiguate): "${context.substring(0, 500)}". Preserve idioms and contextual meaning. Reply with ONLY the translation, no quotes or commentary.`;
+    } else {
+      prompt = `Translate "${text}" to ${targetLang}. Reply with ONLY the translation, no quotes or commentary.`;
+    }
+    maxTokens = 200;
+  } else if (promptType === 'pageqa') {
+    // Q&A over the current page. `text` is the article body, `extra` is the
+    // user's question. Strict instruction to answer ONLY from the source.
+    const question = String(extra || '').trim();
+    prompt = `Based ONLY on the following page content, answer the question. If the answer isn't in the content, say so plainly — do not invent or use outside knowledge.\n\nPAGE CONTENT:\n${text.substring(0, 12000)}\n\nQUESTION: ${question}`;
+    maxTokens = 400;
   } else if (context) {
     prompt = `Define "${text}" as used in this context: "${context.substring(0, 300)}"\n\nGive the specific meaning that applies here in 1-2 clear sentences.`;
   } else {
@@ -363,8 +415,8 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
 
   const body = {
     gemini: { contents: [{ parts: [{ text: prompt }] }] },
-    openai: { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: promptType === 'summarize' ? 300 : 100 },
-    generic: { prompt, max_tokens: promptType === 'summarize' ? 300 : 100 }
+    openai: { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens },
+    generic: { prompt, max_tokens: maxTokens }
   };
 
   const MAX_RETRIES = 2;
