@@ -83,6 +83,10 @@
     "message": "Export Markdown",
     "description": "Button to export vault as Markdown"
   },
+  "feedback": {
+    "message": "Feedback",
+    "description": "Footer link to GitHub issues for user feedback"
+  },
   "saved": {
     "message": "Saved",
     "description": "Confirmation after saving"

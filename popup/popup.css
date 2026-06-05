@@ -712,6 +712,23 @@ footer span {
   color: var(--text-4);
 }
 
+.footer-link {
+  font-size: 10px;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color 0.12s var(--ease);
+}
+
+.footer-link:hover {
+  color: var(--accent);
+}
+
+.footer-link:focus-visible {
+  outline: none;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .save-status {
   flex: 1;
   text-align: center;

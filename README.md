@@ -3,9 +3,9 @@
 <div align="center">
   <img src="icons/icon128.png" width="80" height="80" alt="InfoBlend">
 
-  **Instant definitions, smart summaries, and context-aware lookups for every page.**
+  **Definitions, translations, summaries, and page Q&A — without leaving the page.**
 
-  Chrome &middot; Edge &middot; Firefox &middot; Manifest V3 &middot; Zero Dependencies
+  Chrome &middot; Edge &middot; Firefox &middot; Manifest V3 &middot; Zero Dependencies &middot; BYOK
 </div>
 
 ---
@@ -13,126 +13,118 @@
 ## Features
 
 ### Definitions
-- **Double-click any word** — tooltip appears right next to it with structured definitions, phonetics, audio pronunciation, examples, synonyms, and antonyms
-- **Select a phrase** (2-5 words) — a floating Define button appears; click it to look up the phrase across Wikipedia, Wiktionary, and more
-- **Context-aware** — captures the surrounding paragraph so AI providers can return the meaning that fits *how the word is used*, not just the generic definition
+- **Double-click any word** → tooltip with structured definitions, phonetics, examples, synonyms, and a CEFR difficulty pill where available.
+- **Select 2–5 words** → floating Define button looks up the phrase across Wikipedia, Wiktionary, Dictionary, and Datamuse with automatic fallback.
+- **Right-click → Define** for an explicit menu entry.
+- **Context-aware lookups** — the surrounding paragraph is sent to your AI provider (if configured) so polysemes resolve to the meaning that fits *how the word is used*.
+- **Universal pronunciation** — recorded native-speaker audio when the source has it, Web Speech TTS for everything else. Click the speaker next to the title.
+- **Optional modifier-key gate** — set to Alt / Ctrl / Shift in the popup so the lookup only fires when you're actually asking for it, not on every accidental double-click.
+
+### Translation
+- **Right-click → Translate selection** with the target language picked in the popup (17 common languages).
+- **Context-aware** — the surrounding paragraph is passed to the AI provider so idioms, polysemes, and pronoun referents resolve correctly. *"Bite the bullet"* won't translate literally.
+- **Free-tier fallback** — when no AI key is configured, translation routes through MyMemory's free API (~5000 anon chars/day).
 
 ### Summaries
-- **Ctrl+K** — command palette to summarize the current page or define any word
-- **Right-click** — select text and choose "Summarize selection with InfoBlend"
-- Works offline with a local TF-IDF extractive algorithm; optionally upgrade to AI (Gemini, OpenAI, or any custom endpoint)
+- **Ctrl+K → Summarize Page** or **right-click → Summarize selection**.
+- **Bullets or prose** style toggle in the popup.
+- **Read-time estimate** of the original text shown alongside the summary.
+- Works offline via a local TF-IDF extractive algorithm; AI providers (Gemini, OpenAI, or any custom endpoint) upgrade quality automatically when configured.
 
-### Design
-- **Shadow DOM isolation** — UI never leaks into or gets broken by page styles
-- **Adaptive theming** — tooltip auto-detects whether the page background is dark or light and matches; panel mode follows your stored preference
-- **Lazy-loading** — modules only inject on first user interaction, keeping page load fast
-- **Encrypted storage** — API keys are encrypted at rest with AES-GCM (PBKDF2-derived key, 600k iterations)
+### Chat with the Page
+- **Ctrl+K → type a question ending in `?`** (or prefix with `ask `) to query the current article.
+- Strictly grounded in the page text — the prompt forbids the model from inventing or using outside knowledge.
+- AI-key required for this feature; falls back with an explicit message if missing.
+
+### Knowledge Vault
+- **Bookmark icon** in every overlay saves the current definition, summary, or translation.
+- **Saved panel in the popup** shows your latest items with one-click delete and links back to the original page.
+- **Export to CSV or Markdown** — keep your data, take it anywhere.
+- Capped at 500 items LRU; everything stays in `chrome.storage.local` (no account, no cloud).
+
+### Command Palette (Ctrl+K)
+- Summarize the current page.
+- Ask the page a question.
+- Define an arbitrary word without selecting it on the page.
+- Recent commands and definitions are prioritized.
+
+### Overlay Ergonomics
+- **Drag** any overlay by its header to reposition it.
+- **Pin** the current overlay so the next lookup opens a fresh one alongside — useful for comparing definitions or translations side by side.
+- **Inline session highlights** mark every occurrence of a looked-up term on the page (cleared on reload, no storage cost).
+- **Shadow DOM isolation** — InfoBlend's UI cannot break page styles, and page styles cannot break InfoBlend.
+
+### Settings
+- **Per-site disable list** — silence the extension on hostnames where you don't want it (Slack, Google Docs, etc). Subdomain-aware.
+- **Custom accent color** — five swatches, applied to popup, palette, and overlay consistently.
+- **Light / Dark / Auto theme** that follows your OS preference when set to Auto.
+- **Cross-device sync** — preferences sync via `chrome.storage.sync`; the encrypted AI key stays local-only by design.
 
 ---
 
 ## Install
 
 ### Chrome / Edge / Brave
-1. Clone this repo
+
+1. Clone the repo:
+   ```bash
+   git clone https://github.com/RIxiV1/InfoBlend.git
    ```
-   git clone https://github.com/RIxiV1/infoblend.git
-   ```
-2. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`)
-3. Enable **Developer mode** (toggle in top right)
-4. Click **Load unpacked** and select the cloned folder
-5. Double-click any word on any page
+2. Open `chrome://extensions` (or `edge://extensions`, `brave://extensions`).
+3. Enable **Developer mode** (toggle in top right).
+4. Click **Load unpacked** and select the cloned folder.
+5. Double-click any word on any page.
 
 ### Firefox
-1. Open `about:debugging` → This Firefox → Load Temporary Add-on
-2. Select the `manifest.json` file from the cloned folder
-3. The extension will remain active until Firefox restarts
 
-> **Note:** Firefox support uses the `browser_specific_settings.gecko.id` field in the manifest. Some Chrome-specific APIs (`chrome.scripting.executeScript` behavior, `AbortSignal.timeout`) may behave differently — see [Browser Compatibility](#browser-compatibility) below.
+1. Open `about:debugging` → This Firefox → Load Temporary Add-on.
+2. Select the `manifest.json` file from the cloned folder.
+3. The extension stays active until Firefox restarts.
+
+> Firefox support uses `browser_specific_settings.gecko.id`. Some APIs (`Intl.Segmenter` in particular) are polyfilled where missing.
 
 ---
 
 ## Optional: AI-Powered Results
 
-Without an API key, definitions come from free public APIs and summaries use local extraction. To enable AI:
+InfoBlend works fully without an API key. Adding one unlocks:
 
-1. Click the InfoBlend icon in the toolbar
-2. Expand **AI Engine** and select your provider
-3. Enter your API key and endpoint
-4. Click **Test connection** to verify it works
-5. Click **Save settings**
+- Context-aware definitions (the surrounding sentence becomes part of the prompt)
+- Idiom-preserving translations
+- Higher-quality summaries (your choice of bullets or prose)
+- Chat with the Page
+
+To enable AI:
+
+1. Click the InfoBlend icon in the toolbar.
+2. Expand **AI Engine** and select your provider.
+3. Paste your API key and endpoint.
+4. Click **Test connection** to verify it works — settings auto-save.
 
 | Provider | Endpoint |
 |----------|----------|
 | **Gemini** | `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent` |
 | **OpenAI** | `https://api.openai.com/v1/chat/completions` |
-| **Custom** | Any endpoint that accepts a JSON `{ prompt, max_tokens }` body |
+| **Custom** | Any endpoint that accepts `{ prompt, max_tokens }` |
 
-When AI is configured:
-- Definitions include the surrounding sentence context for disambiguation
-- Summaries are generated by the AI model instead of local extraction
-- If the AI call fails, InfoBlend falls back to local automatically (with a "falling back..." indicator)
-
----
-
-## How It Works
-
-```
-User Interaction
-    │
-    ├── Double-click word ──────────────────┐
-    ├── Select phrase → click Define btn ───┤
-    ├── Ctrl+K → command palette ───────────┤
-    └── Right-click → Summarize ────────────┤
-                                            ▼
-                                    contentScript.js
-                                    (bootstrap, context extraction,
-                                     theme detection, debouncing)
-                                            │
-                                            ▼
-                                    background.js (service worker)
-                                    ├── Message validation
-                                    ├── Module injection (once per tab)
-                                    └── Route to handler:
-                                            │
-                        ┌───────────────────┴───────────────────┐
-                        ▼                                       ▼
-                  Definition                              Summarization
-                        │                                       │
-                  ┌─────┴─────┐                          ┌──────┴──────┐
-                  │ AI config?│                          │  AI config? │
-                  └─┬───────┬─┘                          └──┬───────┬──┘
-                  yes       no                            yes       no
-                    │       │                              │       │
-              fetchAIResponse  Fallback Chain        fetchAIResponse  Local TF-IDF
-              (context-aware)       │               (with retry)    summarizer.js
-                              ┌─────┴─────┐
-                              │ Word count │
-                              └──┬─────┬──┘
-                            1 word   2-5 words
-                              │         │
-                    Dictionary API   Wikipedia
-                    Datamuse (+syn)   Wiktionary
-                    Wiktionary       Dictionary
-                    Wikipedia        Datamuse
-                                     Wikipedia Search
-```
+If the AI call fails, InfoBlend transparently falls back to its non-AI path (with a *"falling back…"* indicator on summaries).
 
 ---
 
 ## Definition Sources
 
-Each source is tried in order until one succeeds. Single words and multi-word phrases use different orderings.
+Each source is tried in order until one succeeds. Single words and multi-word phrases use different orderings; Urban Dictionary is the universal slang catch-all at the end of every chain.
 
 | Source | What it provides | Best for |
-|--------|-----------------|----------|
-| **Dictionary API** | Phonetics, audio, parts of speech, definitions, examples, synonyms, antonyms | Common English words |
-| **Datamuse** | Definitions + parallel synonym/antonym fetch (`rel_syn`, `rel_ant`) | Technical terms, slang |
-| **Wiktionary** | Encyclopedic definitions | Multi-language, rare words |
-| **Wikipedia** | 3-sentence summary + thumbnail | Proper nouns, concepts, phrases |
-| **Wikipedia Search** | Full-text search fallback | Phrases that aren't exact page titles |
-| **Merriam-Webster** | Direct link | Last resort when nothing matches |
+|--------|------------------|----------|
+| **Dictionary API** | Phonetics, audio, parts of speech, definitions, examples, synonyms | Common English words |
+| **Datamuse** | Definitions + parallel synonyms + word frequency | Technical terms, fills in CEFR badges |
+| **Wiktionary** | Encyclopedic definitions | Rare words, multi-language |
+| **Wikipedia** | Three-sentence summary + thumbnail | Proper nouns, concepts |
+| **Wikipedia Search** | Full-text search fallback for phrases | Phrases that aren't exact page titles |
+| **Urban Dictionary** | Top community-rated definition | Slang, memes, neologisms |
 
-For single words, InfoBlend also enriches results with **Datamuse synonyms** even when the primary source is Dictionary API.
+Single-word lookups also fetch Wikipedia thumbnails and Datamuse frequency in parallel so the overlay can show an image and difficulty badge alongside the dictionary entry.
 
 ---
 
@@ -141,43 +133,44 @@ For single words, InfoBlend also enriches results with **Datamuse synonyms** eve
 ```
 infoblend/
 ├── manifest.json                  MV3 manifest (Chrome + Firefox)
-├── contentScript.js               Bootstrap: events, context extraction, floating Define btn
-├── background.js                  Service worker: routing, validation, injection, telemetry
+├── contentScript.js               Bootstrap: events, context extraction, per-site disable
+├── background.js                  Service worker: routing, validation, AI dispatch
 │
 ├── modules/
 │   ├── core.js                    Shadow DOM host, text highlighting, BentoRenderer
-│   ├── article.js                 Readability-inspired page prose extraction
-│   ├── overlay.js                 Tooltip + panel: definitions, summaries, a11y, context notes
-│   └── palette.js                 Ctrl+K command palette
+│   ├── article.js                 Readability-inspired page-prose extraction
+│   ├── tts.js                     Web Speech API wrapper (universal pronunciation)
+│   ├── highlights.js              Session-persistent in-page term highlights
+│   ├── toast.js                   One-time discoverability toasts (e.g. Ctrl+K hint)
+│   ├── overlay.js                 Tooltip + panel: definitions, summaries, vault, pin, drag
+│   └── palette.js                 Ctrl+K command palette (summarize, define, ask)
 │
 ├── utils/
-│   ├── api.js                     Definition chain + AI adapter (retry, cache, TTL)
+│   ├── api.js                     Definition chain + AI + MyMemory translation
 │   ├── summarizer.js              Local extractive summarizer (TF-IDF + U-curve)
 │   ├── constants.js               Shared message-type constants
-│   ├── encryption.js              AES-GCM encryption for API key storage
-│   ├── storage.js                 chrome.storage wrapper with auto-encrypt
+│   ├── encryption.js              AES-GCM encryption for the API key
+│   ├── storage.js                 Split storage helper (sync for prefs, local for secrets)
+│   ├── accent.js                  Hex → CSS variable derivation for custom accents
+│   ├── compat.js                  Cross-browser shims (browser → chrome)
 │   └── errors.js                  Error → user-friendly message translation
 │
 ├── styles/content.css             Overlay, tooltip, tags, animations
 ├── overlay/overlay.css            Command palette styles
 │
 ├── popup/
-│   ├── popup.html                 Settings UI (with i18n data attributes)
-│   ├── popup.js                   Settings logic, URL validation, Test Connection
-│   └── popup.css                  Settings styles
+│   ├── popup.html                 Settings UI + Saved Vault + onboarding modal
+│   ├── popup.js                   Settings logic, vault rendering, exports
+│   └── popup.css                  Popup styles (light + dark via body.ib-light)
 │
 ├── _locales/en/messages.json      i18n string catalog
-├── icons/                         16px, 48px, 128px PNG icons
+├── icons/                         16/48/128 px PNG icons
 │
 ├── tests/                         52 tests (Node.js built-in runner)
-│   ├── summarizer.test.js
-│   ├── api.test.js
-│   ├── encryption.test.js
-│   ├── errors.test.js
-│   └── youtubeInsight.test.js
-│
 ├── eslint.config.js               ESLint flat config
-├── .github/workflows/ci.yml       CI: lint + test on Node 20 & 22
+├── .github/
+│   ├── ISSUE_TEMPLATE/feedback.md
+│   └── workflows/ci.yml           CI: lint + test on Node 20 & 22
 └── package.json                   Scripts only, zero dependencies
 ```
 
@@ -187,12 +180,12 @@ infoblend/
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Save settings, cache definitions, store encrypted API key and salt |
-| `activeTab` | Access current tab for page summarization |
-| `contextMenus` | Right-click "Summarize selection" menu item |
-| `scripting` | Inject UI modules on first user interaction |
+| `storage` | Settings, definition cache, encrypted API key, saved vault |
+| `activeTab` | Read the current tab for page summarization and Q&A |
+| `contextMenus` | Right-click menu items (Define / Translate / Summarize) |
 | `alarms` | Periodic cache cleanup (every 6 hours) |
-| `http://`, `https://` | Content script runs on web pages (not `chrome://` or `file://`) |
+
+Host permissions are **not** declared — InfoBlend uses `activeTab` only, which is granted per-interaction. Outbound network requests go to the public APIs above and (optionally) your configured AI endpoint.
 
 ---
 
@@ -200,71 +193,39 @@ infoblend/
 
 | Feature | Chrome | Edge | Firefox |
 |---------|--------|------|---------|
-| Double-click definitions | Yes | Yes | Yes |
-| Multi-word selection + Define button | Yes | Yes | Yes |
-| Ctrl+K command palette | Yes | Yes | Yes |
-| Context menu summarization | Yes | Yes | Yes |
-| Shadow DOM isolation | Yes | Yes | Yes |
-| `AbortSignal.timeout()` | 103+ | 103+ | 100+ |
-| `Intl.Segmenter` | 87+ | 87+ | No* |
-| `chrome.scripting.executeScript` | Yes | Yes | Partial** |
-| AES-GCM encryption | Yes | Yes | Yes |
-| Backdrop filter (Define btn) | Yes | Yes | Yes |
-
-\* Firefox does not support `Intl.Segmenter`. InfoBlend falls back to regex-based sentence splitting automatically.
-
-\** Firefox uses the `browser` namespace. The manifest's `browser_specific_settings.gecko.id` enables compatibility, but `chrome.scripting` behavior may differ for dynamic injection.
+| Definitions, translations, summaries | ✅ | ✅ | ✅ |
+| Ctrl+K palette + Chat with the Page | ✅ | ✅ | ✅ |
+| TTS pronunciation | ✅ | ✅ | ✅ |
+| Shadow DOM isolation | ✅ | ✅ | ✅ |
+| `chrome.storage.sync` | ✅ | ✅ | ✅ |
+| AES-GCM encryption | ✅ | ✅ | ✅ |
+| `Intl.Segmenter` (summarizer) | ✅ (87+) | ✅ (87+) | ⚠️ regex fallback |
 
 ---
 
 ## Tests
 
 ```bash
-npm test
+npm test         # 52 tests, Node 20+
+npm run lint     # ESLint flat config
 ```
-
-52 tests across 5 files:
-
-- **Summarizer** (13) — empty input, truncation, U-curve scoring, stop words, sentence ordering, short sentence penalty
-- **Errors** (12) — every error mapping, case insensitivity, null/undefined, string input
-- **YouTube** (14) — HTML entity decoding (named, numeric, hex), XML transcript extraction, tag stripping fallback
-- **API** (6) — module exports, input validation, endpoint rejection, cache miss behavior
-- **Encryption** (7) — encrypt/decrypt roundtrip, random IV uniqueness, plaintext fallback, salt persistence
-
-```bash
-npm run lint
-```
-
-ESLint with rules for security (`no-eval`, `no-implied-eval`), correctness (`no-undef`, `eqeqeq`), and style (`prefer-const`).
 
 CI runs both on every push/PR via GitHub Actions (Node 20 + 22).
 
 ---
 
-## Troubleshooting
+## Privacy
 
-**Extension doesn't work on a page?**
-Refresh the tab. Content scripts only inject on pages loaded after the extension is installed.
-
-**Nothing happens on double-click?**
-Open the popup and make sure "Auto-definitions" is toggled on.
-
-**Works on some pages but not others?**
-Extensions can't run on `chrome://`, `edge://`, `about:`, or browser/extension store pages.
-
-**Multi-word phrase shows "Not Found"?**
-Very specific phrases (e.g. proper sentences) may not match any API. Try selecting fewer words or a known term. Wikipedia Search is the last fallback and works best with proper nouns or concept names.
-
-**AI features not working?**
-Click "Test connection" in the popup settings to verify your endpoint and key. Check that the endpoint URL starts with `https://`.
+- **No telemetry.** Nothing is reported back to any server we control. The only network requests are to the dictionary/translation APIs and (if configured) your AI endpoint.
+- **API keys are encrypted** at rest with AES-GCM (PBKDF2-derived key, 600k iterations). The encryption salt is generated per-device and never syncs.
+- **The Saved Vault stays local** — `chrome.storage.local` only, never `sync`, no account, no export unless you click Export.
+- **Per-site disable list** lets you silence InfoBlend on sensitive hostnames entirely.
 
 ---
 
-## Privacy
+## Feedback
 
-- **No data collection.** All processing happens locally in your browser.
-- **No external servers.** Definitions come from public APIs (Dictionary API, Datamuse, Wiktionary, Wikipedia). Summaries are generated locally unless you explicitly configure an AI provider.
-- **API keys are encrypted** at rest using AES-GCM with a PBKDF2-derived key (600,000 iterations). The encryption salt is generated per-device and never leaves your browser.
+Found a bug? Have a feature request? Hit the **Feedback** link in the popup footer or [open an issue](https://github.com/RIxiV1/InfoBlend/issues/new?template=feedback.md) directly.
 
 ---
 
