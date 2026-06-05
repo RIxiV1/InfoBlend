@@ -143,7 +143,27 @@
   font-weight: 600 !important;
   color: var(--ib-text-2) !important;
   letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
+
+.ib-title-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Inline speaker next to the title — smaller hit area than the body audio
+   button so it fits the header without dominating the line. */
+.ib-title-audio {
+  padding: 3px !important;
+  border-radius: 6px !important;
+  flex-shrink: 0;
+}
+.ib-title-audio svg { width: 12px !important; height: 12px !important; }
 
 /* ─── Buttons ─── */
 .infoblend-controls { display: flex; gap: 1px; }

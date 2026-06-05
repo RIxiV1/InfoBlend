@@ -565,15 +565,10 @@
       def.appendChild(thumbWrap);
     }
 
-    // Phonetic + audio + CEFR. Always try to render the speaker — if the
-    // source gave us a real audio URL we'll use it (best quality), otherwise
-    // TTS speaks the term. buildAudioBtn returns null only when both paths
-    // are unavailable (no term to speak AND no audioUrl AND no TTS).
-    const audioBtn = buildAudioBtn(data.term || data.title, data.audioUrl);
-    if (data.phonetic || audioBtn || data.cefr) {
+    // Phonetic + CEFR. Audio button moved to the title row (see updateOverlay).
+    if (data.phonetic || data.cefr) {
       const row = el('div', 'ib-def-phonetic-row');
       if (data.phonetic) row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
-      if (audioBtn) row.appendChild(audioBtn);
       if (data.cefr) {
         const badge = el('span', 'ib-def-level', data.cefr.level);
         badge.title = `${data.cefr.label} (Datamuse frequency)`;
@@ -646,9 +641,25 @@
     const titleEl = container.querySelector('.infoblend-title');
     const oldContent = container.querySelector('.infoblend-content');
     const oldLoading = container.querySelector('.infoblend-loading');
-    titleEl.textContent = title;
     if (oldContent) oldContent.remove();
     if (oldLoading) oldLoading.remove();
+
+    // Re-render the title with an inline speaker button next to the word —
+    // more discoverable than a separate audio row, and reads as "this is the
+    // word, click to hear it." The speaker uses the recorded audioUrl when
+    // the source provided one, falling back to TTS for everything else.
+    titleEl.textContent = '';
+    const titleText = document.createElement('span');
+    titleText.className = 'ib-title-text';
+    titleText.textContent = title;
+    titleEl.appendChild(titleText);
+    if (!isNoticeNav && extra.term) {
+      const titleAudioBtn = buildAudioBtn(extra.term, extra.audioUrl);
+      if (titleAudioBtn) {
+        titleAudioBtn.classList.add('ib-title-audio');
+        titleEl.appendChild(titleAudioBtn);
+      }
+    }
 
     const contentDiv = el('div', 'infoblend-content');
     const isNotice = title === 'Notice' || title === 'Error';
@@ -662,19 +673,9 @@
       // Structured definition
       renderDefinition(extra, contentDiv);
     } else {
-      // Plain text (summaries, Wiktionary/Wikipedia fallback, AI context definitions,
-      // Not Found). Show a pronunciation button whenever we have the original
-      // selection term — summaries don't carry one, so they correctly skip.
-      // Discriminator is `extra.term`, not a title regex: summary titles are
-      // user-customizable via i18n down the road.
-      if (extra.term) {
-        const audioBtn = buildAudioBtn(extra.term, null);
-        if (audioBtn) {
-          const audioRow = el('div', 'ib-def-audio-row');
-          audioRow.appendChild(audioBtn);
-          contentDiv.appendChild(audioRow);
-        }
-      }
+      // Plain text (summaries, Wiktionary/Wikipedia fallback, AI context
+      // definitions, Not Found). Pronunciation button now lives next to the
+      // title in the header — see updateOverlay's title rendering block.
       if (extra.thumbnail) {
         // Wrap in a masked container so hover-zoom on the img is clipped
         const thumbWrap = document.createElement('div');
