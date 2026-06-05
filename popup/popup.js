@@ -36,6 +36,26 @@ function clearFieldErrors() {
   document.querySelectorAll('.field-error').forEach(el => el.remove());
 }
 
+// Mirror of the overlay/palette theme logic. Stored value is 'system' |
+// 'dark' | 'light'; 'system' follows the OS preference, with the popup
+// listening to changes so toggling the OS theme while open updates live.
+function applyTheme(stored) {
+  const theme = stored || 'system';
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.body.classList.toggle('ib-light', !isDark);
+}
+
+const _systemThemeMQ = window.matchMedia('(prefers-color-scheme: dark)');
+_systemThemeMQ.addEventListener?.('change', () => {
+  if (($('theme')?.value || 'system') === 'system') applyTheme('system');
+});
+
+// Pre-paint guess: apply system preference synchronously so the popup doesn't
+// flash dark while chrome.storage resolves. loadSettings() reconciles to the
+// stored value moments later. Mirrors the palette FOUC fix in palette.js.
+if (document.body) applyTheme('system');
+else document.addEventListener('DOMContentLoaded', () => applyTheme('system'), { once: true });
+
 async function loadSettings() {
   const settings = await getStorageData([
     'definitionsEnabled', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'summaryStyle', 'disabledSites', 'onboardingDone'
@@ -50,6 +70,8 @@ async function loadSettings() {
   if (settings.theme) $('theme').value = settings.theme;
   if (settings.summaryStyle) $('summaryStyle').value = settings.summaryStyle;
   if (Array.isArray(settings.disabledSites)) $('disabledSites').value = settings.disabledSites.join('\n');
+
+  applyTheme(settings.theme);
 }
 
 // --- Onboarding modal a11y: focus trap, Escape, focus restore ---
@@ -224,7 +246,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- Auto-save wiring ---
   // Immediate save on toggle/select change
   $('definitionsEnabled')?.addEventListener('change', () => persist({ definitionsEnabled: $('definitionsEnabled').checked }));
-  $('theme')?.addEventListener('change', () => persist({ theme: $('theme').value }));
+  $('theme')?.addEventListener('change', () => {
+    const v = $('theme').value;
+    persist({ theme: v });
+    applyTheme(v);
+  });
   $('aiProvider')?.addEventListener('change', () => persist({ aiProvider: $('aiProvider').value }));
   $('summaryStyle')?.addEventListener('change', () => persist({ summaryStyle: $('summaryStyle').value }));
 

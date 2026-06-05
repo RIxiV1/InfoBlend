@@ -25,6 +25,48 @@
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* Light theme — applied via body.ib-light by popup.js based on the user's
+   theme setting (or system preference when set to Auto). Mirrors the palette
+   used by the in-page overlay's .ib-light-theme so popup and overlay agree. */
+body.ib-light {
+  --bg: #ffffff;
+  --surface: #f5f5f7;
+  --surface-2: #e8e8eb;
+  --surface-3: #d8d8dc;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-hi: rgba(0, 0, 0, 0.14);
+  --accent: #0066e0;
+  --accent-lo: rgba(0, 102, 224, 0.08);
+  --accent-md: rgba(0, 102, 224, 0.2);
+  --accent-hi: rgba(0, 102, 224, 0.32);
+  --text: #1d1d1f;
+  --text-2: #515154;
+  --text-3: #86868b;
+  --text-4: #aeaeb2;
+  --focus-ring:
+    0 0 0 3px rgba(0, 102, 224, 0.28),
+    0 0 0 1px rgba(0, 102, 224, 0.5);
+  --rim-light: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --rim-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* The CTA gradient and a couple of one-off backgrounds use fixed colors
+   instead of vars — override them so the light popup doesn't show
+   dark-tinted overlays. */
+body.ib-light .modal {
+  background: rgba(245, 245, 247, 0.78);
+}
+body.ib-light .modal-cta {
+  background: linear-gradient(180deg, #2a85ff 0%, var(--accent) 100%);
+  color: white;
+}
+body.ib-light .modal-cta:hover {
+  background: linear-gradient(180deg, #3a92ff 0%, #1474e8 100%);
+}
+body.ib-light .hero-btn kbd {
+  background: rgba(0, 0, 0, 0.04);
+}
+
 *,
 *::before,
 *::after {
