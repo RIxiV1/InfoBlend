@@ -225,7 +225,11 @@
         }
         ib.sendMessage({ type: ib.MSG.PERFORM_PAGE_QA, text: article, question: cmd.question }, (response) => {
           if (response?.success) {
-            ib.updateOverlay(`Q: ${cmd.question}`, response.answer, response.source || 'InfoBlend');
+            // sources is an array of { marker, text } — overlay renders them
+            // as a "Sources" section below the answer for verification.
+            ib.updateOverlay(`Q: ${cmd.question}`, response.answer, response.source || 'InfoBlend', {
+              sources: response.sources || []
+            });
           } else {
             ib.updateOverlay('Notice', response?.error || 'Could not answer that question.', 'InfoBlend');
           }

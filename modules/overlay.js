@@ -817,6 +817,24 @@
         contentDiv.appendChild(thumbWrap);
       }
       ib.BentoRenderer.render(content, contentDiv);
+
+      // Chat-with-the-Page sources — the AI was given numbered passages and
+      // cited them with [N] markers. Render the cited passages as cards so
+      // the user can verify the answer against the actual page text.
+      if (Array.isArray(extra.sources) && extra.sources.length) {
+        const wrap = el('div', 'ib-qa-sources');
+        const heading = el('div', 'ib-qa-sources-title', 'Sources');
+        wrap.appendChild(heading);
+        for (const src of extra.sources) {
+          const card = el('div', 'ib-qa-source-card');
+          const marker = el('span', 'ib-qa-source-marker', `[${src.marker}]`);
+          const body = el('span', 'ib-qa-source-text', src.text || '');
+          card.appendChild(marker);
+          card.appendChild(body);
+          wrap.appendChild(card);
+        }
+        contentDiv.appendChild(wrap);
+      }
     }
 
     // Context note

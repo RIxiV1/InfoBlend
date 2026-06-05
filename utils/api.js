@@ -270,6 +270,19 @@ async function tryUrbanDictionary(term) {
 }
 
 /**
+ * Sentinel error thrown when MyMemory's free tier is exhausted for the day.
+ * Background catches this and surfaces a clear message to the user instead
+ * of failing silently. Use a custom class so AI-fallback paths can distinguish
+ * "quota hit" from "service down".
+ */
+export class TranslationQuotaError extends Error {
+  constructor(message = 'Free translation quota reached. Add an AI key for unlimited translations.') {
+    super(message);
+    this.name = 'TranslationQuotaError';
+  }
+}
+
+/**
  * Free-tier translation fallback when the user hasn't configured an AI key.
  * MyMemory allows ~5000 anonymous chars/day per IP — fine for occasional use.
  * For idiomatic accuracy the AI path is always preferred; this exists so the
@@ -278,7 +291,10 @@ async function tryUrbanDictionary(term) {
  * @param {string} text - Text to translate (capped at 500 chars).
  * @param {string} targetLang - BCP-47 / ISO 639-1 code (e.g. 'es', 'fr', 'ja').
  * @param {string} [sourceLang='auto'] - Source code or 'auto' for detection.
- * @returns {Promise<string|null>} - The translated text, or null on failure.
+ * @returns {Promise<{translated: string, detectedSource: string|null}|null>}
+ *   The translated text + detected source language, or null when MyMemory
+ *   couldn't translate. Throws TranslationQuotaError when the daily limit
+ *   has been hit.
  */
 export async function fetchMyMemoryTranslation(text, targetLang, sourceLang = 'auto') {
   const clipped = String(text || '').slice(0, 500);
@@ -288,15 +304,38 @@ export async function fetchMyMemoryTranslation(text, targetLang, sourceLang = 'a
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clipped)}&langpair=${encodeURIComponent(langpair)}`;
   try {
     const resp = await fetchWithTimeout(url, {}, 8000);
+    // 429 from MyMemory directly indicates rate-limit.
+    if (resp.status === 429) throw new TranslationQuotaError();
     if (!resp.ok) return null;
     const data = await resp.json();
+
+    // MyMemory returns 200 with a quota-exhausted message in responseDetails.
+    // The actual response status can be 200 or 403 depending on which limit
+    // tripped (per-IP daily vs per-minute).
+    const status = data?.responseStatus;
+    const details = String(data?.responseDetails || '').toLowerCase();
+    if (status === 403 || details.includes('quota') || details.includes('limit')) {
+      throw new TranslationQuotaError();
+    }
+
     const translated = data?.responseData?.translatedText;
     if (!translated || typeof translated !== 'string') return null;
     // MyMemory occasionally echoes the source verbatim when it can't translate
     // — guard against pretending we did something.
     if (translated.trim().toLowerCase() === clipped.trim().toLowerCase()) return null;
-    return translated.trim();
-  } catch { return null; }
+
+    // Detected source language lives in matches[].source on a successful
+    // auto-detected translation. Take the first match.
+    let detectedSource = null;
+    const matches = Array.isArray(data?.matches) ? data.matches : [];
+    if (matches.length && typeof matches[0]?.source === 'string') {
+      detectedSource = matches[0].source.split('-')[0]; // strip region (en-US -> en)
+    }
+    return { translated: translated.trim(), detectedSource };
+  } catch (e) {
+    if (e instanceof TranslationQuotaError) throw e;
+    return null;
+  }
 }
 
 // --- Main definition fetcher ---
@@ -402,11 +441,13 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
     }
     maxTokens = 200;
   } else if (promptType === 'pageqa') {
-    // Q&A over the current page. `text` is the article body, `extra` is the
-    // user's question. Strict instruction to answer ONLY from the source.
+    // Q&A over the current page. `text` is now PRE-CHUNKED and numbered by
+    // the caller (background.js), so each passage carries an [N] marker the
+    // model can cite back. Strict instruction to answer only from the
+    // provided passages and to mark every claim with the source chunk index.
     const question = String(extra || '').trim();
-    prompt = `Based ONLY on the following page content, answer the question. If the answer isn't in the content, say so plainly — do not invent or use outside knowledge.\n\nPAGE CONTENT:\n${text.substring(0, 12000)}\n\nQUESTION: ${question}`;
-    maxTokens = 400;
+    prompt = `Answer the question using ONLY the numbered passages below. Cite the passage you used by appending its number in square brackets, e.g. "...as the article notes [2]." If the answer isn't in the passages, say "The page doesn't address that" — do not invent or use outside knowledge.\n\nPASSAGES:\n${text}\n\nQUESTION: ${question}`;
+    maxTokens = 500;
   } else if (context) {
     prompt = `Define "${text}" as used in this context: "${context.substring(0, 300)}"\n\nGive the specific meaning that applies here in 1-2 clear sentences.`;
   } else {

@@ -4,6 +4,7 @@ import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
 import { translateError } from './utils/errors.js';
 import { MSG } from './utils/constants.js';
+import { chunk as chunkArticle, scoreChunks, parseCitations } from './utils/chunker.js';
 
 /**
  * Background Service Worker for InfoBlend.
@@ -43,27 +44,45 @@ chrome.runtime.onStartup.addListener(setupContextMenus);
 const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider', 'summaryStyle', 'targetLanguage']);
 
 // Translation handler — AI when available (context-aware, idiom-preserving),
-// MyMemory free tier otherwise. Returns { translated, source, error? }.
-// Caller passes optional surrounding-paragraph context for AI disambiguation.
+// MyMemory free tier otherwise. Returns { translated, source, detectedSource?,
+// targetLanguage }. Caller passes optional surrounding-paragraph context for
+// AI disambiguation.
 const handleTranslation = async (text, context = '') => {
   const { aiEndpoint, aiKey, aiProvider, targetLanguage } = await getAISettings();
   const target = targetLanguage || 'en';
+
+  // MyMemory call helper — unwraps {translated, detectedSource} or null,
+  // re-throws TranslationQuotaError for the caller to handle as needed.
+  const tryFree = async () => {
+    try {
+      const r = await fetchMyMemoryTranslation(text, target);
+      return r ? { ...r, source: `MyMemory${r.detectedSource ? ` (${r.detectedSource})` : ''} → ${target}` } : null;
+    } catch (e) {
+      // Quota error bubbles up so we can show a clear message instead of a
+      // generic "translation failed".
+      throw e;
+    }
+  };
+
   if (aiKey && aiEndpoint) {
     try {
       const translated = await fetchAIResponse(text, aiEndpoint, aiKey, aiProvider, 'translate', context, 'bullets', target);
       return { translated, source: `AI (${aiProvider}) → ${target}`, targetLanguage: target };
-    } catch (e) {
-      // Fall through to free-tier on AI failure
-      const fallback = await fetchMyMemoryTranslation(text, target);
-      if (fallback) return { translated: fallback, source: `MyMemory → ${target}`, targetLanguage: target };
-      throw e;
+    } catch (aiErr) {
+      // AI failed — try free tier, but don't shadow a quota error from MyMemory
+      try {
+        const fallback = await tryFree();
+        if (fallback) return { ...fallback, targetLanguage: target };
+      } catch (freeErr) { /* swallow; re-throw original AI error below */ }
+      throw aiErr;
     }
   }
-  const translated = await fetchMyMemoryTranslation(text, target);
-  if (!translated) {
+
+  const fallback = await tryFree();
+  if (!fallback) {
     throw new Error('Translation unavailable. Add an AI key in the popup for higher-quality translations.');
   }
-  return { translated, source: `MyMemory → ${target}`, targetLanguage: target };
+  return { ...fallback, targetLanguage: target };
 };
 
 const handleDefinition = async (word, context) => {
@@ -229,8 +248,31 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
         sendResponse({ success: false, error: 'Page Q&A needs an AI key. Add one in the popup.' });
         return;
       }
-      const answer = await fetchAIResponse(message.text, aiEndpoint, aiKey, aiProvider, 'pageqa', '', 'bullets', message.question);
-      sendResponse({ success: true, answer, source: `AI (${aiProvider})` });
+      // Chunk → score → top-K → numbered passages. This makes the answer
+      // grounded in a small relevant subset instead of a 12k-char blast,
+      // which is faster, cheaper, and lets the model cite specific
+      // passages we can surface as Sources in the UI.
+      const chunks = chunkArticle(message.text, { targetChars: 800, maxChunks: 40 });
+      const ranked = scoreChunks(chunks, message.question, { topK: 5 });
+      const usedChunks = ranked.length
+        ? ranked
+        // No query terms matched any chunk — fall back to the first 5 so the
+        // model has SOMETHING to ground in (and can honestly say "the page
+        // doesn't address that").
+        : chunks.slice(0, 5).map((text, index) => ({ index, score: 0, text }));
+
+      // Number passages from 1 for human-readable citations.
+      const numbered = usedChunks.map((c, i) => `[${i + 1}] ${c.text}`).join('\n\n');
+      const answer = await fetchAIResponse(numbered, aiEndpoint, aiKey, aiProvider, 'pageqa', '', 'bullets', message.question);
+
+      // Pull cited indices out of the answer and return only those chunks
+      // back to the UI. If the model cited none, return all top-K as
+      // candidates — better to show something than to claim "no source."
+      const cited = parseCitations(answer);
+      const sources = (cited.size ? usedChunks.filter((_, i) => cited.has(i + 1)) : usedChunks)
+        .map((c, i) => ({ marker: i + 1, text: c.text }));
+
+      sendResponse({ success: true, answer, sources, source: `AI (${aiProvider})` });
       return;
     }
 
