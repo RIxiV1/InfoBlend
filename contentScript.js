@@ -46,10 +46,18 @@
     }
   };
 
+  // Read across both storage areas — keys that live in sync (settings) end up
+  // alongside keys that live in local (cache, savedWords). Sync wins on
+  // conflict so a user who later changed a setting in a synced browser sees
+  // the up-to-date value.
   const getStorage = async (keys) => {
     try {
       if (!chrome.runtime?.id) return {};
-      return (await chrome.storage.local.get(keys)) || {};
+      const [local, sync] = await Promise.all([
+        chrome.storage.local.get(keys).catch(() => ({})),
+        chrome.storage.sync.get(keys).catch(() => ({}))
+      ]);
+      return { ...local, ...sync };
     } catch { return {}; }
   };
 
@@ -63,14 +71,24 @@
   // read from this rather than awaiting storage on every interaction — which is what
   // caused (1) the palette light/dark FOUC on first open and (2) made it impossible
   // to gate the floating Define button on the auto-definitions toggle without a flicker.
+  // Settings now live in chrome.storage.sync for cross-device portability
+  // (with chrome.storage.local as a fallback for pre-migration installs). The
+  // synced key list MUST match utils/storage.js SYNCED_KEYS; content scripts
+  // can't import ES modules so it's duplicated here. Keep in sync.
+  const SYNCED_SETTING_KEYS = ['definitionsEnabled', 'theme', 'accentColor', 'summaryStyle', 'disabledSites', 'triggerModifier'];
   window.__ib._settings = window.__ib._settings || {};
   if (chrome.runtime?.id) {
-    chrome.storage.local.get(['definitionsEnabled', 'theme', 'disabledSites']).then(s => {
-      Object.assign(window.__ib._settings, s);
+    Promise.all([
+      chrome.storage.sync.get(SYNCED_SETTING_KEYS).catch(() => ({})),
+      chrome.storage.local.get(SYNCED_SETTING_KEYS).catch(() => ({}))
+    ]).then(([syncRes, localFallback]) => {
+      // Sync wins when both have a value; local provides values during the
+      // first run after a user upgrades from a pre-sync version.
+      Object.assign(window.__ib._settings, localFallback, syncRes);
     }).catch(() => { /* storage unavailable */ });
     chrome.storage.onChanged?.addListener((changes, area) => {
-      if (area !== 'local') return;
-      for (const k of ['definitionsEnabled', 'theme', 'disabledSites']) {
+      if (area !== 'sync' && area !== 'local') return;
+      for (const k of SYNCED_SETTING_KEYS) {
         if (k in changes) window.__ib._settings[k] = changes[k].newValue;
       }
     });

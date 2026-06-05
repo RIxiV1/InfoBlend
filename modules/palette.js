@@ -41,6 +41,17 @@
       });
     }
 
+    // Custom accent color (if set) — inline vars override the CSS defaults.
+    const accentHex = ib._settings?.accentColor;
+    if (accentHex && /^#[0-9a-f]{6}$/i.test(accentHex)) {
+      const v = parseInt(accentHex.slice(1), 16);
+      const r = (v >> 16) & 0xff, g = (v >> 8) & 0xff, b = v & 0xff;
+      const alphas = isDark ? { sel: 0.14, brd: 0.4 } : { sel: 0.08, brd: 0.3 };
+      overlayBg.style.setProperty('--accent', accentHex);
+      overlayBg.style.setProperty('--selected-bg', `rgba(${r}, ${g}, ${b}, ${alphas.sel})`);
+      overlayBg.style.setProperty('--selected-border', `rgba(${r}, ${g}, ${b}, ${alphas.brd})`);
+    }
+
     overlayBg.onclick = () => togglePalette();
 
     const paletteDiv = document.createElement('div');

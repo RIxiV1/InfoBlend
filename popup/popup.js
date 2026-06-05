@@ -5,6 +5,7 @@
 import '../utils/compat.js';
 import { getStorageData, setStorageData } from '../utils/storage.js';
 import { MSG } from '../utils/constants.js';
+import { accentVars, defaultAccent } from '../utils/accent.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -43,6 +44,28 @@ function applyTheme(stored) {
   const theme = stored || 'system';
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.body.classList.toggle('ib-light', !isDark);
+  // Re-apply accent so its theme-dependent alphas match the new mode.
+  applyAccent(_lastAccent, isDark ? 'dark' : 'light');
+}
+
+let _lastAccent = null;
+function applyAccent(hex, variant) {
+  _lastAccent = hex;
+  const safeVariant = variant || (document.body.classList.contains('ib-light') ? 'light' : 'dark');
+  const vars = accentVars(hex || defaultAccent(safeVariant), safeVariant);
+  if (!vars) return;
+  const root = document.documentElement;
+  root.style.setProperty('--accent', vars.accent);
+  root.style.setProperty('--accent-lo', vars.lo);
+  root.style.setProperty('--accent-md', vars.md);
+  root.style.setProperty('--accent-hi', vars.hi);
+  // Sync the focus-ring color too so keyboard navigation matches the accent.
+  root.style.setProperty('--focus-ring',
+    `0 0 0 3px ${vars.md}, 0 0 0 1px ${vars.hi}`);
+  // Highlight the active swatch.
+  document.querySelectorAll('.accent-swatch').forEach(b => {
+    b.setAttribute('aria-checked', b.dataset.color?.toLowerCase() === (hex || '').toLowerCase() ? 'true' : 'false');
+  });
 }
 
 const _systemThemeMQ = window.matchMedia('(prefers-color-scheme: dark)');
@@ -72,6 +95,7 @@ async function loadSettings() {
   if (Array.isArray(settings.disabledSites)) $('disabledSites').value = settings.disabledSites.join('\n');
 
   applyTheme(settings.theme);
+  applyAccent(settings.accentColor || null);
 }
 
 // --- Onboarding modal a11y: focus trap, Escape, focus restore ---
@@ -285,6 +309,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     persist({ disabledSites: list });
   }, 500);
   $('disabledSites')?.addEventListener('input', saveDisabledSites);
+
+  // Accent swatches — clicking applies immediately and persists.
+  document.querySelectorAll('.accent-swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const color = btn.dataset.color;
+      if (!color) return;
+      applyAccent(color);
+      persist({ accentColor: color });
+    });
+  });
 
   $('summarizeBtn')?.addEventListener('click', async () => {
     const btn = $('summarizeBtn');

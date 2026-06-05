@@ -269,6 +269,15 @@ export const fetchDefinition = async (word) => {
             }
           } catch { /* non-critical */ }
         }
+        // CEFR/frequency for plain-text paths (Wikipedia, Wiktionary, AI).
+        // Single-word only — frequency is meaningless for multi-word phrases.
+        if (wordCount === 1 && result.freq == null && fetcher !== tryDictionary && fetcher !== tryDatamuse) {
+          const f = await fetchFrequency(term);
+          if (f != null) {
+            result.freq = f;
+            result.cefr = cefrFromFrequency(f);
+          }
+        }
         // Stamp the user's original selection on every result so the overlay
         // can pronounce it via TTS regardless of which fetcher won. (Some
         // sources normalize casing — e.g. Wikipedia returns "Machine learning"

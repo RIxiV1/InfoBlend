@@ -91,7 +91,7 @@
 
     <!-- Theme -->
     <label class="setting-row">
-      <span class="setting-label" data-i18n="summaryTheme">Summary theme</span>
+      <span class="setting-label" data-i18n="theme">Theme</span>
       <div class="select-wrap select-sm">
         <select id="theme">
           <option value="system" selected>Auto</option>
@@ -109,6 +109,18 @@
           <option value="bullets" selected>Bullets</option>
           <option value="prose">Prose</option>
         </select>
+      </div>
+    </label>
+
+    <!-- Accent color -->
+    <label class="setting-row">
+      <span class="setting-label" data-i18n="accentColor">Accent</span>
+      <div class="accent-swatches" role="radiogroup" aria-label="Accent color">
+        <button type="button" class="accent-swatch" data-color="#4a90ff" style="--swatch:#4a90ff" aria-label="Blue"></button>
+        <button type="button" class="accent-swatch" data-color="#bf5af2" style="--swatch:#bf5af2" aria-label="Purple"></button>
+        <button type="button" class="accent-swatch" data-color="#30d158" style="--swatch:#30d158" aria-label="Green"></button>
+        <button type="button" class="accent-swatch" data-color="#ff9f0a" style="--swatch:#ff9f0a" aria-label="Orange"></button>
+        <button type="button" class="accent-swatch" data-color="#ff375f" style="--swatch:#ff375f" aria-label="Pink"></button>
       </div>
     </label>
 

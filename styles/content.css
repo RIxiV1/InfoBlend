@@ -165,6 +165,21 @@
 }
 .ib-title-audio svg { width: 12px !important; height: 12px !important; }
 
+/* CEFR difficulty pill inline with the title — small, neutral, hover-tooltip
+   reveals the natural-language label ("rare", "common", etc). */
+.ib-title-cefr {
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--ib-accent-low) !important;
+  color: var(--ib-accent) !important;
+  border: 1px solid var(--ib-accent-mid) !important;
+  cursor: help;
+  flex-shrink: 0;
+}
+
 /* ─── Buttons ─── */
 .infoblend-controls { display: flex; gap: 1px; }
 

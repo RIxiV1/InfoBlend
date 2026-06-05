@@ -47,13 +47,17 @@
     "message": "Without a key, summaries use local extraction.",
     "description": "Note under AI config section"
   },
-  "summaryTheme": {
-    "message": "Summary theme",
-    "description": "Label for theme selector"
+  "theme": {
+    "message": "Theme",
+    "description": "Label for theme selector (applies to popup chrome and in-page overlay)"
   },
   "summaryStyle": {
     "message": "Summary style",
     "description": "Label for summary style selector (bullets vs prose)"
+  },
+  "accentColor": {
+    "message": "Accent",
+    "description": "Label for accent color picker"
   },
   "disabledSites": {
     "message": "Disabled sites",

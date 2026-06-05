@@ -563,6 +563,37 @@ main {
   line-height: 1.4;
 }
 
+/* Accent swatches */
+.accent-swatches {
+  display: flex;
+  gap: 6px;
+}
+
+.accent-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--swatch);
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+
+.accent-swatch:hover {
+  transform: scale(1.1);
+}
+
+.accent-swatch[aria-checked="true"] {
+  border-color: var(--text);
+  transform: scale(1.05);
+}
+
+.accent-swatch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 /* Theme row (inside main) */
 .select-sm {
   width: 85px;

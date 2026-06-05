@@ -20,6 +20,9 @@
   // overlay opens fresh (showLoadingOverlay) or closes.
   let _currentDef = null;
   let _navHistory = [];
+  // Count of currently-pinned (detached) overlays, used to cascade-offset
+  // newly-pinned panels so they don't stack at the same screen position.
+  let _pinnedCount = 0;
 
   // DOM helper — reduces createElement + className boilerplate
   const el = (tag, cls, text) => {
@@ -138,7 +141,9 @@
 
     const container = document.createElement('div');
     container.className = 'infoblend-overlay';
-    if (resolveTheme() === 'light') container.classList.add('ib-light-theme');
+    const themeName = resolveTheme();
+    if (themeName === 'light') container.classList.add('ib-light-theme');
+    applyAccentToContainer(container, themeName);
     positionOverlay(container);
 
     // Header
@@ -342,6 +347,28 @@
     return row;
   }
 
+  // --- Accent color application ---
+  // The overlay's CSS uses --ib-accent + --ib-accent-low/mid. Mirrors the math
+  // in utils/accent.js (which content scripts can't import). Keep in sync.
+  function hexRgb(hex) {
+    const m = String(hex || '').trim().match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return null;
+    const v = parseInt(m[1], 16);
+    return { r: (v >> 16) & 0xff, g: (v >> 8) & 0xff, b: v & 0xff };
+  }
+  function applyAccentToContainer(container, themeName) {
+    const stored = ib._settings?.accentColor;
+    if (!stored) return;
+    const rgb = hexRgb(stored);
+    if (!rgb) return;
+    const alphas = themeName === 'light'
+      ? { lo: 0.08, md: 0.22 }
+      : { lo: 0.14, md: 0.28 };
+    container.style.setProperty('--ib-accent', stored);
+    container.style.setProperty('--ib-accent-low', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alphas.lo})`);
+    container.style.setProperty('--ib-accent-mid', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alphas.md})`);
+  }
+
   // --- Drag-to-reposition (Mate Translate pattern, useful for pinned panels) ---
   // Header is the drag handle. We avoid intercepting clicks on the controls
   // (back/pin/close buttons) so their handlers still fire. Position is set via
@@ -413,6 +440,22 @@
     btn.setAttribute('aria-pressed', 'true');
     btn.setAttribute('aria-label', 'Pinned');
     btn.disabled = true;
+
+    // Cascade: offset this overlay by step * (existing pinned count) so a
+    // second/third pin doesn't land directly under the first. Only nudge if
+    // the user hasn't already dragged it — a custom drag position should
+    // win over auto-cascade.
+    if (!container.style.left && (container.style.right === '' || container.style.right === '16px')) {
+      const step = 28;
+      const offset = Math.min(_pinnedCount * step, 160);
+      if (offset > 0) {
+        container.style.top = `${16 + offset}px`;
+        container.style.right = `${16 + offset}px`;
+      }
+    }
+    _pinnedCount++;
+    // When this pinned overlay is later closed, decrement so subsequent
+    // pins re-use the freed slot. closeOverlay reads `data-ib-pinned`.
 
     // Detach from singleton tracking — the host stays in DOM but the module
     // forgets about it. Close button still works (it's wired directly to
@@ -565,15 +608,10 @@
       def.appendChild(thumbWrap);
     }
 
-    // Phonetic + CEFR. Audio button moved to the title row (see updateOverlay).
-    if (data.phonetic || data.cefr) {
+    // Phonetic only. Audio + CEFR moved to the title row (see updateOverlay).
+    if (data.phonetic) {
       const row = el('div', 'ib-def-phonetic-row');
-      if (data.phonetic) row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
-      if (data.cefr) {
-        const badge = el('span', 'ib-def-level', data.cefr.level);
-        badge.title = `${data.cefr.label} (Datamuse frequency)`;
-        row.appendChild(badge);
-      }
+      row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
       def.appendChild(row);
     }
 
@@ -644,10 +682,10 @@
     if (oldContent) oldContent.remove();
     if (oldLoading) oldLoading.remove();
 
-    // Re-render the title with an inline speaker button next to the word —
-    // more discoverable than a separate audio row, and reads as "this is the
-    // word, click to hear it." The speaker uses the recorded audioUrl when
-    // the source provided one, falling back to TTS for everything else.
+    // Re-render the title with inline affordances: speaker (click to hear)
+    // and CEFR pill (difficulty at a glance). Putting them next to the word
+    // makes them maximally discoverable and avoids redundant audio rows in
+    // the body. Renders for any definition, suppressed for Notice/Error.
     titleEl.textContent = '';
     const titleText = document.createElement('span');
     titleText.className = 'ib-title-text';
@@ -658,6 +696,11 @@
       if (titleAudioBtn) {
         titleAudioBtn.classList.add('ib-title-audio');
         titleEl.appendChild(titleAudioBtn);
+      }
+      if (extra.cefr?.level) {
+        const cefrPill = el('span', 'ib-title-cefr', extra.cefr.level);
+        cefrPill.title = `${extra.cefr.label} (Datamuse word frequency)`;
+        titleEl.appendChild(cefrPill);
       }
     }
 
@@ -712,7 +755,12 @@
         link.textContent = `${source} \u2197`;
         src.appendChild(link);
       } else {
-        src.textContent = extra.fromCache ? `${source} · cached` : source;
+        // Source line: "[~5 min read · ]Source[ · cached]"
+        const parts = [];
+        if (extra.readMinutes) parts.push(`~${extra.readMinutes} min read`);
+        parts.push(source);
+        if (extra.fromCache) parts.push('cached');
+        src.textContent = parts.join(' · ');
       }
       contentDiv.appendChild(src);
     }
@@ -776,6 +824,11 @@
   }
 
   function closeOverlay(host, container) {
+    // Decrement the pinned counter if this overlay was detached. The active
+    // (non-pinned) overlay's close doesn't affect the cascade slot count.
+    if (container?.getAttribute('data-ib-pinned') === 'true' && _pinnedCount > 0) {
+      _pinnedCount--;
+    }
     stopAllAudio();
     if (_dismissHandler) {
       document.removeEventListener('mousedown', _dismissHandler, true);
@@ -814,8 +867,13 @@
 
   function runSummarizer(text, title = 'Summary') {
     if (!text?.trim()) return updateOverlay('Notice', 'No readable content found.', 'InfoBlend');
+    // Compute read-time from the ORIGINAL text, not the summary — users care
+    // about "how long would this have taken without the summary". 220 wpm is
+    // the standard silent-reading average for adults.
+    const wordCount = (text.match(/\S+/g) || []).length;
+    const readMinutes = Math.max(1, Math.round(wordCount / 220));
     ib.sendMessage({ type: ib.MSG.PERFORM_SUMMARIZATION, text }, (r) => {
-      if (r?.success) updateOverlay(title, r.summary, r.method || 'InfoBlend');
+      if (r?.success) updateOverlay(title, r.summary, r.method || 'InfoBlend', { readMinutes, wordCount });
       else updateOverlay('Notice', r?.error || 'Summarization failed.', 'InfoBlend');
     });
   }
