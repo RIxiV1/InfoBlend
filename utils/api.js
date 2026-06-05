@@ -237,6 +237,38 @@ async function tryWikipediaSearch(term) {
   return await tryWikipedia(hit.title);
 }
 
+/**
+ * Urban Dictionary as a last-chance fallback for slang, neologisms, internet
+ * memes, and other terms that conventional dictionaries don't index. Only
+ * runs after every formal source whiffs. Top entry is the one with the best
+ * thumbs ratio that also has reasonable engagement (>10 thumbs total). UD
+ * definitions often contain [[wiki-link]] brackets — stripped to plain text.
+ */
+async function tryUrbanDictionary(term) {
+  const resp = await fetch(`https://api.urbandictionary.com/v0/define?term=${encodeURIComponent(term)}`);
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  const list = Array.isArray(data?.list) ? data.list : [];
+  if (!list.length) return null;
+  // Filter to entries with at least minimal engagement so we don't surface
+  // brand-new troll defs. Then sort by net score (up - down).
+  const scored = list
+    .filter(e => (e.thumbs_up + e.thumbs_down) >= 10)
+    .sort((a, b) => (b.thumbs_up - b.thumbs_down) - (a.thumbs_up - a.thumbs_down));
+  const pick = scored[0] || list[0]; // fall back to first if no entry meets threshold
+  if (!pick?.definition) return null;
+  const stripBrackets = (s) => String(s || '').replace(/\[([^\]]+)\]/g, '$1').trim();
+  const definition = stripBrackets(pick.definition);
+  const example = stripBrackets(pick.example);
+  const content = example ? `${definition}\n\n${example}` : definition;
+  return {
+    title: pick.word || term,
+    content,
+    source: 'Urban Dictionary',
+    // No CEFR for slang — frequency data is meaningless here.
+  };
+}
+
 // --- Main definition fetcher ---
 
 export const fetchDefinition = async (word) => {
@@ -249,11 +281,11 @@ export const fetchDefinition = async (word) => {
   if (cached) return { ...cached, term, fromCache: true };
 
   // Route based on word count:
-  // Single words: Dictionary (rich) → Datamuse → Wiktionary → Wikipedia
-  // Compound terms: Wikipedia (handles them best) → Wiktionary → Dictionary → Datamuse → Wikipedia Search
+  // Single words: Dictionary (rich) → Datamuse → Wiktionary → Wikipedia → Urban (slang catch-all)
+  // Compound terms: Wikipedia → Wiktionary → Dictionary → Datamuse → Wikipedia Search → Urban
   const chain = wordCount === 1
-    ? [tryDictionary, tryDatamuse, tryWiktionary, tryWikipedia]
-    : [tryWikipedia, tryWiktionary, tryDictionary, tryDatamuse, tryWikipediaSearch];
+    ? [tryDictionary, tryDatamuse, tryWiktionary, tryWikipedia, tryUrbanDictionary]
+    : [tryWikipedia, tryWiktionary, tryDictionary, tryDatamuse, tryWikipediaSearch, tryUrbanDictionary];
 
   for (const fetcher of chain) {
     try {

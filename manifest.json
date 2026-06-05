@@ -23,6 +23,7 @@
         "modules/article.js",
         "modules/tts.js",
         "modules/highlights.js",
+        "modules/toast.js",
         "modules/overlay.js",
         "modules/palette.js"
       ],

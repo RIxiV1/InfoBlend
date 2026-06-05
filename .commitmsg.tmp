@@ -1,0 +1,13 @@
+quick wins: urban dictionary, modifier-key gate, discovery toast, onboarding
+
+- Urban Dictionary as the final fallback for slang and neologisms when every
+  formal source returns nothing. Filters out brand-new troll defs by requiring
+  a minimum thumbs total before ranking by net score.
+- Trigger modifier setting (Off / Alt / Ctrl / Shift). When set, dblclick only
+  fires the lookup if the modifier is held — cuts accidental triggers from
+  the muscle memory of double-clicking to select.
+- One-time Ctrl+K discoverability toast on pages with >=800 words of article
+  text. Lives in its own shadow root, auto-dismisses after 10s, flagged
+  permanently after first dismissal.
+- Onboarding modal refresh: leads with "Works out of the box" and explicitly
+  frames the AI key as optional polish, not a requirement.

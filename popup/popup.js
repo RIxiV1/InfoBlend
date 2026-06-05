@@ -81,7 +81,8 @@ else document.addEventListener('DOMContentLoaded', () => applyTheme('system'), {
 
 async function loadSettings() {
   const settings = await getStorageData([
-    'definitionsEnabled', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'summaryStyle', 'disabledSites', 'onboardingDone'
+    'definitionsEnabled', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'summaryStyle',
+    'disabledSites', 'triggerModifier', 'targetLanguage', 'accentColor', 'onboardingDone'
   ]);
 
   if (!settings.onboardingDone) openOnboarding();
@@ -92,6 +93,7 @@ async function loadSettings() {
   if (settings.aiKey) $('aiKey').value = settings.aiKey;
   if (settings.theme) $('theme').value = settings.theme;
   if (settings.summaryStyle) $('summaryStyle').value = settings.summaryStyle;
+  if (settings.triggerModifier) $('triggerModifier').value = settings.triggerModifier;
   if (Array.isArray(settings.disabledSites)) $('disabledSites').value = settings.disabledSites.join('\n');
 
   applyTheme(settings.theme);
@@ -277,6 +279,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   $('aiProvider')?.addEventListener('change', () => persist({ aiProvider: $('aiProvider').value }));
   $('summaryStyle')?.addEventListener('change', () => persist({ summaryStyle: $('summaryStyle').value }));
+  $('triggerModifier')?.addEventListener('change', () => persist({ triggerModifier: $('triggerModifier').value }));
 
   // Debounced save on text input. URL is validated first; invalid input shows
   // an inline error and is not persisted, so a half-typed URL doesn't overwrite

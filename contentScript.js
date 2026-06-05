@@ -111,6 +111,21 @@
   }
   window.__ib.isSiteDisabled = isSiteDisabled;
 
+  // Discoverability toast: after the page settles, check whether we should
+  // show the Ctrl+K hint. Guarded by isSiteDisabled and a one-time storage
+  // flag so users see it at most once. Deferred 2s so it doesn't fight with
+  // the page's own load animations.
+  function scheduleDiscoveryToasts() {
+    if (isSiteDisabled()) return;
+    setTimeout(() => {
+      if (typeof window.__ib.maybeShowCtrlKToast === 'function') {
+        window.__ib.maybeShowCtrlKToast();
+      }
+    }, 2000);
+  }
+  if (document.readyState === 'complete') scheduleDiscoveryToasts();
+  else window.addEventListener('load', scheduleDiscoveryToasts, { once: true });
+
   // Modules pre-load via the manifest's content_scripts.js array (alongside
   // this bootstrap), so they should always be ready by the time any user event
   // fires. The previous dynamic-injection path via background+scripting.executeScript
@@ -337,8 +352,23 @@
   });
 
   // Double-click → word definition (single or multi-word, with context)
+  // Modifier-key gate: when triggerModifier is set, the user must hold the
+  // matching key during the double-click for the lookup to fire. Cuts
+  // accidental triggers from "double-click to select" muscle memory. 'none'
+  // (the default) preserves the original instant behavior.
+  function modifierMatches(event) {
+    const mod = window.__ib._settings?.triggerModifier;
+    if (!mod || mod === 'none') return true;
+    if (mod === 'alt') return event.altKey;
+    if (mod === 'ctrl') return event.ctrlKey || event.metaKey; // treat Cmd as Ctrl on macOS
+    if (mod === 'shift') return event.shiftKey;
+    if (mod === 'meta') return event.metaKey;
+    return true;
+  }
+
   document.addEventListener('dblclick', (event) => {
     if (event.composedPath().some(el => el.id === 'infoblend-shadow-host')) return;
+    if (!modifierMatches(event)) return;
     removeDefineBtn();
     // mouseup fires synchronously before dblclick and queues evaluateSelection
     // on a 10ms timer. For 2-word double-clicks the wordCount check inside

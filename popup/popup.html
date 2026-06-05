@@ -45,6 +45,22 @@
       </div>
     </label>
 
+    <!-- Trigger modifier -->
+    <label class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label" data-i18n="triggerModifier">Require modifier</span>
+        <span class="setting-hint" data-i18n="triggerModifierHint">Only trigger when holding a key</span>
+      </div>
+      <div class="select-wrap select-sm">
+        <select id="triggerModifier">
+          <option value="none" selected>Off</option>
+          <option value="alt">Alt</option>
+          <option value="ctrl">Ctrl</option>
+          <option value="shift">Shift</option>
+        </select>
+      </div>
+    </label>
+
     <!-- AI Config (collapsible) -->
     <details class="config-panel">
       <summary class="config-header">
@@ -150,11 +166,12 @@
     <div class="modal-box">
       <img class="modal-icon" src="../icons/icon128.png" alt="" aria-hidden="true" width="56" height="56">
       <h2 class="modal-title" id="onboardingTitle">Welcome to <em>InfoBlend</em></h2>
-      <p class="modal-desc" id="onboardingDesc">Your browsing, augmented.</p>
+      <p class="modal-desc" id="onboardingDesc">Works out of the box. No account, no key required.</p>
       <ul class="modal-list">
-        <li>Double-click any word for an instant definition</li>
-        <li>Press <strong>Ctrl+K</strong> to open the command palette</li>
-        <li>Add an AI key for smarter results</li>
+        <li><strong>Double-click any word</strong> for an instant definition with pronunciation</li>
+        <li><strong>Press Ctrl+K</strong> to summarize any page or jump to recent lookups</li>
+        <li><strong>Right-click any selection</strong> to define, translate, or summarize</li>
+        <li>Optional: add a free Gemini or OpenAI key for smarter, context-aware results</li>
       </ul>
       <button id="closeOnboarding" class="modal-cta" data-i18n="getStarted">Get started</button>
     </div>
