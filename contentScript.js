@@ -65,16 +65,33 @@
   // to gate the floating Define button on the auto-definitions toggle without a flicker.
   window.__ib._settings = window.__ib._settings || {};
   if (chrome.runtime?.id) {
-    chrome.storage.local.get(['definitionsEnabled', 'theme']).then(s => {
+    chrome.storage.local.get(['definitionsEnabled', 'theme', 'disabledSites']).then(s => {
       Object.assign(window.__ib._settings, s);
     }).catch(() => { /* storage unavailable */ });
     chrome.storage.onChanged?.addListener((changes, area) => {
       if (area !== 'local') return;
-      for (const k of ['definitionsEnabled', 'theme']) {
+      for (const k of ['definitionsEnabled', 'theme', 'disabledSites']) {
         if (k in changes) window.__ib._settings[k] = changes[k].newValue;
       }
     });
   }
+
+  // Per-site disable: user-maintained hostname list. Match is "current
+  // hostname ends with entry" so adding "slack.com" silences app.slack.com,
+  // *.slack.com, etc. Comparison is case-insensitive; entries are trimmed.
+  function isSiteDisabled() {
+    const list = window.__ib._settings?.disabledSites;
+    if (!Array.isArray(list) || !list.length) return false;
+    const host = (location.hostname || '').toLowerCase();
+    if (!host) return false;
+    for (const raw of list) {
+      const entry = String(raw || '').trim().toLowerCase().replace(/^\*\./, '');
+      if (!entry) continue;
+      if (host === entry || host.endsWith('.' + entry)) return true;
+    }
+    return false;
+  }
+  window.__ib.isSiteDisabled = isSiteDisabled;
 
   // Modules pre-load via the manifest's content_scripts.js array (alongside
   // this bootstrap), so they should always be ready by the time any user event
@@ -140,6 +157,7 @@
   }
 
   async function triggerDefinition(text, rect, context) {
+    if (isSiteDisabled()) return;
     const settings = await getStorage(['definitionsEnabled']);
     if (settings.definitionsEnabled === false) return;
 
@@ -177,6 +195,7 @@
     // so toggling auto-definitions off still surfaced the button on every
     // multi-word selection.
     if (window.__ib._settings?.definitionsEnabled === false) return;
+    if (isSiteDisabled()) return;
 
     removeDefineBtn();
 
@@ -294,6 +313,7 @@
     const tag = active?.tagName;
     const inEditor = tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable;
     if (inEditor) return; // let native Ctrl+K run
+    if (isSiteDisabled()) return; // honor per-site mute
     e.preventDefault();
     if (modulesReady()) window.__ib.togglePalette();
   });
@@ -371,8 +391,11 @@
     MSG.SUMMARIZE_PAGE, MSG.SUMMARIZE_SELECTION
   ]);
   chrome.runtime.onMessage.addListener((message) => {
-    if (ROUTABLE.has(message.type) && modulesReady()) {
-      window.__ib.handleMessage(message);
-    }
+    if (!ROUTABLE.has(message.type) || !modulesReady()) return;
+    // Per-site disable also silences popup/context-menu actions on this tab.
+    // Without this gate, a disabled site would still pop the panel when the
+    // user clicked Summarize from the popup or right-clicked → Define.
+    if (isSiteDisabled()) return;
+    window.__ib.handleMessage(message);
   });
 })();

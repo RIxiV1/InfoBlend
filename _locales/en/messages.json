@@ -55,6 +55,14 @@
     "message": "Summary style",
     "description": "Label for summary style selector (bullets vs prose)"
   },
+  "disabledSites": {
+    "message": "Disabled sites",
+    "description": "Header for per-site disable list"
+  },
+  "disabledSitesNote": {
+    "message": "One hostname per line. Matches subdomains (slack.com silences app.slack.com).",
+    "description": "Helper text for the disabled-sites list"
+  },
   "saved": {
     "message": "Saved",
     "description": "Confirmation after saving"

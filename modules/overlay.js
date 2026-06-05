@@ -164,6 +164,7 @@
     controls.appendChild(closeBtn);
     header.appendChild(title);
     header.appendChild(controls);
+    attachDrag(header, container);
 
     // Skeleton
     const loading = el('div', 'infoblend-loading');
@@ -339,6 +340,56 @@
       row.appendChild(tag);
     }
     return row;
+  }
+
+  // --- Drag-to-reposition (Mate Translate pattern, useful for pinned panels) ---
+  // Header is the drag handle. We avoid intercepting clicks on the controls
+  // (back/pin/close buttons) so their handlers still fire. Position is set via
+  // inline `left`/`top` styles, overriding the CSS-driven panel position the
+  // first time the user drags. Snapping the container into the viewport on
+  // drop prevents pulling it off-screen.
+  function attachDrag(handle, container) {
+    handle.style.cursor = 'move';
+    handle.style.userSelect = 'none';
+    handle.addEventListener('mousedown', (e) => {
+      // Only left-button drags; ignore clicks on buttons inside the header
+      // so existing controls keep working.
+      if (e.button !== 0) return;
+      if (e.target.closest('button, a, input, select, .infoblend-controls')) return;
+      e.preventDefault();
+
+      const rect = container.getBoundingClientRect();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startLeft = rect.left;
+      const startTop = rect.top;
+
+      container.classList.add('ib-dragging');
+
+      const onMove = (ev) => {
+        const nx = startLeft + (ev.clientX - startX);
+        const ny = startTop + (ev.clientY - startY);
+        // Constrain inside viewport with a small margin so the header always
+        // stays grabbable (can't lose the overlay behind the top edge).
+        const maxX = window.innerWidth - rect.width;
+        const maxY = window.innerHeight - 32;
+        const clampedX = Math.max(8, Math.min(maxX - 8, nx));
+        const clampedY = Math.max(8, Math.min(maxY, ny));
+        // Switch to left/top positioning. Clearing `right` is important for
+        // panel-mode overlays which default to right:16 — otherwise both
+        // sides are anchored and the width collapses.
+        container.style.left = `${clampedX}px`;
+        container.style.top = `${clampedY}px`;
+        container.style.right = 'auto';
+      };
+      const onUp = () => {
+        container.classList.remove('ib-dragging');
+        document.removeEventListener('mousemove', onMove, true);
+        document.removeEventListener('mouseup', onUp, true);
+      };
+      document.addEventListener('mousemove', onMove, true);
+      document.addEventListener('mouseup', onUp, true);
+    });
   }
 
   // --- Pin / detach: turn the current overlay into a free-standing copy ---

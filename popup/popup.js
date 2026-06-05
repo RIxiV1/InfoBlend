@@ -38,7 +38,7 @@ function clearFieldErrors() {
 
 async function loadSettings() {
   const settings = await getStorageData([
-    'definitionsEnabled', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'summaryStyle', 'onboardingDone'
+    'definitionsEnabled', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'summaryStyle', 'disabledSites', 'onboardingDone'
   ]);
 
   if (!settings.onboardingDone) openOnboarding();
@@ -49,6 +49,7 @@ async function loadSettings() {
   if (settings.aiKey) $('aiKey').value = settings.aiKey;
   if (settings.theme) $('theme').value = settings.theme;
   if (settings.summaryStyle) $('summaryStyle').value = settings.summaryStyle;
+  if (Array.isArray(settings.disabledSites)) $('disabledSites').value = settings.disabledSites.join('\n');
 }
 
 // --- Onboarding modal a11y: focus trap, Escape, focus restore ---
@@ -243,6 +244,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   }, 500);
   $('aiKey')?.addEventListener('input', saveKey);
   $('aiEndpoint')?.addEventListener('input', saveEndpoint);
+
+  // Disabled sites: split lines, trim, strip URL noise (https://, paths),
+  // dedupe, drop empties. Stored as an array so contentScript can match
+  // without re-parsing on every event.
+  const saveDisabledSites = debounce(() => {
+    const raw = $('disabledSites').value || '';
+    const list = Array.from(new Set(
+      raw.split('\n')
+        .map(line => line.trim().toLowerCase())
+        .map(line => line.replace(/^https?:\/\//, '').replace(/\/.*$/, ''))
+        .filter(Boolean)
+    ));
+    persist({ disabledSites: list });
+  }, 500);
+  $('disabledSites')?.addEventListener('input', saveDisabledSites);
 
   $('summarizeBtn')?.addEventListener('click', async () => {
     const btn = $('summarizeBtn');

@@ -112,6 +112,20 @@
       </div>
     </label>
 
+    <!-- Disabled sites -->
+    <details class="config-panel">
+      <summary class="config-header">
+        <span data-i18n="disabledSites">Disabled sites</span>
+        <span class="config-badge" data-i18n="optional">optional</span>
+      </summary>
+      <div class="config-body">
+        <div class="input-group full">
+          <textarea id="disabledSites" class="textarea" rows="3" spellcheck="false" placeholder="slack.com&#10;docs.google.com"></textarea>
+        </div>
+        <p class="config-note" data-i18n="disabledSitesNote">One hostname per line. Matches subdomains (slack.com silences app.slack.com).</p>
+      </div>
+    </details>
+
   </main>
 
   <footer>

@@ -355,7 +355,8 @@ main {
 }
 
 .input-group input,
-.input-group select {
+.input-group select,
+.input-group textarea {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -366,6 +367,12 @@ main {
   font-size: 12px;
   padding: 8px 10px;
   transition: border-color 0.12s;
+}
+
+.input-group textarea {
+  resize: vertical;
+  min-height: 56px;
+  line-height: 1.4;
 }
 
 .input-group input::placeholder {
