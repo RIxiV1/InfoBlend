@@ -35,7 +35,7 @@ chrome.runtime.onInstalled.addListener(setupContextMenus);
 chrome.runtime.onStartup.addListener(setupContextMenus);
 
 // --- Handlers ---
-const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider']);
+const getAISettings = () => getStorageData(['aiEndpoint', 'aiKey', 'aiProvider', 'summaryStyle']);
 
 const handleDefinition = async (word, context) => {
   const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
@@ -58,10 +58,10 @@ const handleDefinition = async (word, context) => {
 // onAIFailure is invoked when AI was attempted but threw, so callers can
 // surface a "falling back to local" indicator before the local summary lands.
 const handleSummarization = async (text, onAIFailure) => {
-  const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
+  const { aiEndpoint, aiKey, aiProvider, summaryStyle } = await getAISettings();
   if (aiKey && aiEndpoint) {
     try {
-      const summary = await fetchAIResponse(text, aiEndpoint, aiKey, aiProvider, 'summarize');
+      const summary = await fetchAIResponse(text, aiEndpoint, aiKey, aiProvider, 'summarize', '', summaryStyle || 'bullets');
       return { summary, method: `AI (${aiProvider})` };
     } catch (e) {
       await onAIFailure?.(e);

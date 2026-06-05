@@ -173,6 +173,22 @@
 
 .infoblend-btn svg { color: inherit !important; }
 
+/* Pin button — accent-tinted when pinned, identical to other btns otherwise */
+.infoblend-pin[aria-pressed="true"] {
+  color: var(--ib-accent) !important;
+  background: var(--ib-accent-low) !important;
+}
+.infoblend-pin[aria-pressed="true"] svg {
+  transform: rotate(45deg);
+  transition: transform 0.2s var(--ib-spring);
+}
+
+/* Pinned overlay visual marker — subtle accent rim so the user can tell
+   which overlay is the "active" one and which is a frozen reference card. */
+.infoblend-overlay[data-ib-pinned="true"] {
+  border-color: var(--ib-accent-mid) !important;
+}
+
 /* Copy success/failure: spring scale-pop confirms the state change.
    The animation re-fires whenever the class is (re)applied. */
 .infoblend-copy.ib-copied {
@@ -324,6 +340,22 @@
   font-size: 13px !important;
   font-family: var(--ib-font-mono) !important;
   color: var(--ib-text-2) !important;
+}
+
+/* CEFR / frequency badge — small pill next to phonetic.
+   Color stays neutral so it doesn't compete with the accent-tinted POS tags. */
+.ib-def-level {
+  margin-left: auto;
+  display: inline-block;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--ib-border) !important;
+  color: var(--ib-text-2) !important;
+  cursor: help;
 }
 
 .ib-def-audio {

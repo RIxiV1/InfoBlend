@@ -38,7 +38,7 @@ function clearFieldErrors() {
 
 async function loadSettings() {
   const settings = await getStorageData([
-    'definitionsEnabled', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'onboardingDone'
+    'definitionsEnabled', 'aiEndpoint', 'aiKey', 'aiProvider', 'theme', 'summaryStyle', 'onboardingDone'
   ]);
 
   if (!settings.onboardingDone) openOnboarding();
@@ -48,6 +48,7 @@ async function loadSettings() {
   if (settings.aiProvider) $('aiProvider').value = settings.aiProvider;
   if (settings.aiKey) $('aiKey').value = settings.aiKey;
   if (settings.theme) $('theme').value = settings.theme;
+  if (settings.summaryStyle) $('summaryStyle').value = settings.summaryStyle;
 }
 
 // --- Onboarding modal a11y: focus trap, Escape, focus restore ---
@@ -224,6 +225,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('definitionsEnabled')?.addEventListener('change', () => persist({ definitionsEnabled: $('definitionsEnabled').checked }));
   $('theme')?.addEventListener('change', () => persist({ theme: $('theme').value }));
   $('aiProvider')?.addEventListener('change', () => persist({ aiProvider: $('aiProvider').value }));
+  $('summaryStyle')?.addEventListener('change', () => persist({ summaryStyle: $('summaryStyle').value }));
 
   // Debounced save on text input. URL is validated first; invalid input shows
   // an inline error and is not persisted, so a half-typed URL doesn't overwrite

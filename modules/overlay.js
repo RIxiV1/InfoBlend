@@ -145,6 +145,18 @@
     const header = el('div', 'infoblend-header');
     const title = el('span', 'infoblend-title', 'InfoBlend');
     const controls = el('div', 'infoblend-controls');
+    // Pin button — converts this overlay into a "detached" copy that survives
+    // the next lookup. After pinning, the next showLoadingOverlay() opens a
+    // fresh host alongside, enabling side-by-side comparison. Pinned overlays
+    // lose their dismiss-on-outside-click and can't navigate via back/synonym
+    // chips (those depend on the singleton state). See pinOverlay() below.
+    const pinBtn = el('button', 'infoblend-btn infoblend-pin');
+    pinBtn.setAttribute('aria-label', 'Pin overlay');
+    pinBtn.setAttribute('aria-pressed', 'false');
+    pinBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-3h-11z"/><path d="M9 14V6a3 3 0 0 1 6 0v8"/></svg>`;
+    pinBtn.onclick = (e) => { e.stopPropagation(); pinOverlay(host, container, pinBtn); };
+    controls.appendChild(pinBtn);
+
     const closeBtn = el('button', 'infoblend-btn infoblend-close');
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
@@ -329,6 +341,55 @@
     return row;
   }
 
+  // --- Pin / detach: turn the current overlay into a free-standing copy ---
+  // After pinning, the singleton (overlayHost, _anchor, _dismissHandler,
+  // _resizeObserver, _activeAudio) is cleared so the next showLoadingOverlay
+  // spawns a fresh host without disturbing the pinned one. The pinned host
+  // keeps its own close button wired to its own DOM node, so closing it is
+  // independent of the active overlay.
+  //
+  // Known v1 limitations:
+  //   - Synonym chips on a pinned overlay still call updateOverlay, which
+  //     mutates singleton state — disabled visually via [data-ib-pinned].
+  //   - Back button likewise becomes meaningless once detached — hidden.
+  //   - If the pinned overlay is mid-audio when a new lookup fires,
+  //     stopAllAudio() in showLoadingOverlay will cut it short. Rare in
+  //     practice (audio clips are ~1s); cleanup would require per-host
+  //     audio refs which is a bigger refactor.
+  function pinOverlay(host, container, btn) {
+    if (container.hasAttribute('data-ib-pinned')) return; // already pinned
+    container.setAttribute('data-ib-pinned', 'true');
+    btn.setAttribute('aria-pressed', 'true');
+    btn.setAttribute('aria-label', 'Pinned');
+    btn.disabled = true;
+
+    // Detach from singleton tracking — the host stays in DOM but the module
+    // forgets about it. Close button still works (it's wired directly to
+    // this host's closeOverlay call).
+    if (overlayHost === host) {
+      overlayHost = null;
+      _anchor = null;
+      _currentDef = null;
+      _navHistory = [];
+      _activeAudio = null;
+      if (_dismissHandler) {
+        document.removeEventListener('mousedown', _dismissHandler, true);
+        _dismissHandler = null;
+      }
+      if (_resizeObserver) {
+        try { _resizeObserver.disconnect(); } catch { /* no-op */ }
+        _resizeObserver = null;
+      }
+    }
+
+    // Hide back/synonym affordances that depend on singleton state.
+    container.querySelector('.infoblend-back')?.remove();
+    container.querySelectorAll('.ib-tag-syn').forEach(t => {
+      t.style.pointerEvents = 'none';
+      t.style.opacity = '0.55';
+    });
+  }
+
   // --- Pronunciation: audio file with TTS fallback ---
   // Source priority is recorded audio (Dictionary API) → Web Speech TTS.
   // TTS is the universal fallback: works for any selected word, in any
@@ -346,10 +407,11 @@
   function playPronunciation(spokenText, audioUrl, btn) {
     stopAllAudio();
 
-    // Snapshot the overlay host. If it changes mid-flight (new lookup, close,
-    // navigation), every callback below short-circuits — otherwise the user
-    // gets ghost audio from a definition they already dismissed.
-    const owningHost = overlayHost;
+    // Stale-callback guard: rather than checking `overlayHost === owningHost`
+    // (which breaks for pinned/detached overlays), check the button itself.
+    // If it's no longer in the DOM, the overlay was closed/removed and we
+    // should drop the callback. Works for both singleton and pinned overlays.
+    const isLive = () => btn.isConnected;
 
     const cleanupBtn = () => {
       btn.classList.remove('ib-audio-loading', 'ib-audio-playing');
@@ -357,14 +419,14 @@
     };
 
     const useTTS = () => {
-      if (overlayHost !== owningHost) { cleanupBtn(); return; }
+      if (!isLive()) { cleanupBtn(); return; }
       if (!ib.tts?.isSupported() || !spokenText) { cleanupBtn(); return; }
       btn.classList.remove('ib-audio-loading');
       btn.removeAttribute('aria-busy');
       btn.classList.add('ib-audio-playing');
       const issued = ib.tts.speak(spokenText, {
         onEnd: () => {
-          if (overlayHost !== owningHost) return;
+          if (!isLive()) return;
           btn.classList.remove('ib-audio-playing');
         }
       });
@@ -380,7 +442,7 @@
     btn.classList.add('ib-audio-loading');
     btn.setAttribute('aria-busy', 'true');
     ib.sendMessage({ type: ib.MSG.FETCH_AUDIO, url: audioUrl }, (resp) => {
-      if (overlayHost !== owningHost) { cleanupBtn(); return; }
+      if (!isLive()) { cleanupBtn(); return; }
       if (!resp?.success || !resp.dataUrl) { useTTS(); return; }
 
       btn.classList.remove('ib-audio-loading');
@@ -437,15 +499,35 @@
     if (!data.meanings?.length) return;
     const def = el('div', 'ib-definition');
 
-    // Phonetic + audio. Always try to render the speaker — if the source
-    // gave us a real audio URL we'll use it (best quality), otherwise TTS
-    // speaks the term. buildAudioBtn returns null only when both paths
+    // Wikipedia thumbnail (rich path now mirrors the plain-text path).
+    // Source is filtered server-side against disambiguation pages, so the
+    // image is usually a meaningful visual for the word — not a generic icon.
+    if (data.thumbnail) {
+      const thumbWrap = document.createElement('div');
+      thumbWrap.className = 'ib-thumbnail-wrap';
+      const thumb = document.createElement('img');
+      thumb.className = 'ib-thumbnail';
+      thumb.src = data.thumbnail;
+      thumb.alt = '';
+      thumb.loading = 'lazy';
+      thumbWrap.appendChild(thumb);
+      def.appendChild(thumbWrap);
+    }
+
+    // Phonetic + audio + CEFR. Always try to render the speaker — if the
+    // source gave us a real audio URL we'll use it (best quality), otherwise
+    // TTS speaks the term. buildAudioBtn returns null only when both paths
     // are unavailable (no term to speak AND no audioUrl AND no TTS).
     const audioBtn = buildAudioBtn(data.term || data.title, data.audioUrl);
-    if (data.phonetic || audioBtn) {
+    if (data.phonetic || audioBtn || data.cefr) {
       const row = el('div', 'ib-def-phonetic-row');
       if (data.phonetic) row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
       if (audioBtn) row.appendChild(audioBtn);
+      if (data.cefr) {
+        const badge = el('span', 'ib-def-level', data.cefr.level);
+        badge.title = `${data.cefr.label} (Datamuse frequency)`;
+        row.appendChild(badge);
+      }
       def.appendChild(row);
     }
 
@@ -498,6 +580,14 @@
     const isNoticeNav = title === 'Notice' || title === 'Error';
     if (!isNoticeNav) {
       _currentDef = { title, content, source, extra };
+    }
+
+    // Session-persistent inline highlight of the looked-up term on the page.
+    // Skipped for notices/errors (no real term) and for summaries (extra.term
+    // is absent on those). Best-effort: errors here are silently swallowed so
+    // a flaky page doesn't break the overlay flow.
+    if (!isNoticeNav && extra.term && ib.highlights?.highlight) {
+      try { ib.highlights.highlight(extra.term); } catch { /* non-critical */ }
     }
     renderBackButton(container);
 

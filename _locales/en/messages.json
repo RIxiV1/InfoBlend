@@ -51,6 +51,10 @@
     "message": "Summary theme",
     "description": "Label for theme selector"
   },
+  "summaryStyle": {
+    "message": "Summary style",
+    "description": "Label for summary style selector (bullets vs prose)"
+  },
   "saved": {
     "message": "Saved",
     "description": "Confirmation after saving"

@@ -84,8 +84,60 @@ export async function cleanupCache() {
 
 // --- Individual API fetchers ---
 
+/**
+ * Datamuse returns word-frequency tags like "f:23.45" — occurrences per
+ * million words in a reference corpus. The CEFR mapping below is a rough
+ * heuristic widely used in vocabulary tooling; it's a guide, not a guarantee.
+ */
+function cefrFromFrequency(f) {
+  if (f == null || isNaN(f)) return null;
+  if (f >= 80) return { level: 'A1', label: 'very common' };
+  if (f >= 20) return { level: 'A2', label: 'common' };
+  if (f >= 5)  return { level: 'B1', label: 'intermediate' };
+  if (f >= 1)  return { level: 'B2', label: 'upper intermediate' };
+  if (f >= 0.2) return { level: 'C1', label: 'advanced' };
+  return { level: 'C2', label: 'rare' };
+}
+
+async function fetchFrequency(term) {
+  try {
+    const resp = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=f&max=1`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const tags = data?.[0]?.tags || [];
+    const fTag = tags.find(t => typeof t === 'string' && t.startsWith('f:'));
+    if (!fTag) return null;
+    const f = parseFloat(fTag.slice(2));
+    return isNaN(f) ? null : f;
+  } catch { return null; }
+}
+
+/**
+ * Best-effort Wikipedia thumbnail for the term. Returns null on any failure
+ * or for disambiguation pages (which would return a generic disambig image
+ * unrelated to the word). The plain-text Wikipedia path already gets a
+ * thumbnail directly; this is the parallel fetch for the rich-definition
+ * path so dictionary words can show an image too.
+ */
+async function fetchWikiThumbnail(term) {
+  try {
+    const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.type === 'disambiguation' || data.type === 'no-extract') return null;
+    return data.thumbnail?.source || null;
+  } catch { return null; }
+}
+
 async function tryDictionary(term) {
-  const resp = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term)}`);
+  // Parallel: dict definition + word frequency + Wikipedia thumbnail. The
+  // last two are non-blocking — if either fails, the definition still ships.
+  // Wall-clock latency = slowest of the three (usually the dict call).
+  const [resp, freq, thumbnail] = await Promise.all([
+    fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term)}`),
+    fetchFrequency(term),
+    fetchWikiThumbnail(term)
+  ]);
   if (!resp.ok) return null;
   const data = await resp.json();
   const entry = data?.[0];
@@ -98,6 +150,9 @@ async function tryDictionary(term) {
     title: entry.word,
     phonetic,
     audioUrl,
+    freq,
+    cefr: cefrFromFrequency(freq),
+    thumbnail,
     meanings: entry.meanings.slice(0, 4).map(m => ({
       partOfSpeech: m.partOfSpeech,
       definitions: m.definitions.slice(0, 3).map(d => ({
@@ -117,7 +172,7 @@ async function tryDatamuse(term) {
   // here too, but they're no longer displayed — dropping the request saves
   // one network call per definition).
   const [defResp, synResp] = await Promise.all([
-    fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d,p&max=1`),
+    fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(term)}&qe=sp&md=d,p,f&max=1`),
     fetch(`https://api.datamuse.com/words?rel_syn=${encodeURIComponent(term)}&max=6`)
   ]);
 
@@ -128,8 +183,12 @@ async function tryDatamuse(term) {
   const synData = synResp.ok ? await synResp.json() : [];
 
   const entry = data[0];
+  const fTag = (entry.tags || []).find(t => typeof t === 'string' && t.startsWith('f:'));
+  const freq = fTag ? parseFloat(fTag.slice(2)) : null;
   return {
     title: term,
+    freq: isNaN(freq) ? null : freq,
+    cefr: cefrFromFrequency(freq),
     meanings: entry.defs.slice(0, 4).map(d => {
       const [pos, ...rest] = d.split('\t');
       return { partOfSpeech: pos, definitions: [{ text: rest.join('\t') }] };
@@ -236,7 +295,7 @@ export const fetchDefinition = async (word) => {
  * Retries transient failures (429, 5xx, network errors) up to 2 times with exponential backoff.
  * @param {string} context - Optional surrounding text for context-aware definitions.
  */
-export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', promptType = 'define', context = '') => {
+export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', promptType = 'define', context = '', summaryStyle = 'bullets') => {
   if (!endpoint?.startsWith('http')) throw new Error('Invalid API Endpoint. Please check your settings.');
 
   const headers = { 'Content-Type': 'application/json' };
@@ -250,7 +309,11 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
 
   let prompt;
   if (promptType === 'summarize') {
-    prompt = `Summarize the following text in 3-4 concise bullet points:\n\n${text.substring(0, 8000)}`;
+    // Bullets read fine for technical/listy content; prose flows better for
+    // narrative articles. User picks via the popup; default is bullets.
+    prompt = summaryStyle === 'prose'
+      ? `Summarize the following text in a single concise paragraph of 3-4 sentences. Use flowing prose, not bullets or lists:\n\n${text.substring(0, 8000)}`
+      : `Summarize the following text in 3-4 concise bullet points:\n\n${text.substring(0, 8000)}`;
   } else if (context) {
     prompt = `Define "${text}" as used in this context: "${context.substring(0, 300)}"\n\nGive the specific meaning that applies here in 1-2 clear sentences.`;
   } else {
