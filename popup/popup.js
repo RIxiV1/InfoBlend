@@ -262,10 +262,124 @@ function setupPasswordToggle() {
   });
 }
 
+// --- Knowledge Vault rendering ---
+const VAULT_KEY = 'savedItems';
+
+async function loadVault() {
+  try {
+    const res = await chrome.storage.local.get([VAULT_KEY]);
+    return Array.isArray(res[VAULT_KEY]) ? res[VAULT_KEY] : [];
+  } catch { return []; }
+}
+
+async function renderVault() {
+  const items = await loadVault();
+  const list = $('vaultList');
+  const empty = $('vaultEmpty');
+  const actions = $('vaultActions');
+  const count = $('vaultCount');
+  if (!list || !empty || !actions || !count) return;
+  count.textContent = String(items.length);
+  if (!items.length) {
+    list.hidden = true;
+    actions.hidden = true;
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  list.hidden = false;
+  actions.hidden = false;
+  list.textContent = '';
+  // Show the most recent 50 to keep the popup snappy; export covers the rest.
+  for (const item of items.slice(0, 50)) {
+    const li = document.createElement('li');
+    li.className = 'vault-item';
+
+    const main = document.createElement('a');
+    main.className = 'vault-link';
+    main.href = item.url || '#';
+    main.target = '_blank';
+    main.rel = 'noopener noreferrer';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'vault-title';
+    titleEl.textContent = item.title || '(untitled)';
+    const meta = document.createElement('div');
+    meta.className = 'vault-meta';
+    const when = item.savedAt ? new Date(item.savedAt).toLocaleDateString() : '';
+    meta.textContent = [item.type || 'item', item.source, when].filter(Boolean).join(' · ');
+    main.appendChild(titleEl);
+    main.appendChild(meta);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'vault-del';
+    del.setAttribute('aria-label', 'Delete');
+    del.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    del.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const all = await loadVault();
+      const filtered = all.filter(it => it.id !== item.id);
+      await chrome.storage.local.set({ [VAULT_KEY]: filtered });
+      renderVault();
+    });
+
+    li.appendChild(main);
+    li.appendChild(del);
+    list.appendChild(li);
+  }
+}
+
+function downloadBlob(text, filename, mime) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoke after the click so the download has a chance to start. Revoking
+  // synchronously after click can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function escapeCsvField(s) {
+  const str = String(s == null ? '' : s);
+  if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+function vaultToCsv(items) {
+  const header = ['title', 'type', 'content', 'source', 'savedAt', 'url', 'pageTitle'];
+  const rows = items.map(it => header.map(k => escapeCsvField(it[k] ?? '')).join(','));
+  return [header.join(','), ...rows].join('\r\n');
+}
+
+function vaultToMarkdown(items) {
+  const out = ['# InfoBlend Saved Items', ''];
+  for (const it of items) {
+    out.push(`## ${it.title || '(untitled)'}`);
+    if (it.type) out.push(`*${it.type}*`);
+    out.push('');
+    out.push(it.content || '');
+    out.push('');
+    const meta = [];
+    if (it.source) meta.push(it.source);
+    if (it.pageTitle) meta.push(`from [${it.pageTitle}](${it.url})`);
+    else if (it.url) meta.push(it.url);
+    if (it.savedAt) meta.push(new Date(it.savedAt).toLocaleString());
+    if (meta.length) out.push(`_${meta.join(' · ')}_`);
+    out.push('', '---', '');
+  }
+  return out.join('\n');
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   localizeUI();
   await loadSettings();
   setupPasswordToggle();
+  renderVault();
 
   $('closeOnboarding')?.addEventListener('click', closeOnboarding);
   $('testBtn')?.addEventListener('click', testConnection);
@@ -314,6 +428,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     persist({ disabledSites: list });
   }, 500);
   $('disabledSites')?.addEventListener('input', saveDisabledSites);
+
+  // Export handlers — generate the file from the latest vault snapshot at
+  // click time, not from the rendered list (which is capped at 50).
+  $('exportCsv')?.addEventListener('click', async () => {
+    const items = await loadVault();
+    if (!items.length) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadBlob(vaultToCsv(items), `infoblend-vault-${stamp}.csv`, 'text/csv;charset=utf-8');
+  });
+  $('exportMd')?.addEventListener('click', async () => {
+    const items = await loadVault();
+    if (!items.length) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadBlob(vaultToMarkdown(items), `infoblend-vault-${stamp}.md`, 'text/markdown;charset=utf-8');
+  });
+
+  // Re-render vault when items change elsewhere (e.g. user saves while popup open)
+  chrome.storage.onChanged?.addListener((changes, area) => {
+    if (area === 'local' && VAULT_KEY in changes) renderVault();
+  });
 
   // Accent swatches — clicking applies immediately and persists.
   document.querySelectorAll('.accent-swatch').forEach(btn => {

@@ -208,6 +208,15 @@
 
 .infoblend-btn svg { color: inherit !important; }
 
+/* Save (bookmark) — accent fill when item is in the vault */
+.infoblend-save[aria-pressed="true"] {
+  color: var(--ib-accent) !important;
+  background: var(--ib-accent-low) !important;
+}
+.infoblend-save[aria-pressed="true"] svg {
+  fill: var(--ib-accent);
+}
+
 /* Pin button — accent-tinted when pinned, identical to other btns otherwise */
 .infoblend-pin[aria-pressed="true"] {
   color: var(--ib-accent) !important;

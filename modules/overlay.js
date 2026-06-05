@@ -155,6 +155,16 @@
     // fresh host alongside, enabling side-by-side comparison. Pinned overlays
     // lose their dismiss-on-outside-click and can't navigate via back/synonym
     // chips (those depend on the singleton state). See pinOverlay() below.
+    // Save button — bookmarks the current definition/summary/translation into
+    // the Knowledge Vault (chrome.storage.local). Click toggles saved state.
+    // Pressed state is recomputed each time updateOverlay re-renders.
+    const saveBtn = el('button', 'infoblend-btn infoblend-save');
+    saveBtn.setAttribute('aria-label', 'Save to vault');
+    saveBtn.setAttribute('aria-pressed', 'false');
+    saveBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+    saveBtn.onclick = (e) => { e.stopPropagation(); toggleSaveCurrent(saveBtn); };
+    controls.appendChild(saveBtn);
+
     const pinBtn = el('button', 'infoblend-btn infoblend-pin');
     pinBtn.setAttribute('aria-label', 'Pin overlay');
     pinBtn.setAttribute('aria-pressed', 'false');
@@ -419,6 +429,75 @@
     });
   }
 
+  // --- Knowledge Vault: save / unsave the current overlay's content ---
+  // Storage shape: { savedItems: Array<{ id, title, content, source, type,
+  //   extra, url, pageTitle, savedAt }> }. Lives in chrome.storage.local
+  // (sync's 8KB-per-item quota would cap us at ~10 saves). Capped at 500
+  // items LRU-style — oldest dropped when full. Identity uses url+title so
+  // re-saving the same definition from the same page is idempotent.
+  const VAULT_KEY = 'savedItems';
+  const VAULT_MAX = 500;
+
+  async function loadVault() {
+    try {
+      const res = await chrome.storage.local.get([VAULT_KEY]);
+      return Array.isArray(res[VAULT_KEY]) ? res[VAULT_KEY] : [];
+    } catch { return []; }
+  }
+
+  function vaultIdFor(url, title) {
+    return `${url}|${String(title || '').toLowerCase()}`;
+  }
+
+  async function isCurrentSaved() {
+    if (!_currentDef) return false;
+    const items = await loadVault();
+    const id = vaultIdFor(location.href, _currentDef.title);
+    return items.some(it => it.id === id);
+  }
+
+  async function refreshSaveBtn() {
+    const btn = overlayHost?.shadowRoot?.querySelector('.infoblend-save');
+    if (!btn) return;
+    const saved = await isCurrentSaved();
+    btn.setAttribute('aria-pressed', saved ? 'true' : 'false');
+    btn.setAttribute('aria-label', saved ? 'Remove from vault' : 'Save to vault');
+  }
+
+  async function toggleSaveCurrent(btn) {
+    if (!_currentDef) return;
+    const items = await loadVault();
+    const id = vaultIdFor(location.href, _currentDef.title);
+    const existingIdx = items.findIndex(it => it.id === id);
+    if (existingIdx >= 0) {
+      items.splice(existingIdx, 1);
+      btn.setAttribute('aria-pressed', 'false');
+      btn.setAttribute('aria-label', 'Save to vault');
+    } else {
+      // Type discriminator helps the popup vault UI group items.
+      const titleLower = String(_currentDef.title || '').toLowerCase();
+      let type = 'definition';
+      if (titleLower.includes('summary')) type = 'summary';
+      else if (titleLower === 'translation') type = 'translation';
+      items.unshift({
+        id,
+        title: _currentDef.title,
+        content: _currentDef.content || '',
+        source: _currentDef.source || '',
+        type,
+        extra: _currentDef.extra || {},
+        url: location.href,
+        pageTitle: document.title || '',
+        savedAt: new Date().toISOString()
+      });
+      if (items.length > VAULT_MAX) items.length = VAULT_MAX;
+      btn.setAttribute('aria-pressed', 'true');
+      btn.setAttribute('aria-label', 'Remove from vault');
+    }
+    try { await chrome.storage.local.set({ [VAULT_KEY]: items }); }
+    catch { /* quota or storage unavailable — UI state is best-effort */ }
+  }
+
   // --- Pin / detach: turn the current overlay into a free-standing copy ---
   // After pinning, the singleton (overlayHost, _anchor, _dismissHandler,
   // _resizeObserver, _activeAudio) is cleared so the next showLoadingOverlay
@@ -674,6 +753,12 @@
       try { ib.highlights.highlight(extra.term); } catch { /* non-critical */ }
     }
     renderBackButton(container);
+    // Sync the save button's pressed state to the current item (may already
+    // be in the vault from a previous lookup of the same term on this page).
+    refreshSaveBtn();
+    // Hide save for notice/error overlays — nothing meaningful to vault.
+    const saveBtn = container.querySelector('.infoblend-save');
+    if (saveBtn) saveBtn.style.display = isNoticeNav ? 'none' : '';
 
     // Batch DOM queries
     const titleEl = container.querySelector('.infoblend-title');

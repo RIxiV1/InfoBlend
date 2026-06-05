@@ -67,6 +67,22 @@
     "message": "One hostname per line. Matches subdomains (slack.com silences app.slack.com).",
     "description": "Helper text for the disabled-sites list"
   },
+  "vault": {
+    "message": "Saved",
+    "description": "Header for the Knowledge Vault panel"
+  },
+  "vaultEmpty": {
+    "message": "Bookmark words and summaries with the save icon in the overlay.",
+    "description": "Empty-state text for the Knowledge Vault"
+  },
+  "exportCsv": {
+    "message": "Export CSV",
+    "description": "Button to export vault as CSV"
+  },
+  "exportMarkdown": {
+    "message": "Export Markdown",
+    "description": "Button to export vault as Markdown"
+  },
   "saved": {
     "message": "Saved",
     "description": "Confirmation after saving"

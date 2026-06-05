@@ -166,6 +166,22 @@
       </div>
     </label>
 
+    <!-- Knowledge Vault -->
+    <details class="config-panel" id="vaultPanel">
+      <summary class="config-header">
+        <span data-i18n="vault">Saved</span>
+        <span class="config-badge" id="vaultCount">0</span>
+      </summary>
+      <div class="config-body">
+        <div id="vaultEmpty" class="config-note" data-i18n="vaultEmpty">Bookmark words and summaries with the save icon in the overlay.</div>
+        <ul id="vaultList" class="vault-list" hidden></ul>
+        <div class="vault-actions" hidden id="vaultActions">
+          <button type="button" id="exportCsv" class="test-btn" data-i18n="exportCsv">Export CSV</button>
+          <button type="button" id="exportMd" class="test-btn" data-i18n="exportMarkdown">Export Markdown</button>
+        </div>
+      </div>
+    </details>
+
     <!-- Disabled sites -->
     <details class="config-panel">
       <summary class="config-header">
