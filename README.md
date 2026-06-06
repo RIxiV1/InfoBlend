@@ -31,11 +31,6 @@
 - **Read-time estimate** of the original text shown alongside the summary.
 - Works offline via a local TF-IDF extractive algorithm; AI providers (Gemini, OpenAI, or any custom endpoint) upgrade quality automatically when configured.
 
-### Chat with the Page
-- **Ctrl+K → type a question ending in `?`** (or prefix with `ask `) to query the current article.
-- Strictly grounded in the page text — the prompt forbids the model from inventing or using outside knowledge.
-- AI-key required for this feature; falls back with an explicit message if missing.
-
 ### Knowledge Vault
 - **Bookmark icon** in every overlay saves the current definition, summary, or translation.
 - **Saved panel in the popup** shows your latest items with one-click delete and links back to the original page.
@@ -44,7 +39,6 @@
 
 ### Command Palette (Ctrl+K)
 - Summarize the current page.
-- Ask the page a question.
 - Define an arbitrary word without selecting it on the page.
 - Recent commands and definitions are prioritized.
 
@@ -92,7 +86,6 @@ InfoBlend works fully without an API key. Adding one unlocks:
 - Context-aware definitions (the surrounding sentence becomes part of the prompt)
 - Idiom-preserving translations
 - Higher-quality summaries (your choice of bullets or prose)
-- Chat with the Page
 
 To enable AI:
 
@@ -143,7 +136,7 @@ infoblend/
 │   ├── highlights.js              Session-persistent in-page term highlights
 │   ├── toast.js                   One-time discoverability toasts (e.g. Ctrl+K hint)
 │   ├── overlay.js                 Tooltip + panel: definitions, summaries, vault, pin, drag
-│   └── palette.js                 Ctrl+K command palette (summarize, define, ask)
+│   └── palette.js                 Ctrl+K command palette (summarize, define)
 │
 ├── utils/
 │   ├── api.js                     Definition chain + AI + MyMemory translation
@@ -194,7 +187,7 @@ Host permissions are **not** declared — InfoBlend uses `activeTab` only, which
 | Feature | Chrome | Edge | Firefox |
 |---------|--------|------|---------|
 | Definitions, translations, summaries | ✅ | ✅ | ✅ |
-| Ctrl+K palette + Chat with the Page | ✅ | ✅ | ✅ |
+| Ctrl+K command palette | ✅ | ✅ | ✅ |
 | TTS pronunciation | ✅ | ✅ | ✅ |
 | Shadow DOM isolation | ✅ | ✅ | ✅ |
 | `chrome.storage.sync` | ✅ | ✅ | ✅ |

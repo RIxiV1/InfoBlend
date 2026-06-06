@@ -4,7 +4,6 @@ import { getStorageData } from './utils/storage.js';
 import { generateIntelligentSummary } from './utils/summarizer.js';
 import { translateError } from './utils/errors.js';
 import { MSG } from './utils/constants.js';
-import { chunk as chunkArticle, scoreChunks, parseCitations } from './utils/chunker.js';
 
 /**
  * Background Service Worker for InfoBlend.
@@ -196,8 +195,7 @@ const VALID_MESSAGES = {
   [MSG.FETCH_DEFINITION]: { required: ['word'], optional: ['context'] },
   [MSG.FETCH_AUDIO]: { required: ['url'] },
   [MSG.PERFORM_SUMMARIZATION]: { required: ['text'] },
-  [MSG.PERFORM_TRANSLATION]: { required: ['text'], optional: ['context'] },
-  [MSG.PERFORM_PAGE_QA]: { required: ['text', 'question'] }
+  [MSG.PERFORM_TRANSLATION]: { required: ['text'], optional: ['context'] }
 };
 
 function validateMessage(message) {
@@ -254,40 +252,6 @@ chrome.runtime.onMessage.addListener(wrapAsync(async (message, sender, sendRespo
     case MSG.PERFORM_TRANSLATION: {
       const { translated, source, targetLanguage } = await handleTranslation(message.text, message.context || '');
       sendResponse({ success: true, translated, source, targetLanguage });
-      return;
-    }
-
-    case MSG.PERFORM_PAGE_QA: {
-      const { aiEndpoint, aiKey, aiProvider } = await getAISettings();
-      if (!aiKey || !aiEndpoint) {
-        sendResponse({ success: false, error: 'Page Q&A needs an AI key. Add one in the popup.' });
-        return;
-      }
-      // Chunk → score → top-K → numbered passages. This makes the answer
-      // grounded in a small relevant subset instead of a 12k-char blast,
-      // which is faster, cheaper, and lets the model cite specific
-      // passages we can surface as Sources in the UI.
-      const chunks = chunkArticle(message.text, { targetChars: 800, maxChunks: 40 });
-      const ranked = scoreChunks(chunks, message.question, { topK: 5 });
-      const usedChunks = ranked.length
-        ? ranked
-        // No query terms matched any chunk — fall back to the first 5 so the
-        // model has SOMETHING to ground in (and can honestly say "the page
-        // doesn't address that").
-        : chunks.slice(0, 5).map((text, index) => ({ index, score: 0, text }));
-
-      // Number passages from 1 for human-readable citations.
-      const numbered = usedChunks.map((c, i) => `[${i + 1}] ${c.text}`).join('\n\n');
-      const answer = await fetchAIResponse(numbered, aiEndpoint, aiKey, aiProvider, 'pageqa', '', 'bullets', message.question);
-
-      // Pull cited indices out of the answer and return only those chunks
-      // back to the UI. If the model cited none, return all top-K as
-      // candidates — better to show something than to claim "no source."
-      const cited = parseCitations(answer);
-      const sources = (cited.size ? usedChunks.filter((_, i) => cited.has(i + 1)) : usedChunks)
-        .map((c, i) => ({ marker: i + 1, text: c.text }));
-
-      sendResponse({ success: true, answer, sources, source: `AI (${aiProvider})` });
       return;
     }
 

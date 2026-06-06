@@ -112,22 +112,10 @@
 
     const commands = [
       { id: 'summarize', label: 'Summarize Page', hint: 'Enter' },
-      { id: 'ask', label: 'Ask the page...', hint: 'Type a question' },
       { id: 'define', label: 'Define...', hint: 'Type word' }
     ];
 
     let selectedIndex = 0;
-
-    // Question detection: anything ending in "?" OR starting with "ask " is
-    // treated as a page-Q&A query. Definition disambiguation via "define "
-    // remains explicit so it doesn't accidentally swallow short questions.
-    const detectQuestion = (raw) => {
-      const f = raw.trim();
-      if (!f) return null;
-      if (/^ask\s+/i.test(f)) return f.replace(/^ask\s+/i, '').trim() || null;
-      if (f.endsWith('?')) return f;
-      return null;
-    };
 
     const renderResults = (filter = '') => {
       resultsArea.innerHTML = '';
@@ -136,10 +124,7 @@
         filter.startsWith('define ')
       );
 
-      const question = detectQuestion(filter);
-      if (question) {
-        filtered.unshift({ id: 'ask-question', label: `Ask: “${question}”`, hint: 'Enter', question });
-      } else if (filter.startsWith('define ')) {
+      if (filter.startsWith('define ')) {
         const word = filter.replace('define ', '').trim();
         if (word) filtered.unshift({ id: 'define-word', label: `Define "${word}"`, hint: 'Enter', word });
       } else if (filter && !filtered.length) {
@@ -204,15 +189,6 @@
         currentFiltered = renderResults(input.value);
         return;
       }
-      if (cmd.id === 'ask') {
-        // Prefill so the next keystroke is the question
-        input.value = 'ask ';
-        input.focus();
-        selectedIndex = 0;
-        currentFiltered = renderResults(input.value);
-        return;
-      }
-
       togglePalette();
       // Palette interactions are inherently keyboard-driven — pass the
       // flag through so the resulting overlay auto-focuses its first
@@ -234,27 +210,6 @@
             // Was silently swallowed before — now surface the error so the
             // skeleton doesn't spin forever on a failed lookup.
             ib.updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
-          }
-        });
-      } else if (cmd.id === 'ask-question') {
-        // Chat with the Page: extract article, send to AI with the user's
-        // question, render answer in the overlay. AI-key-required (the
-        // background handler returns an error if missing).
-        ib.showLoadingOverlay({ mode: 'panel', viaKeyboard: true });
-        const article = typeof ib.extractArticleContent === 'function' ? (ib.extractArticleContent() || '') : '';
-        if (!article.trim()) {
-          ib.updateOverlay('Notice', 'No readable content found on this page.', 'InfoBlend');
-          return;
-        }
-        const owningHost = ib.getOverlayHost?.() || null;
-        ib.sendMessage({ type: ib.MSG.PERFORM_PAGE_QA, text: article, question: cmd.question }, (response) => {
-          if (!isCurrentOverlay(owningHost)) return;
-          if (response?.success) {
-            ib.updateOverlay(`Q: ${cmd.question}`, response.answer, response.source || 'InfoBlend', {
-              sources: response.sources || []
-            });
-          } else {
-            ib.updateOverlay('Notice', response?.error || 'Could not answer that question.', 'InfoBlend');
           }
         });
       }

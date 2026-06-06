@@ -410,9 +410,8 @@ export const fetchDefinition = async (word) => {
  * Retries transient failures (429, 5xx, network errors) up to 2 times with exponential backoff.
  * @param {string} context - Optional surrounding text for context-aware definitions.
  */
-// promptType: 'define' | 'summarize' | 'translate' | 'pageqa'
+// promptType: 'define' | 'summarize' | 'translate'
 // For 'translate', pass the target language code (e.g. 'es', 'fr') in `extra`.
-// For 'pageqa', pass the user's question in `extra`.
 export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', promptType = 'define', context = '', summaryStyle = 'bullets', extra = '') => {
   if (!endpoint?.startsWith('http')) throw new Error('Invalid API Endpoint. Please check your settings.');
 
@@ -445,14 +444,6 @@ export const fetchAIResponse = async (text, endpoint, key, provider = 'gemini', 
       prompt = `Translate "${text}" to ${targetLang}. Reply with ONLY the translation, no quotes or commentary.`;
     }
     maxTokens = 200;
-  } else if (promptType === 'pageqa') {
-    // Q&A over the current page. `text` is now PRE-CHUNKED and numbered by
-    // the caller (background.js), so each passage carries an [N] marker the
-    // model can cite back. Strict instruction to answer only from the
-    // provided passages and to mark every claim with the source chunk index.
-    const question = String(extra || '').trim();
-    prompt = `Answer the question using ONLY the numbered passages below. Cite the passage you used by appending its number in square brackets, e.g. "...as the article notes [2]." If the answer isn't in the passages, say "The page doesn't address that" — do not invent or use outside knowledge.\n\nPASSAGES:\n${text}\n\nQUESTION: ${question}`;
-    maxTokens = 500;
   } else if (context) {
     prompt = `Define "${text}" as used in this context: "${context.substring(0, 300)}"\n\nGive the specific meaning that applies here in 1-2 clear sentences.`;
   } else {

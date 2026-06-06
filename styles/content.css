@@ -542,49 +542,6 @@
 .ib-empty-state svg { color: var(--ib-text-3) !important; opacity: 0.5; }
 .ib-empty-state-text { font-size: 12px !important; color: var(--ib-text-2) !important; line-height: 1.5; }
 
-/* ─── Chat-with-the-Page sources ─── */
-.ib-qa-sources {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--ib-border);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ib-qa-sources-title {
-  font-size: 10px !important;
-  font-weight: 600 !important;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ib-text-3) !important;
-  margin-bottom: 2px;
-}
-
-.ib-qa-source-card {
-  display: flex;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--ib-card-bg) !important;
-  border: 1px solid var(--ib-border) !important;
-  border-radius: 8px;
-  font-size: 12px !important;
-  line-height: 1.5 !important;
-}
-
-.ib-qa-source-marker {
-  flex-shrink: 0;
-  font-family: var(--ib-font-mono) !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  color: var(--ib-accent) !important;
-}
-
-.ib-qa-source-text {
-  color: var(--ib-text-2) !important;
-  word-break: break-word;
-}
-
 /* ─── Context Note ─── */
 .ib-context-note {
   margin-top: 8px;
