@@ -20,9 +20,18 @@
   // overlay opens fresh (showLoadingOverlay) or closes.
   let _currentDef = null;
   let _navHistory = [];
-  // Count of currently-pinned (detached) overlays, used to cascade-offset
-  // newly-pinned panels so they don't stack at the same screen position.
-  let _pinnedCount = 0;
+  // Cascade-offset bookkeeping for pinned overlays. Tracks WHICH slot indices
+  // are taken, not just how many — so closing the first of three pinned
+  // overlays correctly frees slot 0 instead of leaving subsequent pins to
+  // collide with slot 2. Slot N puts the overlay at top:16+N*step, right same.
+  const _pinSlots = new Set();
+  function takePinSlot() {
+    let i = 0;
+    while (_pinSlots.has(i)) i++;
+    _pinSlots.add(i);
+    return i;
+  }
+  function releasePinSlot(slot) { _pinSlots.delete(slot); }
 
   // DOM helper — reduces createElement + className boilerplate
   const el = (tag, cls, text) => {
@@ -351,7 +360,11 @@
             // the chip is rendered inside an overlay, but be defensive).
             showLoadingOverlay(_anchor);
           }
+          // Snapshot the host so a late response after dismiss/close doesn't
+          // silently re-open a fresh panel. Same pattern as palette callbacks.
+          const owningHost = overlayHost;
           ib.sendMessage({ type: ib.MSG.FETCH_DEFINITION, word: w }, (resp) => {
+            if (overlayHost !== owningHost || !owningHost?.isConnected) return;
             if (resp?.success && resp.data) {
               updateOverlay(resp.data.title, resp.data.content, resp.data.source, resp.data);
             } else {
@@ -470,6 +483,23 @@
   const VAULT_KEY = 'savedItems';
   const VAULT_MAX = 500;
 
+  // Mutex on vault read-modify-write. Without this, a popup-side delete and
+  // an overlay-side save running concurrently both do:
+  //   const items = await loadVault();
+  //   ...mutate...
+  //   await chrome.storage.local.set({ [VAULT_KEY]: items });
+  // The later set() clobbers the earlier — either the save vanishes or the
+  // deleted item resurrects. Chaining onto _vaultLock serializes them.
+  let _vaultLock = Promise.resolve();
+  function withVaultLock(fn) {
+    const next = _vaultLock.then(fn, fn);
+    // Swallow rejection on the lock chain so one failing mutation doesn't
+    // permanently break subsequent ones. The fn's own promise still rejects
+    // to its caller normally.
+    _vaultLock = next.catch(() => {});
+    return next;
+  }
+
   async function loadVault() {
     try {
       const res = await chrome.storage.local.get([VAULT_KEY]);
@@ -498,36 +528,43 @@
 
   async function toggleSaveCurrent(btn) {
     if (!_currentDef) return;
-    const items = await loadVault();
-    const id = vaultIdFor(location.href, _currentDef.title);
-    const existingIdx = items.findIndex(it => it.id === id);
-    if (existingIdx >= 0) {
-      items.splice(existingIdx, 1);
-      btn.setAttribute('aria-pressed', 'false');
-      btn.setAttribute('aria-label', 'Save to vault');
-    } else {
-      // Type discriminator helps the popup vault UI group items.
-      const titleLower = String(_currentDef.title || '').toLowerCase();
-      let type = 'definition';
-      if (titleLower.includes('summary')) type = 'summary';
-      else if (titleLower === 'translation') type = 'translation';
-      items.unshift({
-        id,
-        title: _currentDef.title,
-        content: _currentDef.content || '',
-        source: _currentDef.source || '',
-        type,
-        extra: _currentDef.extra || {},
-        url: location.href,
-        pageTitle: document.title || '',
-        savedAt: new Date().toISOString()
-      });
-      if (items.length > VAULT_MAX) items.length = VAULT_MAX;
-      btn.setAttribute('aria-pressed', 'true');
-      btn.setAttribute('aria-label', 'Remove from vault');
-    }
-    try { await chrome.storage.local.set({ [VAULT_KEY]: items }); }
-    catch { /* quota or storage unavailable — UI state is best-effort */ }
+    // Snapshot fields BEFORE entering the lock so the mutation captures the
+    // definition state at click time, not whatever might be current when the
+    // lock resolves (could be a different lookup by then).
+    const snap = {
+      id: vaultIdFor(location.href, _currentDef.title),
+      title: _currentDef.title,
+      content: _currentDef.content || '',
+      source: _currentDef.source || '',
+      extra: _currentDef.extra || {},
+      url: location.href,
+      pageTitle: document.title || ''
+    };
+    const titleLower = String(snap.title || '').toLowerCase();
+    let type = 'definition';
+    if (titleLower.includes('summary')) type = 'summary';
+    else if (titleLower === 'translation') type = 'translation';
+
+    return withVaultLock(async () => {
+      const items = await loadVault();
+      const existingIdx = items.findIndex(it => it.id === snap.id);
+      if (existingIdx >= 0) {
+        items.splice(existingIdx, 1);
+        if (btn.isConnected) {
+          btn.setAttribute('aria-pressed', 'false');
+          btn.setAttribute('aria-label', 'Save to vault');
+        }
+      } else {
+        items.unshift({ ...snap, type, savedAt: new Date().toISOString() });
+        if (items.length > VAULT_MAX) items.length = VAULT_MAX;
+        if (btn.isConnected) {
+          btn.setAttribute('aria-pressed', 'true');
+          btn.setAttribute('aria-label', 'Remove from vault');
+        }
+      }
+      try { await chrome.storage.local.set({ [VAULT_KEY]: items }); }
+      catch { /* quota or storage unavailable — UI state is best-effort */ }
+    });
   }
 
   // --- Pin / detach: turn the current overlay into a free-standing copy ---
@@ -551,21 +588,27 @@
     btn.setAttribute('aria-pressed', 'true');
     btn.setAttribute('aria-label', 'Unpin and close');
 
-    // Cascade: offset this overlay by step * (existing pinned count) so a
-    // second/third pin doesn't land directly under the first. Only nudge if
-    // the user hasn't already dragged it — a custom drag position should
-    // win over auto-cascade.
+    // Cut off any in-flight audio/TTS BEFORE we sever the singleton refs.
+    // Otherwise the audio element keeps playing past close (since the pinned
+    // host doesn't own it — the <audio> is appended to document.body and the
+    // singleton ref is now null, so closeOverlay's stopAllAudio sees nothing
+    // to stop). Honest about the trade-off: audio gets clipped at pin time,
+    // which is a smaller surprise than ghost audio playing after dismiss.
+    stopAllAudio();
+
+    // Cascade: pick the lowest unused slot and offset this overlay accordingly.
+    // Tracked per-container so closing out of order doesn't desync the cascade.
+    // Skip if the user has already dragged it — explicit drag wins over auto.
     if (!container.style.left && (container.style.right === '' || container.style.right === '16px')) {
+      const slot = takePinSlot();
+      container.dataset.ibPinSlot = String(slot);
       const step = 28;
-      const offset = Math.min(_pinnedCount * step, 160);
+      const offset = Math.min(slot * step, 160);
       if (offset > 0) {
         container.style.top = `${16 + offset}px`;
         container.style.right = `${16 + offset}px`;
       }
     }
-    _pinnedCount++;
-    // When this pinned overlay is later closed, decrement so subsequent
-    // pins re-use the freed slot. closeOverlay reads `data-ib-pinned`.
 
     // Detach from singleton tracking — the host stays in DOM but the module
     // forgets about it. Close button still works (it's wired directly to
@@ -969,8 +1012,9 @@
   function closeOverlay(host, container) {
     // Decrement the pinned counter if this overlay was detached. The active
     // (non-pinned) overlay's close doesn't affect the cascade slot count.
-    if (container?.getAttribute('data-ib-pinned') === 'true' && _pinnedCount > 0) {
-      _pinnedCount--;
+    if (container?.getAttribute('data-ib-pinned') === 'true') {
+      const slot = parseInt(container.dataset.ibPinSlot ?? '', 10);
+      if (!isNaN(slot)) releasePinSlot(slot);
     }
     stopAllAudio();
     if (_dismissHandler) {
@@ -1038,5 +1082,8 @@
     }
   }
 
-  Object.assign(ib, { showLoadingOverlay, updateOverlay, handlePageSummarization, handleMessage, showRetryingStatus });
+  // Expose a read-only host accessor for external callers (palette uses this
+  // to detect stale callbacks — see modules/palette.js isCurrentOverlay).
+  const getOverlayHost = () => overlayHost;
+  Object.assign(ib, { showLoadingOverlay, updateOverlay, handlePageSummarization, handleMessage, showRetryingStatus, getOverlayHost });
 })();

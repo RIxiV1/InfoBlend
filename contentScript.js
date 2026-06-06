@@ -18,8 +18,23 @@
   )) {
     window.__ib.modulesLoaded = false;
     window.__ib._loadingPromise = null;
+    // Functions are gone → the listeners that referenced them are dead too.
+    // Clear the bootstrap-attached flag so this run re-attaches fresh ones
+    // (otherwise the page silently has no working listeners after reload).
+    window.__ib._bootstrapAttached = false;
   }
   window.__ib = window.__ib || { modulesLoaded: false, _loadingPromise: null };
+
+  // Bootstrap idempotency: extension reload re-runs the content scripts in
+  // the same long-lived tab, and the inner module guards (_overlayLoaded,
+  // _paletteLoaded, etc.) are intentionally reset above so functions get
+  // replaced. But document-level listeners (mouseup, dblclick, keydown,
+  // mousedown, scroll, keyup, message) added below are NOT idempotent —
+  // each reload appends a fresh copy. Old ones short-circuit via
+  // chrome.runtime?.id checks, but their closures retain the old module
+  // state and they accumulate per reload. This guard skips re-attaching.
+  if (window.__ib._bootstrapAttached) return;
+  window.__ib._bootstrapAttached = true;
 
   // Mirror of utils/constants.js (content scripts can't import ES modules).
   // Keep both in sync — divergence becomes a silent send/listen mismatch.

@@ -94,9 +94,11 @@
     _activeUtter = utter;
 
     let ended = false;
+    let watchdog = null;
     const finish = () => {
       if (ended) return;
       ended = true;
+      if (watchdog) { clearTimeout(watchdog); watchdog = null; }
       if (_activeUtter === utter) _activeUtter = null;
       opts.onEnd?.();
     };
@@ -114,7 +116,10 @@
 
     // Watchdog: 200-char cap means even slow voices finish in ~12s. Anything
     // past 15s is a dropped queue — clear the visual state regardless.
-    setTimeout(() => { if (!ended && _activeUtter === utter) finish(); }, 15000);
+    // Stored so normal completion clears it, otherwise rapid repeated speak()
+    // calls leak one 15s timer per call (each retaining the utterance closure
+    // and the onEnd callback via the captured overlay button).
+    watchdog = setTimeout(() => { if (!ended && _activeUtter === utter) finish(); }, 15000);
 
     return true;
   }

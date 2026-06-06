@@ -9,13 +9,24 @@
   ib._paletteLoaded = true;
 
   let paletteHost = null;
+  // Focus to restore on close. Captured at open time so Escape returns the
+  // user to wherever they were before Ctrl+K. Mirror of the overlay's _prevFocus.
+  let _palettePrevFocus = null;
 
   function togglePalette() {
     if (paletteHost) {
       paletteHost.remove();
       paletteHost = null;
+      // Restore focus to the element that was focused when the palette opened,
+      // but only if it's still in the document. If it was removed (page nav,
+      // disconnected node) the browser already moved focus to body — leave it.
+      if (_palettePrevFocus && document.contains(_palettePrevFocus) && typeof _palettePrevFocus.focus === 'function') {
+        try { _palettePrevFocus.focus(); } catch { /* element may have been disabled */ }
+      }
+      _palettePrevFocus = null;
       return;
     }
+    _palettePrevFocus = document.activeElement;
 
     const { host, shadow } = ib.createShadowHost('infoblend-palette-host', ['overlay/overlay.css']);
     paletteHost = host;
@@ -210,8 +221,20 @@
         ib.handlePageSummarization({ viaKeyboard: true });
       } else if (cmd.id === 'define-word') {
         ib.showLoadingOverlay({ mode: 'panel', viaKeyboard: true });
+        // Capture the host that just opened. If the user dismisses the
+        // overlay (Esc, click-outside, close) before the response arrives,
+        // the in-flight callback would otherwise call updateOverlay on a
+        // null singleton and silently re-open a fresh panel.
+        const owningHost = ib.getOverlayHost?.() || null;
         ib.sendMessage({ type: ib.MSG.FETCH_DEFINITION, word: cmd.word }, (response) => {
-          if (response?.success) ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
+          if (!isCurrentOverlay(owningHost)) return;
+          if (response?.success) {
+            ib.updateOverlay(response.data.title, response.data.content, response.data.source, response.data);
+          } else {
+            // Was silently swallowed before — now surface the error so the
+            // skeleton doesn't spin forever on a failed lookup.
+            ib.updateOverlay('Notice', response?.error || 'No definition found.', 'InfoBlend');
+          }
         });
       } else if (cmd.id === 'ask-question') {
         // Chat with the Page: extract article, send to AI with the user's
@@ -223,10 +246,10 @@
           ib.updateOverlay('Notice', 'No readable content found on this page.', 'InfoBlend');
           return;
         }
+        const owningHost = ib.getOverlayHost?.() || null;
         ib.sendMessage({ type: ib.MSG.PERFORM_PAGE_QA, text: article, question: cmd.question }, (response) => {
+          if (!isCurrentOverlay(owningHost)) return;
           if (response?.success) {
-            // sources is an array of { marker, text } — overlay renders them
-            // as a "Sources" section below the answer for verification.
             ib.updateOverlay(`Q: ${cmd.question}`, response.answer, response.source || 'InfoBlend', {
               sources: response.sources || []
             });
@@ -236,6 +259,17 @@
         });
       }
     };
+
+    // Helper: was the overlay we created still the active one when the
+    // response landed? If the user dismissed it (or it was replaced by a
+    // newer lookup), the captured host is null or detached.
+    function isCurrentOverlay(captured) {
+      const current = window.__ib?._infoblendHost || null;
+      // If we didn't capture (overlay singleton wasn't tracked at the time),
+      // accept the result — failing closed would just regress the feature.
+      if (!captured) return true;
+      return captured === current && captured.isConnected;
+    }
 
     input.oninput = (e) => {
       selectedIndex = 0;
