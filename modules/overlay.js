@@ -33,6 +33,15 @@
   }
   function releasePinSlot(slot) { _pinSlots.delete(slot); }
 
+  // SVG-from-string helper. innerHTML triggers AMO's "unsafe assignment" warning
+  // even for fully static markup with no user data, so we parse once with
+  // DOMParser and use .replaceChildren / .append for icon swaps instead.
+  // Caller is responsible for cloneNode if reusing the same parsed result.
+  function svgFromString(s) {
+    const doc = new DOMParser().parseFromString(s, 'image/svg+xml');
+    return document.importNode(doc.documentElement, true);
+  }
+
   // DOM helper — reduces createElement + className boilerplate
   const el = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -957,11 +966,11 @@
     const controls = container.querySelector('.infoblend-controls');
     controls.querySelector('.infoblend-copy')?.remove();
 
-    const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-    const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const copyIconStr = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const checkIconStr = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ib-accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     const copyBtn = el('button', 'infoblend-btn infoblend-copy');
     copyBtn.setAttribute('aria-label', 'Copy');
-    copyBtn.innerHTML = copyIcon;
+    copyBtn.replaceChildren(svgFromString(copyIconStr));
 
     // Build plain text for clipboard
     const copyText = extra.isRich
@@ -993,9 +1002,9 @@
         } catch { ok = false; }
       }
       if (ok) {
-        copyBtn.innerHTML = checkIcon;
+        copyBtn.replaceChildren(svgFromString(checkIconStr));
         copyBtn.classList.add('ib-copied');
-        setTimeout(() => { copyBtn.innerHTML = copyIcon; copyBtn.classList.remove('ib-copied'); }, 2000);
+        setTimeout(() => { copyBtn.replaceChildren(svgFromString(copyIconStr)); copyBtn.classList.remove('ib-copied'); }, 2000);
       } else {
         copyBtn.classList.add('ib-copy-failed');
         copyBtn.setAttribute('aria-label', 'Copy failed — try selecting the text manually');
