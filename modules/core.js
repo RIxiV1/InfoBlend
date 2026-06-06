@@ -41,23 +41,21 @@
   const smartHighlight = (text) => {
     if (!text) return document.createTextNode('');
     const fragment = document.createDocumentFragment();
-    const seen = new Set();
     let lastIndex = 0;
 
+    // Wrap every match, not just the first. The old "annotate once per
+    // fragment" behavior left the second and third "API" in a sentence
+    // unstyled, which scans as inconsistent — readers wonder why one is
+    // highlighted and the next isn't. Acronyms work as visual anchors, so
+    // every instance gets the same treatment.
     _highlightPattern.lastIndex = 0;
     let match;
     while ((match = _highlightPattern.exec(text)) !== null) {
       fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
-      const term = match[0];
-      if (!seen.has(term)) {
-        seen.add(term);
-        const span = document.createElement('span');
-        span.className = 'ib-highlight';
-        span.textContent = term;
-        fragment.appendChild(span);
-      } else {
-        fragment.appendChild(document.createTextNode(term));
-      }
+      const span = document.createElement('span');
+      span.className = 'ib-highlight';
+      span.textContent = match[0];
+      fragment.appendChild(span);
       lastIndex = _highlightPattern.lastIndex;
     }
     fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
