@@ -169,7 +169,17 @@
     pinBtn.setAttribute('aria-label', 'Pin overlay');
     pinBtn.setAttribute('aria-pressed', 'false');
     pinBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-3h-11z"/><path d="M9 14V6a3 3 0 0 1 6 0v8"/></svg>`;
-    pinBtn.onclick = (e) => { e.stopPropagation(); pinOverlay(host, container, pinBtn); };
+    // Toggle: pin if unpinned, close (unpin) if already pinned. Closing is
+    // the simplest "undo pin" semantics — the user pinned it to keep it
+    // around; if they don't want to keep it around, dismiss it.
+    pinBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (container.hasAttribute('data-ib-pinned')) {
+        closeOverlay(host, container);
+      } else {
+        pinOverlay(host, container, pinBtn);
+      }
+    };
     controls.appendChild(pinBtn);
 
     const closeBtn = el('button', 'infoblend-btn infoblend-close');
@@ -517,8 +527,7 @@
     if (container.hasAttribute('data-ib-pinned')) return; // already pinned
     container.setAttribute('data-ib-pinned', 'true');
     btn.setAttribute('aria-pressed', 'true');
-    btn.setAttribute('aria-label', 'Pinned');
-    btn.disabled = true;
+    btn.setAttribute('aria-label', 'Unpin and close');
 
     // Cascade: offset this overlay by step * (existing pinned count) so a
     // second/third pin doesn't land directly under the first. Only nudge if
