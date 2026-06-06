@@ -35,7 +35,8 @@
     SHOW_RETRYING: 'SHOW_RETRYING',
     SUMMARIZE_PAGE: 'SUMMARIZE_PAGE',
     SUMMARIZE_SELECTION: 'SUMMARIZE_SELECTION',
-    TRANSLATE_SELECTION: 'TRANSLATE_SELECTION'
+    TRANSLATE_SELECTION: 'TRANSLATE_SELECTION',
+    GET_SELECTION_CONTEXT: 'GET_SELECTION_CONTEXT'
   });
   const MSG = window.__ib.MSG;
 
@@ -90,7 +91,12 @@
       Object.assign(window.__ib._settings, localFallback, syncRes);
     }).catch(() => { /* storage unavailable */ });
     chrome.storage.onChanged?.addListener((changes, area) => {
-      if (area !== 'sync' && area !== 'local') return;
+      // Sync is authoritative for these settings; we only read from local
+      // during bootstrap as a one-time migration fallback. If we also
+      // listened to local-area changes here, a stray local write (or a
+      // future code path) could silently overwrite the synced value with
+      // a stale one and clobber the user's actual preference.
+      if (area !== 'sync') return;
       for (const k of SYNCED_SETTING_KEYS) {
         if (k in changes) window.__ib._settings[k] = changes[k].newValue;
       }
@@ -171,22 +177,37 @@
     }
     const block = container || range.startContainer.parentElement;
     if (!block) return '';
-    const fullText = block.innerText || '';
-    const MAX = 300;
-    if (fullText.length <= MAX) return fullText.trim();
 
-    // Center the context window around the selected text rather than taking
-    // chars 0..300 of the block — for long paragraphs (e.g., 800-char Wikipedia
-    // intros) the first 300 chars often don't even contain the word the user
-    // selected, making the "as used in this context" prompt useless.
+    // Use textContent (raw, includes all whitespace) so the Range offset and
+    // the indexed string agree. We collapse whitespace at the very end for
+    // a clean snippet — but only after we've already found the right span.
+    const fullText = block.textContent || '';
+    const MAX = 300;
     const selected = selection.toString();
-    const idx = selected ? fullText.indexOf(selected) : -1;
-    if (idx < 0) return fullText.substring(0, MAX).trim();
+    const collapse = (s) => s.replace(/\s+/g, ' ').trim();
+    if (fullText.length <= MAX) return collapse(fullText);
+
+    // Compute the exact character offset of the selection's start within the
+    // block's textContent. Previously this used fullText.indexOf(selected),
+    // which always found the FIRST occurrence — wrong when the user selected
+    // (say) the third "apple" in a paragraph. The Range trick below uses the
+    // same offset model the browser uses to track the cursor, so we always
+    // pick the right instance.
+    let idx = -1;
+    if (selected) {
+      try {
+        const pre = document.createRange();
+        pre.selectNodeContents(block);
+        pre.setEnd(range.startContainer, range.startOffset);
+        idx = pre.toString().length;
+      } catch { idx = fullText.indexOf(selected); }
+    }
+    if (idx < 0) return collapse(fullText.substring(0, MAX));
 
     const halfBudget = Math.max(80, Math.floor((MAX - selected.length) / 2));
     const start = Math.max(0, idx - halfBudget);
     const end = Math.min(fullText.length, idx + selected.length + halfBudget);
-    let snippet = fullText.substring(start, end).trim();
+    let snippet = collapse(fullText.substring(start, end));
     if (start > 0) snippet = '…' + snippet;
     if (end < fullText.length) snippet = snippet + '…';
     return snippet;
@@ -263,76 +284,95 @@
 
     const isDark = detectPageTheme(rect.left + rect.width / 2, rect.top) === 'dark';
 
-    shadow.innerHTML = `
-      <style>
-        :host { display: block; }
+    // CSP-safe: inline <style> in shadow DOM is blocked by strict style-src
+    // policies (GitHub, banks, secure web apps). adoptedStyleSheets bypasses
+    // that — it's a programmatic CSSStyleSheet, not parsed as inline.
+    const css = `
+      :host { display: block; }
+      .ib-define-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 14px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: ${isDark ? '#f0f0f0' : '#1d1d1f'};
+        background: ${isDark ? 'rgba(44, 44, 46, 0.95)' : 'rgba(255, 255, 255, 0.95)'};
+        border: 1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'};
+        border-radius: 8px;
+        cursor: pointer;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: 0 4px 16px rgba(0,0,0,${isDark ? '0.4' : '0.12'}), 0 1px 4px rgba(0,0,0,0.08);
+        opacity: 0;
+        transform: translateY(4px) scale(0.95);
+        animation: ib-pop-in 0.15s ease forwards;
+        transition: background 0.1s, border-color 0.1s;
+      }
+      .ib-define-btn:hover {
+        background: ${isDark ? 'rgba(74, 144, 255, 0.15)' : 'rgba(74, 144, 255, 0.1)'};
+        border-color: rgba(74, 144, 255, 0.4);
+      }
+      .ib-define-btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(74, 144, 255, 0.35);
+      }
+      .ib-define-btn svg {
+        color: #4a90ff;
+        flex-shrink: 0;
+      }
+      @keyframes ib-pop-in {
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
         .ib-define-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 5px 14px;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 0.01em;
-          color: ${isDark ? '#f0f0f0' : '#1d1d1f'};
-          background: ${isDark ? 'rgba(44, 44, 46, 0.95)' : 'rgba(255, 255, 255, 0.95)'};
-          border: 1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'};
-          border-radius: 8px;
-          cursor: pointer;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          box-shadow: 0 4px 16px rgba(0,0,0,${isDark ? '0.4' : '0.12'}), 0 1px 4px rgba(0,0,0,0.08);
-          opacity: 0;
-          transform: translateY(4px) scale(0.95);
-          animation: ib-pop-in 0.15s ease forwards;
-          transition: background 0.1s, border-color 0.1s;
+          animation: none;
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
-        .ib-define-btn:hover {
-          background: ${isDark ? 'rgba(74, 144, 255, 0.15)' : 'rgba(74, 144, 255, 0.1)'};
-          border-color: rgba(74, 144, 255, 0.4);
-        }
-        .ib-define-btn:focus-visible {
-          outline: none;
-          box-shadow: 0 0 0 3px rgba(74, 144, 255, 0.35);
-        }
-        .ib-define-btn svg {
-          color: #4a90ff;
-          flex-shrink: 0;
-        }
-        @keyframes ib-pop-in {
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .ib-define-btn {
-            animation: none;
-            opacity: 1;
-            transform: none;
-            transition: none;
-          }
-        }
-      </style>
-      <button class="ib-define-btn" aria-label="Define selection">
-        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Define
-      </button>
+      }
     `;
+    try {
+      // Preferred path. CSSStyleSheet+replaceSync is supported in Chrome 73+
+      // and Firefox 101+, neither of which we're targeting below.
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(css);
+      shadow.adoptedStyleSheets = [sheet];
+    } catch {
+      // Defensive: if a browser somehow lacks Constructable Stylesheets, fall
+      // back to inline <style>. CSP will block it on strict sites, but the
+      // button at least exists (just unstyled) instead of failing entirely.
+      const style = document.createElement('style');
+      style.textContent = css;
+      shadow.appendChild(style);
+    }
 
-    document.body.appendChild(host);
+    const btnEl = document.createElement('button');
+    btnEl.className = 'ib-define-btn';
+    btnEl.setAttribute('aria-label', 'Define selection');
+    btnEl.innerHTML = `<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Define`;
+    shadow.appendChild(btnEl);
+
+    // document.body is null on standalone XML/SVG documents and certain
+    // framesets — fall back to the document element so the button still
+    // mounts. Mirrors the same guard in modules/core.js.
+    (document.body || document.documentElement).appendChild(host);
     _defineBtnHost = host;
 
-    const btn = shadow.querySelector('.ib-define-btn');
     const activate = () => {
       removeDefineBtn();
       triggerDefinition(text, rect, context);
     };
-    btn.addEventListener('mousedown', (e) => {
+    btnEl.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
       activate();
     });
     // Keyboard activation: button is focusable but mousedown-only handler missed Enter/Space
-    btn.addEventListener('keydown', (e) => {
+    btnEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         activate();
@@ -441,7 +481,19 @@
     MSG.SHOW_DEFINITION, MSG.SHOW_ERROR, MSG.SHOW_LOADING, MSG.SHOW_RETRYING,
     MSG.SUMMARIZE_PAGE, MSG.SUMMARIZE_SELECTION
   ]);
-  chrome.runtime.onMessage.addListener((message) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    // Synchronous request/response: extract context around the active
+    // selection. Background uses this for context-menu translate/define so
+    // those flows are context-aware (chrome.contextMenus.onClicked doesn't
+    // expose surrounding text). Returning true keeps the channel open.
+    if (message?.type === MSG.GET_SELECTION_CONTEXT) {
+      try {
+        const sel = window.getSelection();
+        const context = sel?.rangeCount ? extractContext(sel) : '';
+        sendResponse({ context });
+      } catch { sendResponse({ context: '' }); }
+      return true;
+    }
     if (!ROUTABLE.has(message.type) || !modulesReady()) return;
     // Per-site disable also silences popup/context-menu actions on this tab.
     // Without this gate, a disabled site would still pop the panel when the

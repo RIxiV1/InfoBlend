@@ -297,7 +297,12 @@ export class TranslationQuotaError extends Error {
  *   has been hit.
  */
 export async function fetchMyMemoryTranslation(text, targetLang, sourceLang = 'auto') {
-  const clipped = String(text || '').slice(0, 500);
+  // Grapheme-safe truncation. String.slice operates on UTF-16 code units, so
+  // cutting at character 500 can split a surrogate pair (emoji, math symbol,
+  // many CJK characters) in half — yielding malformed unicode that breaks
+  // the URL-encoded query. Array.from iterates by code point, preserving
+  // surrogate pairs as a single unit.
+  const clipped = Array.from(String(text || '')).slice(0, 500).join('');
   if (!clipped) return null;
   // MyMemory's free path uses langpair like "en|es"; "auto" works as source.
   const langpair = `${sourceLang || 'auto'}|${targetLang}`;

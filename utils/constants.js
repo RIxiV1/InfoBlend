@@ -22,5 +22,10 @@ export const MSG = Object.freeze({
   // Popup → Content (one-way)
   SUMMARIZE_PAGE: 'SUMMARIZE_PAGE',
   SUMMARIZE_SELECTION: 'SUMMARIZE_SELECTION',
-  TRANSLATE_SELECTION: 'TRANSLATE_SELECTION'
+  TRANSLATE_SELECTION: 'TRANSLATE_SELECTION',
+
+  // Background → Content (request/response) — used to grab the surrounding
+  // paragraph of the current selection so context-menu actions can be
+  // context-aware. chrome.contextMenus.onClicked itself doesn't expose this.
+  GET_SELECTION_CONTEXT: 'GET_SELECTION_CONTEXT'
 });

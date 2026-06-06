@@ -128,6 +128,17 @@ const wrapAsync = (callback) => (message, sender, sendResponse) => {
   return true; // keep channel open
 };
 
+// Best-effort context fetch from the content script. Used by the context-menu
+// flows because chrome.contextMenus.onClicked doesn't expose surrounding text.
+// Returns '' if the content script isn't reachable (e.g. the tab navigated)
+// rather than throwing — callers can still proceed with a context-free lookup.
+async function getSelectionContext(tabId) {
+  try {
+    const resp = await chrome.tabs.sendMessage(tabId, { type: MSG.GET_SELECTION_CONTEXT });
+    return typeof resp?.context === 'string' ? resp.context : '';
+  } catch { return ''; }
+}
+
 // --- Context menu trigger (define + summarize) ---
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!info.selectionText) return;
@@ -145,14 +156,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       });
     } else if (info.menuItemId === 'translate-ib') {
       await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_LOADING });
-      const { translated, source } = await handleTranslation(text);
+      // Grab surrounding paragraph so idiom-aware translation works from
+      // the context menu, not only from double-click flows.
+      const context = await getSelectionContext(tab.id);
+      const { translated, source } = await handleTranslation(text, context);
       await chrome.tabs.sendMessage(tab.id, {
         type: MSG.SHOW_DEFINITION,
         data: { title: 'Translation', content: translated, source, term: text }
       });
     } else if (info.menuItemId === 'define-ib') {
-      // Context menu has no surrounding-paragraph context (browser doesn't expose
-      // it), so we look up the bare term. Length cap matches fetchDefinition's.
       if (text.split(/\s+/).length > 5) {
         await chrome.tabs.sendMessage(tab.id, {
           type: MSG.SHOW_DEFINITION,
@@ -161,7 +173,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         return;
       }
       await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_LOADING });
-      const data = await handleDefinition(text);
+      // Same context-fetch as translate-ib so context-menu definitions match
+      // the quality of double-click ones.
+      const context = await getSelectionContext(tab.id);
+      const data = await handleDefinition(text, context);
       await chrome.tabs.sendMessage(tab.id, { type: MSG.SHOW_DEFINITION, data });
     }
   } catch (err) {
