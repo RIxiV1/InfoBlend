@@ -1,6 +1,26 @@
 /**
  * Encryption utility for Chrome Extension storage.
  * Uses Web Crypto API (AES-GCM) with cached key derivation.
+ *
+ * THREAT MODEL — please read before relying on this for anything sensitive.
+ *
+ * This module obfuscates the stored API key against:
+ *   - Casual disk inspection (the storage file shows ciphertext, not the key).
+ *   - Backup/sync leakage (the AI key never leaves the local device — only
+ *     non-sensitive prefs go to chrome.storage.sync).
+ *
+ * It does NOT defend against:
+ *   - Another extension or process with read access to chrome.storage.local
+ *     on the same profile. The PBKDF2 "password" is chrome.runtime.id, which
+ *     is public (visible in the URL bar of any extension page, listed in the
+ *     web store). The salt is stored alongside the ciphertext in storage. An
+ *     attacker who can read storage can derive the same key we do.
+ *   - Compromised native code or memory-scraping malware.
+ *
+ * Making the encryption real (in the sense of resisting same-profile attackers)
+ * would require a user-supplied passphrase on every browser restart. For a BYOK
+ * AI key whose blast radius is your own AI bill, that ergonomic cost is not
+ * worth the marginal security gain — so we ship the obfuscation knowingly.
  */
 
 const SALT_KEY = 'infoblend_salt';

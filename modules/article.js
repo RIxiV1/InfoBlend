@@ -33,16 +33,16 @@
 
     const junk = 'nav,footer,header,script,style,noscript,template,aside,[role="complementary"],[role="navigation"],[role="banner"],.sidebar,#sidebar,[class*="ad-"],[id*="ad-"],[class*="social"],[class*="share"],[class*="comment"],[class*="related"],[class*="recommend"],[class*="newsletter"],[class*="subscribe"],[class*="popup"],[class*="modal"],[class*="cookie"],[class*="banner"],.social-share,.comments-area,.related-posts,.breadcrumb,.pagination,.toc';
     const PROSE_SELECTOR = 'p, h1, h2, h3, h4, li, blockquote, figcaption';
+    const HEADING = /^H[1-6]$/;
+    // Carry tag through the pipeline so the final length filter can apply
+    // different thresholds. The previous flat 25-char floor was silently
+    // stripping H2/H3 titles ("Pricing", "Methodology", "Summary") which
+    // are exactly the semantic anchors Chat-with-the-Page relies on.
     const prose = Array.from(area.querySelectorAll(PROSE_SELECTOR))
       .filter(node => {
         if (node.closest(junk)) return false;
-        // Skip nodes nested inside another prose container. The outer container's
-        // innerText already includes the children, so keeping both produces
-        // duplicate text in the summarizer prompt (e.g., `<blockquote><p>foo</p><p>bar</p></blockquote>`
-        // would otherwise emit "foo\nbar", "foo", and "bar" — the Set dedup can't
-        // collapse them because the parent string is unique).
         if (node.parentElement?.closest(PROSE_SELECTOR)) return false;
-        if (node.offsetHeight === 0) return false; // hidden — cheaper than getComputedStyle
+        if (node.offsetHeight === 0) return false;
         const text = node.innerText;
         if (node.tagName === 'LI' && text.length < 15) return false;
         if (node.tagName === 'LI') {
@@ -51,8 +51,19 @@
         }
         return true;
       })
-      .map(node => node.innerText.trim())
-      .filter(t => t.length > 25 && !t.includes('function(') && !t.includes('var ') && t.split('|').length <= 3);
+      .map(node => ({ tag: node.tagName, text: node.innerText.trim() }))
+      .filter(({ tag, text }) => {
+        if (!text || text.includes('function(') || text.includes('var ')) return false;
+        if (text.split('|').length > 3) return false;
+        // Headings are always semantically meaningful even when short ("FAQ",
+        // "Pricing"). Floor at 2 chars to skip pure decoration.
+        if (HEADING.test(tag)) return text.length >= 2;
+        // List items have their own 15-char floor enforced upstream; keep.
+        if (tag === 'LI') return true;
+        // Regular prose: 25-char floor to skip captions/labels.
+        return text.length > 25;
+      })
+      .map(({ text }) => text);
 
     const content = Array.from(new Set(prose)).join('\n\n');
     return content.length > 100 ? content.substring(0, 12000) : null;

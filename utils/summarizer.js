@@ -41,9 +41,13 @@ export function generateIntelligentSummary(text, maxSentences = 4) {
 
   if (sentences.length <= maxSentences) return sentences.join(' ');
 
-  // Score sentences based on word frequency (minimum word length 3)
+  // Score sentences based on word frequency (minimum word length 3).
+  // Unicode-aware: \w is ASCII-only in JS (matches [A-Za-z0-9_]), which
+  // strips accented chars (é, ü), Cyrillic, CJK, Arabic, etc. — making the
+  // summarizer effectively useless on non-English articles. \p{L}\p{N}
+  // with the /u flag covers every letter/number in Unicode.
   const lowerText = truncated.toLowerCase();
-  const wordPattern = /\b\w{3,}\b/g;
+  const wordPattern = /[\p{L}\p{N}_]{3,}/gu;
   const rawWords = lowerText.match(wordPattern) || [];
   const freq = {};
   for (const w of rawWords) {
@@ -51,7 +55,11 @@ export function generateIntelligentSummary(text, maxSentences = 4) {
   }
 
   // Pre-compute lowercase + word arrays for each sentence to avoid redundant work
-  const sentenceWords = sentences.map(s => s.toLowerCase().match(wordPattern) || []);
+  // Recreate the regex per use — /g state on RegExp.prototype.exec leaks across
+  // .match() iterations on shared regex literals in some engines; safer to
+  // rebuild than reuse.
+  const sentenceWordPattern = /[\p{L}\p{N}_]{3,}/gu;
+  const sentenceWords = sentences.map(s => s.toLowerCase().match(sentenceWordPattern) || []);
   const sentenceCount = sentences.length;
   const positionDenom = sentenceCount - 1 || 1;
 

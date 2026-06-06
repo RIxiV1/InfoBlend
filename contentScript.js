@@ -103,18 +103,22 @@
     });
   }
 
-  // Per-site disable: user-maintained hostname list. Match is "current
-  // hostname ends with entry" so adding "slack.com" silences app.slack.com,
-  // *.slack.com, etc. Comparison is case-insensitive; entries are trimmed.
+  // Per-site disable: user-maintained hostname list. Match against BOTH
+  // location.host (includes port — "localhost:3000") AND location.hostname
+  // (port stripped — "localhost") so the user can disable either way. Adding
+  // "slack.com" silences app.slack.com via the endsWith path; adding
+  // "localhost:3000" exact-matches against location.host for dev work.
   function isSiteDisabled() {
     const list = window.__ib._settings?.disabledSites;
     if (!Array.isArray(list) || !list.length) return false;
-    const host = (location.hostname || '').toLowerCase();
-    if (!host) return false;
+    const host = (location.host || '').toLowerCase();
+    const hostname = (location.hostname || '').toLowerCase();
+    if (!host && !hostname) return false;
     for (const raw of list) {
       const entry = String(raw || '').trim().toLowerCase().replace(/^\*\./, '');
       if (!entry) continue;
-      if (host === entry || host.endsWith('.' + entry)) return true;
+      if (host === entry || hostname === entry) return true;
+      if (host.endsWith('.' + entry) || hostname.endsWith('.' + entry)) return true;
     }
     return false;
   }

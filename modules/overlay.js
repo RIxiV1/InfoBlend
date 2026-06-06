@@ -437,6 +437,28 @@
       document.addEventListener('mousemove', onMove, true);
       document.addEventListener('mouseup', onUp, true);
     });
+
+    // Re-clamp on window resize so a panel dragged to the far edge of a 4K
+    // monitor doesn't end up off-screen when the user resizes down to 1080p.
+    // The listener self-removes when the container disconnects, so we don't
+    // need an explicit cleanup in closeOverlay.
+    const clampOnResize = () => {
+      if (!container.isConnected) {
+        window.removeEventListener('resize', clampOnResize);
+        return;
+      }
+      if (!container.style.left) return; // not dragged yet, CSS controls position
+      const rect = container.getBoundingClientRect();
+      const maxX = window.innerWidth - rect.width - 8;
+      const maxY = window.innerHeight - 32;
+      const curLeft = parseFloat(container.style.left);
+      const curTop = parseFloat(container.style.top || rect.top);
+      const clampedX = Math.max(8, Math.min(maxX, curLeft));
+      const clampedY = Math.max(8, Math.min(maxY, curTop));
+      if (clampedX !== curLeft) container.style.left = `${clampedX}px`;
+      if (clampedY !== curTop) container.style.top = `${clampedY}px`;
+    };
+    window.addEventListener('resize', clampOnResize);
   }
 
   // --- Knowledge Vault: save / unsave the current overlay's content ---
@@ -567,8 +589,17 @@
     // Hide back/synonym affordances that depend on singleton state.
     container.querySelector('.infoblend-back')?.remove();
     container.querySelectorAll('.ib-tag-syn').forEach(t => {
+      // pointer-events alone leaves the keyboard escape hatch open: Tab to
+      // focus the chip, press Enter, and the lookup handler still fires
+      // (calling updateOverlay on a null singleton). Strip everything that
+      // can re-activate the chip — handlers, focusability, and role.
       t.style.pointerEvents = 'none';
       t.style.opacity = '0.55';
+      t.removeAttribute('tabindex');
+      t.removeAttribute('role');
+      t.setAttribute('aria-disabled', 'true');
+      t.onclick = null;
+      t.onkeydown = null;
     });
   }
 
