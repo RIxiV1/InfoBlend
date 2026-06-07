@@ -211,9 +211,20 @@
 
 .infoblend-btn svg { color: inherit !important; }
 
-/* Save (bookmark) — accent fill when item is in the vault */
-.infoblend-save[aria-pressed="true"] {
+/* Save (bookmark) — distinct from the utility icons even in default state.
+   Subtle accent tint on the icon stroke signals "this is the primary action"
+   without competing with the saved state. Fully accent + filled when pressed. */
+.infoblend-save {
   color: var(--ib-accent) !important;
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+.infoblend-save:hover {
+  opacity: 1;
+  background: var(--ib-accent-low) !important;
+}
+.infoblend-save[aria-pressed="true"] {
+  opacity: 1;
   background: var(--ib-accent-low) !important;
 }
 .infoblend-save[aria-pressed="true"] svg {
@@ -481,21 +492,43 @@
   width: fit-content;
 }
 
+/* Definitions list — custom counter with accent-tinted pill markers instead
+   of the default browser numbering. Pills sit in the gutter, definitions
+   align cleanly to their left edge. Reads as "designed list" not "ol > li". */
 .ib-def-list {
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
+  counter-reset: ib-def-counter;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .ib-def-list li {
+  position: relative;
+  padding-left: 26px;
   font-size: 13px !important;
   line-height: 1.55 !important;
+  counter-increment: ib-def-counter;
 }
 
-.ib-def-list li::marker {
-  color: var(--ib-text-3) !important;
+.ib-def-list li::before {
+  content: counter(ib-def-counter);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ib-font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: var(--ib-accent) !important;
+  background: var(--ib-accent-low) !important;
+  border-radius: 50%;
 }
 
 /* Example quote — softer left rule (1px instead of 2px), a bit more

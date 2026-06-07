@@ -162,7 +162,7 @@ async function tryDictionary(term) {
       synonyms: (m.synonyms || []).slice(0, 5)
     })),
     synonyms: entry.meanings.flatMap(m => m.synonyms || []).slice(0, 8),
-    source: 'Dictionary API',
+    source: 'Free dictionary',
     isRich: true
   };
 }

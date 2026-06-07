@@ -55,7 +55,7 @@ const handleTranslation = async (text, context = '') => {
   const tryFree = async () => {
     try {
       const r = await fetchMyMemoryTranslation(text, target);
-      return r ? { ...r, source: `MyMemory${r.detectedSource ? ` (${r.detectedSource})` : ''} → ${target}` } : null;
+      return r ? { ...r, source: `Free translation${r.detectedSource ? ` (${r.detectedSource} → ${target})` : ` → ${target}`}` } : null;
     } catch (e) {
       // Quota error bubbles up so we can show a clear message instead of a
       // generic "translation failed".
@@ -66,7 +66,7 @@ const handleTranslation = async (text, context = '') => {
   if (aiKey && aiEndpoint) {
     try {
       const translated = await fetchAIResponse(text, aiEndpoint, aiKey, aiProvider, 'translate', context, 'bullets', target);
-      return { translated, source: `AI (${aiProvider}) → ${target}`, targetLanguage: target };
+      return { translated, source: `AI translation → ${target}`, targetLanguage: target };
     } catch (aiErr) {
       // AI failed — try free tier, but don't shadow a quota error from MyMemory
       try {
@@ -90,7 +90,7 @@ const handleDefinition = async (word, context) => {
     const content = await fetchAIResponse(word, aiEndpoint, aiKey, aiProvider, 'define', context);
     // term is the user's original selection — used for TTS pronunciation
     // when no recorded audio is available.
-    return { term: word, title: word, content, source: `AI (${aiProvider})` };
+    return { term: word, title: word, content, source: 'AI definition' };
   }
   // For non-AI definitions, get standard definition and append context note if available
   const result = await fetchDefinition(word);
@@ -109,13 +109,13 @@ const handleSummarization = async (text, onAIFailure) => {
   if (aiKey && aiEndpoint) {
     try {
       const summary = await fetchAIResponse(text, aiEndpoint, aiKey, aiProvider, 'summarize', '', summaryStyle || 'bullets');
-      return { summary, method: `AI (${aiProvider})` };
+      return { summary, method: 'AI summary' };
     } catch (e) {
       await onAIFailure?.(e);
-      return { summary: generateIntelligentSummary(text), method: 'InfoBlend Local (Fallback)' };
+      return { summary: generateIntelligentSummary(text), method: 'Quick summary (offline)' };
     }
   }
-  return { summary: generateIntelligentSummary(text), method: 'InfoBlend Local' };
+  return { summary: generateIntelligentSummary(text), method: 'Quick summary' };
 };
 
 // --- Async message wrapper ---

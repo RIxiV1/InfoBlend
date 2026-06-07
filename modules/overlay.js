@@ -557,6 +557,7 @@
     return withVaultLock(async () => {
       const items = await loadVault();
       const existingIdx = items.findIndex(it => it.id === snap.id);
+      const wasAdded = existingIdx < 0;
       if (existingIdx >= 0) {
         items.splice(existingIdx, 1);
         if (btn.isConnected) {
@@ -573,6 +574,19 @@
       }
       try { await chrome.storage.local.set({ [VAULT_KEY]: items }); }
       catch { /* quota or storage unavailable — UI state is best-effort */ }
+
+      // First-save discoverability: brief toast so the user sees the save
+      // actually went somewhere. Subsequent saves skip the toast to avoid
+      // becoming noise. Storage write is non-blocking and survives reload.
+      if (wasAdded && ib._showToast) {
+        try {
+          const flags = await chrome.storage.local.get(['firstVaultSaveSeen']);
+          if (!flags.firstVaultSaveSeen) {
+            ib._showToast({ message: 'Saved to your vault. Open InfoBlend to view.' });
+            chrome.storage.local.set({ firstVaultSaveSeen: true });
+          }
+        } catch { /* non-critical */ }
+      }
     });
   }
 
@@ -779,17 +793,25 @@
       def.appendChild(thumbWrap);
     }
 
-    // Phonetic only. Audio + CEFR moved to the title row (see updateOverlay).
-    if (data.phonetic) {
+    // Phonetic + (single-meaning) POS inline. For multi-meaning words the
+    // POS still lives per-meaning below since each meaning needs its own tag
+    // as a visual section break. For single-meaning words (the common case
+    // like "nature"), promoting the POS into the phonetic row saves a row
+    // of vertical and reads as a tighter unit.
+    const singleMeaning = data.meanings.length === 1;
+    const inlinePOS = singleMeaning ? data.meanings[0].partOfSpeech : null;
+    if (data.phonetic || inlinePOS) {
       const row = el('div', 'ib-def-phonetic-row');
-      row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
+      if (data.phonetic) row.appendChild(el('span', 'ib-def-phonetic', data.phonetic));
+      if (inlinePOS) row.appendChild(el('span', 'ib-def-pos', inlinePOS));
       def.appendChild(row);
     }
 
     // Meanings
     for (const meaning of data.meanings) {
       const block = el('div', 'ib-def-meaning');
-      block.appendChild(el('span', 'ib-def-pos', meaning.partOfSpeech));
+      // Skip per-meaning POS when we already showed it inline above.
+      if (!singleMeaning) block.appendChild(el('span', 'ib-def-pos', meaning.partOfSpeech));
 
       const list = el('ol', 'ib-def-list');
       for (const d of meaning.definitions) {
@@ -932,11 +954,12 @@
         link.textContent = `${source} \u2197`;
         src.appendChild(link);
       } else {
-        // Source line: "[~5 min read · ]Source[ · cached]"
+        // Source line: "[~5 min read · ]Source". "cached" was previously
+        // appended to mark instant lookups; dropped because non-technical
+        // users read "cached" as an error rather than a feature.
         const parts = [];
         if (extra.readMinutes) parts.push(`~${extra.readMinutes} min read`);
         parts.push(source);
-        if (extra.fromCache) parts.push('cached');
         src.textContent = parts.join(' · ');
       }
       contentDiv.appendChild(src);
