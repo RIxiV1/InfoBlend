@@ -510,7 +510,10 @@
         const context = sel?.rangeCount ? extractContext(sel) : '';
         sendResponse({ context });
       } catch { sendResponse({ context: '' }); }
-      return true;
+      // Sync sendResponse — do NOT return true. Returning true tells Chrome
+      // we'll respond later, which keeps the port open and triggers
+      // "message port closed" warnings in some Chromium versions.
+      return;
     }
     if (!ROUTABLE.has(message.type) || !modulesReady()) return;
     // Per-site disable also silences popup/context-menu actions on this tab.

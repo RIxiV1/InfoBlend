@@ -219,7 +219,11 @@
     // response landed? If the user dismissed it (or it was replaced by a
     // newer lookup), the captured host is null or detached.
     function isCurrentOverlay(captured) {
-      const current = window.__ib?._infoblendHost || null;
+      // Bug fix: was reading window.__ib._infoblendHost which doesn't exist
+      // anywhere in the codebase, so `current` was always null and the
+      // comparison `captured === null` always failed — every palette
+      // FETCH_DEFINITION callback bailed and the overlay spun forever.
+      const current = ib.getOverlayHost?.() || null;
       // If we didn't capture (overlay singleton wasn't tracked at the time),
       // accept the result — failing closed would just regress the feature.
       if (!captured) return true;

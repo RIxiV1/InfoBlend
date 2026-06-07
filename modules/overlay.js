@@ -652,8 +652,13 @@
       }
     }
 
-    // Hide back/synonym affordances that depend on singleton state.
+    // Hide back/save/synonym affordances that depend on singleton state.
+    // Save is removed because toggleSaveCurrent reads _currentDef (just
+    // nulled above), so a save click on a pinned overlay would silently
+    // no-op. Better to hide the affordance than expose a dead button —
+    // especially now that the save icon is visually prominent.
     container.querySelector('.infoblend-back')?.remove();
+    container.querySelector('.infoblend-save')?.remove();
     container.querySelectorAll('.ib-tag-syn').forEach(t => {
       // pointer-events alone leaves the keyboard escape hatch open: Tab to
       // focus the chip, press Enter, and the lookup handler still fires

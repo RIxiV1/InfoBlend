@@ -36,8 +36,9 @@
     const HEADING = /^H[1-6]$/;
     // Carry tag through the pipeline so the final length filter can apply
     // different thresholds. The previous flat 25-char floor was silently
-    // stripping H2/H3 titles ("Pricing", "Methodology", "Summary") which
-    // are exactly the semantic anchors Chat-with-the-Page relies on.
+    // stripping H2/H3 titles ("Pricing", "Methodology", "Summary"), which
+    // weakens summarization quality by removing the article's structural
+    // anchors before the summarizer ever sees them.
     const prose = Array.from(area.querySelectorAll(PROSE_SELECTOR))
       .filter(node => {
         if (node.closest(junk)) return false;

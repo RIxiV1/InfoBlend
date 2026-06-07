@@ -83,8 +83,15 @@
       if (SKIP_ANCESTOR_TAGS.has(tag)) return true;
       if (n.isContentEditable) return true;
       if (n.classList?.contains(HIGHLIGHT_CLASS)) return true;
-      // Our own injected shadow hosts and palette overlays — don't recurse.
-      if (n.id === 'infoblend-host' || n.classList?.contains('ib-palette-overlay')) return true;
+      // Our own injected shadow hosts — don't recurse. The light-DOM check
+      // matters even though TreeWalker doesn't descend into shadow roots,
+      // because a future change could mount a child outside the shadow.
+      // Cover every host id we create, not just the (incorrectly-named) one.
+      if (n.id === 'infoblend-shadow-host'
+          || n.id === 'infoblend-palette-host'
+          || n.id === 'infoblend-define-host'
+          || n.id === 'infoblend-toast-host'
+          || n.classList?.contains('ib-palette-overlay')) return true;
       n = n.parentNode;
     }
     return false;
