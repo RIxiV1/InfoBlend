@@ -181,7 +181,10 @@
 }
 
 /* ─── Buttons ─── */
-.infoblend-controls { display: flex; gap: 1px; }
+/* Breathing room between the header icons — at 1px they bunch on hover
+   and the hit targets visually merge. 2px is the minimum that reads
+   as distinct buttons without wasting header real estate. */
+.infoblend-controls { display: flex; gap: 2px; }
 
 .infoblend-btn {
   background: transparent !important;
@@ -302,14 +305,16 @@
 }
 
 /* ─── Wikipedia thumbnail ─── */
+/* Shrunk from 140px to 96px: image is supportive context, not the hero —
+   definition should be the first thing the user sees, not pushed off-screen
+   by a landscape photo. Slightly rounder corners for a softer feel. */
 .ib-thumbnail-wrap {
   display: block;
   max-width: 100%;
-  max-height: 140px;
+  max-height: 96px;
   margin: 0 auto 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--ib-border) !important;
-  /* overflow: hidden masks the inner img zoom on hover */
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
   transition:
@@ -329,7 +334,7 @@
 .ib-thumbnail {
   display: block;
   width: 100%;
-  max-height: 140px;
+  max-height: 96px;
   object-fit: cover;
   transition: transform 0.4s var(--ib-spring);
 }
@@ -363,12 +368,13 @@
 }
 
 /* ─── Source ─── */
+/* Lighter footer: no heavy border-top, smaller font, more muted color.
+   It's metadata — important to have, not important to dominate. */
 .infoblend-source {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--ib-border);
-  font-size: 11px !important;
-  color: var(--ib-text-3) !important;
+  margin-top: 10px;
+  font-size: 10px !important;
+  color: var(--ib-text-4) !important;
+  letter-spacing: 0.02em;
 }
 
 .infoblend-source a {
@@ -456,17 +462,22 @@
   animation: ib-fade-pulse 1s ease-in-out infinite;
 }
 
-.ib-def-meaning { display: flex; flex-direction: column; gap: 6px; }
+/* Meaning block: tightened from 6px to 4px so the POS tag sits closer to
+   its definitions. Reads as "these belong together" instead of three
+   separately-floating rows. */
+.ib-def-meaning { display: flex; flex-direction: column; gap: 4px; }
 
+/* POS tag — smaller, tighter, less visually heavy. The accent color does
+   the work of catching the eye; we don't need the chunky padding too. */
 .ib-def-pos {
-  font-size: 11px !important;
+  font-size: 10px !important;
   font-weight: 600 !important;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--ib-accent) !important;
   background: var(--ib-accent-low);
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 1px 7px;
+  border-radius: 3px;
   width: fit-content;
 }
 
@@ -487,13 +498,16 @@
   color: var(--ib-text-3) !important;
 }
 
+/* Example quote — softer left rule (1px instead of 2px), a bit more
+   indent for breathing room, matches the lighter overall tone now. */
 .ib-def-example {
   font-size: 12px !important;
   color: var(--ib-text-2) !important;
   font-style: italic;
-  margin-top: 3px;
-  padding-left: 4px;
-  border-left: 2px solid var(--ib-border);
+  margin-top: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--ib-border);
+  line-height: 1.5;
 }
 
 /* ─── Synonym / Antonym Tags ─── */
